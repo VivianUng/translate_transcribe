@@ -1,7 +1,8 @@
 # backend/main.py
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -33,6 +34,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+#  Extra middleware for WebSocket origin check
+class WebSocketOriginMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.scope["type"] == "websocket":
+            headers = dict(request.scope["headers"])
+            origin = headers.get(b"origin", b"").decode()
+
+            if origin not in origins:
+                # Reject with 403 if origin not allowed
+                from starlette.websockets import WebSocket, WebSocketDisconnect
+                websocket = WebSocket(request.scope, request.receive)
+                await websocket.close(code=1008)
+                raise WebSocketDisconnect
+
+        return await call_next(request)
+
+app.add_middleware(WebSocketOriginMiddleware)
 
 app.include_router(api_router, prefix="/api")
 

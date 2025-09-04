@@ -1,6 +1,6 @@
 # backend/app/api/routes.py
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import Optional
 import httpx
@@ -9,9 +9,13 @@ from app.db.models import Translation
 from app.db.database import database
 from datetime import datetime
 import pytesseract
+import speech_recognition as sr
 from PIL import Image, UnidentifiedImageError
+import imageio_ffmpeg as ffmpeg
 import io
 import logging
+import json
+import subprocess
 
 router = APIRouter()
 
@@ -43,6 +47,7 @@ class SaveRequest(BaseModel):
 
 class OCRResponse(BaseModel) :
     extracted_text: str
+
 
 LIBRETRANSLATE_URL = "http://127.0.0.1:5000"
 pytesseract.pytesseract.tesseract_cmd = r"C:\Users\Vivian\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
@@ -147,3 +152,74 @@ async def extract_text(file: UploadFile = File(...)):
     except Exception as e:
         logger.exception("OCR failed")
         raise HTTPException(status_code=500, detail=f"Text extraction failed: {str(e)}")
+    
+
+@router.websocket("/ws/conversation")
+async def conversation_ws(websocket: WebSocket):
+    await websocket.accept()
+    recognizer = sr.Recognizer()
+
+    try:
+        while True:
+            data = await websocket.receive_bytes()  # raw webm chunk
+
+            # Convert WebM/Opus → WAV (PCM16) using ffmpeg
+            process = subprocess.Popen(
+                [ffmpeg.get_ffmpeg_exe(), "-i", "pipe:0", "-f", "wav", "-ar", "16000", "-ac", "1", "pipe:1"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL
+            )
+            wav_data, _ = process.communicate(input=data)
+
+            if not wav_data:
+                continue
+
+            audio_file = io.BytesIO(wav_data)
+            with sr.AudioFile(audio_file) as source:
+                audio = recognizer.record(source)
+
+            try:
+                text = recognizer.recognize_google(audio)
+                await websocket.send_text(json.dumps({"transcription": text}))
+            except sr.UnknownValueError:
+                # No speech recognized
+                pass
+            except sr.RequestError as e:
+                await websocket.send_text(json.dumps({"error": f"Speech recognition error: {e}"}))
+                break
+
+    except WebSocketDisconnect:
+        print("Client disconnected")
+    except Exception as e:
+        await websocket.send_text(json.dumps({"error": str(e)}))
+
+
+# for testing purpose (after complete recording then transcribe) : 
+@router.post("/transcribe")
+async def transcribe_audio(file: UploadFile = File(...)):
+    recognizer = sr.Recognizer()
+    try:
+        # Read uploaded audio (WebM)
+        input_data = await file.read()
+
+        # Convert WebM/Opus → WAV using ffmpeg
+        process = subprocess.Popen(
+            [ffmpeg.get_ffmpeg_exe(), "-i", "pipe:0", "-f", "wav", "-ar", "16000", "-ac", "1", "pipe:1"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL
+        )
+        wav_data, _ = process.communicate(input=input_data)
+
+        # Transcribe
+        audio_file = io.BytesIO(wav_data)
+        with sr.AudioFile(audio_file) as source:
+            audio = recognizer.record(source)
+        text = recognizer.recognize_google(audio)
+
+        return {"transcription": text}
+    except sr.UnknownValueError:
+        return {"transcription": ""}
+    except Exception as e:
+        return {"error": str(e)}

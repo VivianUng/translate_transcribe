@@ -19,6 +19,12 @@ export default function Translate() {
   const isLoggedIn = false;
   const fileInputRef = useRef(null);
 
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Load supported languages
   useEffect(() => {
     async function fetchLanguages() {
@@ -175,12 +181,15 @@ export default function Translate() {
           <div className="section">
             <div className="translation-header">
               <span>Text / Mic</span>
-              <Select
-                options={languages}
-                value={languages.find(opt => opt.value === inputLang)}
-                onChange={(opt) => setInputLang(opt.value)}
-                className="flex-1"
-              />
+              {mounted && (
+                <Select
+                  options={languages}
+                  value={languages.find(opt => opt.value === inputLang)}
+                  onChange={(opt) => setInputLang(opt.value)}
+                  className="flex-1"
+                />
+              )}
+              
             </div>
             <textarea
               rows={8}
@@ -199,12 +208,15 @@ export default function Translate() {
           <div className="section">
             <div className="translation-header">
               <span>File Upload</span>
-              <Select
+              {mounted && (
+                <Select
                 options={languages}
                 value={languages.find(opt => opt.value === imageLang)}
                 onChange={(opt) => setImageLang(opt.value)}
                 className="flex-1"
               />
+              )}
+              
             </div>
 
             <input
@@ -242,12 +254,15 @@ export default function Translate() {
         <div className="section" style={{ marginTop: "1rem" }}>
           <div className="translation-header">
             <span>Translation</span>
-            <Select
+            {mounted && (
+              <Select
               options={languages.filter(opt => opt.value !== "auto")}
               value={languages.find(opt => opt.value === targetLang)}
               onChange={(opt) => setTargetLang(opt.value)}
               className="flex-1"
             />
+            )}
+            
           </div>
           <div className="translation-result" tabIndex={0}>
             {translatedText || "Translation will appear here...."}
