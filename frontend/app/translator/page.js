@@ -78,10 +78,22 @@ export default function Translate() {
       setMessage("Please enter text or upload an image first.");
       return;
     }
+    // \p{L} = any letter from any language (Latin, Chinese, Arabic, etc.).
+    // \p{N} = any digit/number from any language.
+    if (!/[\p{L}\p{N}]/u.test(inputText)) {
+      setMessage("Please enter valid text with letters or numbers.");
+      return;
+    }
+
+    if (inputText.length > 5000) {
+      setMessage("Input text is too long. Please limit to 5000 characters.");
+      return;
+    }
 
     setLoading(true);
     setMessage("");
     setTranslatedText("");
+
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/translate`, {
         method: "POST",
@@ -92,11 +104,15 @@ export default function Translate() {
           target_lang: targetLang,
         }),
       });
-      if (!res.ok) throw new Error("Translation failed");
+
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Translation failed. Please try again.");
+      }
+
       setTranslatedText(data.translated_text);
     } catch (error) {
-      setMessage(error.message);
+      setMessage(error.message || "Unexpected error occurred.");
     } finally {
       setLoading(false);
     }

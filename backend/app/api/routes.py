@@ -17,6 +17,14 @@ router = APIRouter()
 
 logger = logging.getLogger(__name__)
 
+class DetectLangRequest(BaseModel):
+    text: str
+
+
+class DetectLangResponse(BaseModel):
+    detected_lang: str
+    confidence: float
+
 class TranslateRequest(BaseModel):
     text: str
     target_lang: str
@@ -51,6 +59,26 @@ async def get_languages():
             return [{"code": lang["code"], "label": lang["name"]} for lang in data]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch languages: {str(e)}")
+
+@router.post("/detect-language", response_model=DetectLangResponse)
+async def detect_language(req: DetectLangResponse):
+    async with httpx.AsyncClient() as client:
+        detect_resp = await client.post(
+            f"{LIBRETRANSLATE_URL}/detect",
+            json={"q": req.text},
+            timeout=10,
+        )
+        detect_resp.raise_for_status()
+        detections = detect_resp.json()
+
+        if not detections:
+            raise HTTPException(status_code=400, detail="Could not detect language")
+
+        best_match = detections[0]  # usually highest confidence
+        return DetectLangResponse(
+            detected_lang=best_match["language"],
+            confidence=best_match["confidence"],
+        )
 
 
 @router.post("/translate", response_model=TranslateResponse)
