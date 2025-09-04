@@ -49,7 +49,7 @@ export default function NavBar() {
 
       {/* Login/Logout button */}
       <button
-        className="navbar-button"
+        className="button navbar-button"
 
         // replace with login logic /////
         onClick={() => setIsLoggedIn(!isLoggedIn)}

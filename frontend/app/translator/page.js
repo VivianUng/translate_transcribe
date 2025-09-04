@@ -11,6 +11,7 @@ export default function Translate() {
   const [translatedText, setTranslatedText] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [ocr_message, setOCRMessage] = useState("");
   const [saveTranslation, setSaveTranslation] = useState(false);
   const [languages, setLanguages] = useState([]);
   const [previewImage, setPreviewImage] = useState(null);
@@ -52,11 +53,17 @@ export default function Translate() {
       });
       if (!res.ok) throw new Error("Failed to extract text from image");
       const data = await res.json();
+
+      if (!data.extracted_text) throw new Error("No text extracted from image");
+
       setInputText(data.extracted_text || "");
       setTranslatedText("");
-      setMessage("Text extracted from image.");
+      setOCRMessage("Text extracted from image.");
+
+
+
     } catch (error) {
-      setMessage(error.message);
+      setOCRMessage(error.message);
     } finally {
       setLoading(false);
     }
@@ -98,11 +105,11 @@ export default function Translate() {
   return (
     <>
       <div className="container">
-        <h1>Translator</h1>
+        <h1 className="page-title">Translator</h1>
 
         <div className="top-row">
           {/* Text Input */}
-          <div className="box">
+          <div className="section">
             <div className="translation-header">
               <span>Text / Mic</span>
               <Select
@@ -118,11 +125,11 @@ export default function Translate() {
               onChange={(e) => setInputText(e.target.value)}
               placeholder="Type text to translate"
             />
-            <div className="mic-icon" title="Microphone (not implemented)">🎤</div>
+            <div className="mic-icon" title="Microphone (not implemented)">🎙️</div>
           </div>
 
           {/* File Upload */}
-          <div className="box">
+          <div className="section">
             <div className="translation-header">
               <span>File Upload</span>
               <Select
@@ -141,25 +148,31 @@ export default function Translate() {
             />
 
             {/* Custom upload box */}
-            <div className="upload-box" onClick={triggerFileInput}>
-              {previewImage ? (
-                <img src={previewImage} alt="Preview" className="image-preview" />
-              ) : (
-                <span className="upload-text">Click to upload image</span>
-              )}
+            <div>
+              <div className="upload-box" onClick={triggerFileInput}>
+                {previewImage ? (
+                  <img src={previewImage} alt="Preview" className="image-preview" />
+                ) : (
+                  <span className="upload-text">Click to upload image</span>
+                )}
+              </div>
+              {/* Message displayed below the box */}
+              <div className="message ocr-message" role="alert" aria-live="assertive">
+                {ocr_message}
+              </div>
             </div>
           </div>
         </div>
 
         <button
-          className="translate-button"
+          className="button translate-button"
           onClick={handleTranslate}
           disabled={loading || !inputText.trim()}
         >
           {loading ? "Translating..." : "Translate"}
         </button>
 
-        <div className="box" style={{ marginTop: "1rem" }}>
+        <div className="section" style={{ marginTop: "1rem" }}>
           <div className="translation-header">
             <span>Translation</span>
             <Select

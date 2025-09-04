@@ -14,9 +14,64 @@ a {
   color: inherit;
 }
 
-/*global styles - to be inherited*/
-/*button colour : #5a5f9f/
-/*hover-button colour : #484c8a*/
+/* Main container for page */
+.container {
+    max-width: 900px;
+    margin: 1rem auto;
+    font-family: Arial, sans-serif;
+}
+
+.page-title {
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+  color: #2c2c54;
+  text-align: center;
+}
+
+.button {
+    display: block;
+    margin: 1rem auto;
+    background: #5a5f9f;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 0.7rem 2rem;
+    font-size: 1.1rem;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(108, 99, 255, 0.4);
+    transition: background 0.3s ease;
+}
+
+.button:hover {
+  background-color: #484c8a;
+}
+
+.button:disabled {
+    background: #bbb;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* box sections within page */
+.section { 
+  flex: 1;
+  background: #f7f5fb;
+  border-radius: 10px;
+  padding: 1rem;
+  box-shadow: 0 0 8px #ddd;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+.message {
+    margin-top: 1rem;
+    font-weight: 600;
+    min-height: 1.2em;
+    text-align: center;
+}
+
+
 
 /* ===========================
           NavBar Styles
@@ -57,58 +112,19 @@ a {
   color: #2c2c54;
 }
 
+
 .navbar-button {
+  display: inline-block;      
+  margin: 0;               
   padding: 0.5rem 1.2rem;
-  border-radius: 20px;
-  border: none;
-  background-color: #5a5f9f;
-  color: #fff;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  font-size: 0.9rem;
 }
 
-.navbar-button:hover {
-  background-color: #484c8a;
-}
 
 /* ==========================
    Conversation Page Styles
    ========================== */
-.conversation-container {
-  max-width: 800px;
-  margin: auto;
-  padding: 20px;
-}
 
-.conversation-title {
-  font-size: 1.8rem;
-  margin-bottom: 20px;
-  color: #2c2c54;
-}
-
-.conversation-button {
-  background-color: #5a5f9f;
-  color: white;
-  border-radius: 20px;
-  padding: 10px 20px;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
-  margin-bottom: 20px;
-  transition: background-color 0.2s ease;
-}
-
-.conversation-button:hover {
-  background-color: #484c8a;
-}
-
-.conversation-section {
-  background-color: #e6e0f8;
-  border-radius: 10px;
-  padding: 15px;
-  margin-bottom: 20px;
-}
 
 .conversation-text {
   white-space: pre-wrap;
@@ -137,37 +153,14 @@ a {
   margin-right: 8px;
 }
 
-.conversation-end {
-  background-color: #5a5f9f;
-  color: white;
-  border-radius: 20px;
-  padding: 10px 20px;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
-  float: right;
-  transition: background-color 0.2s ease;
-}
-
-.conversation-end:hover {
-  background-color: #484c8a;
-}
 
 /* ===========================
       Translation Page Styles
    =========================== */
 
 /* translate page */
-.container {
-    max-width: 900px;
-    margin: 1rem auto;
-    font-family: Arial, sans-serif;
-}
 
-h1 {
-    text-align: center;
-    margin-bottom: 1rem;
-}
+
 
 .top-row {
     display: flex;
@@ -175,15 +168,7 @@ h1 {
     margin-bottom: 1rem;
 }
 
-.box {
-    flex: 1;
-    background: #f7f5fb;
-    border-radius: 10px;
-    padding: 1rem;
-    box-shadow: 0 0 8px #ddd;
-    display: flex;
-    flex-direction: column;
-}
+
 
 textarea {
     flex-grow: 1;
@@ -241,30 +226,6 @@ input[type="file"] {
     display: none;
 }
 
-.translate-button {
-    display: block;
-    margin: 1rem auto;
-    background: #5a5f9f;
-    color: white;
-    border: none;
-    border-radius: 20px;
-    padding: 0.7rem 2rem;
-    font-size: 1.1rem;
-    cursor: pointer;
-    box-shadow: 0 4px 8px rgba(108, 99, 255, 0.4);
-    transition: background 0.3s ease;
-}
-
-.translate-button:hover {
-    background: #484c8a;
-}
-
-.translate-button:disabled {
-    background: #bbb;
-    cursor: not-allowed;
-    box-shadow: none;
-}
-
 .translation-result {
     background: #f1edfa;
     border-radius: 10px;
@@ -294,12 +255,6 @@ input[type="file"] {
     color: #444;
 }
 
-.message {
-    margin-top: 1rem;
-    font-weight: 600;
-    color: red;
-    min-height: 1.2em;
-    text-align: center;
-}
+
 
 
