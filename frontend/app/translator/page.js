@@ -78,9 +78,13 @@ export default function Translate() {
       setMessage("Please enter text or upload an image first.");
       return;
     }
-    // \p{L} = any letter from any language (Latin, Chinese, Arabic, etc.).
-    // \p{N} = any digit/number from any language.
-    if (!/[\p{L}\p{N}]/u.test(inputText)) {
+    // Regex 1: any alphabetic script word with 2+ letters
+    const alphabeticWord = /\p{L}{2,}/u;
+
+    // Regex 2: any single CJK character (Chinese/Japanese/Korean)
+    const cjkChar = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+
+    if (!(alphabeticWord.test(inputText) || cjkChar.test(inputText))) {
       setMessage("Please enter valid text with letters or numbers.");
       return;
     }
@@ -95,22 +99,65 @@ export default function Translate() {
     setTranslatedText("");
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/translate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: inputText,
-          source_lang: inputLang,
-          target_lang: targetLang,
-        }),
-      });
+      let detectedLang = inputLang;
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Translation failed. Please try again.");
+      // Step 1: Detect language (if user selected auto detect)
+      if (inputLang === "auto") {
+        const detectRes = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/detect-language`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: inputText }),
+          }
+        );
+
+        const detectData = await detectRes.json();
+        if (!detectRes.ok) {
+          throw new Error(detectData.detail || "Could not detect language.");
+        }
+
+        detectedLang = detectData.detected_lang;
+
+        setMessage(
+          `Detected language: ${detectedLang} (confidence: ${detectData.confidence})`
+        );
+
+        if (detectData.confidence < 20) {
+          setMessage(`Input is not valid text\n Detected language: ${detectedLang} (confidence: ${detectData.confidence})`);
+          return;
+        }
+
+        if (detectedLang === "und") {
+          setMessage("Input is not a valid language.");
+          return;
+        }
+      } else {
+        // user picked a specific language
+        detectedLang = inputLang;
+        setMessage(`Source language: ${detectedLang}`);
       }
 
-      setTranslatedText(data.translated_text);
+      // Step 2: Translate
+      const translateRes = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/translate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: inputText,
+            source_lang: detectedLang,
+            target_lang: targetLang,
+          }),
+        }
+      );
+
+      const translateData = await translateRes.json();
+      if (!translateRes.ok) {
+        throw new Error(translateData.detail || "Translation failed.");
+      }
+
+      setTranslatedText(translateData.translated_text);
     } catch (error) {
       setMessage(error.message || "Unexpected error occurred.");
     } finally {
@@ -142,6 +189,10 @@ export default function Translate() {
               placeholder="Type text to translate"
             />
             <div className="mic-icon" title="Microphone (not implemented)">🎙️</div>
+            {/* Message displayed below the box */}
+            <div className="message" role="alert" aria-live="assertive">
+              {message}
+            </div>
           </div>
 
           {/* File Upload */}
@@ -213,10 +264,6 @@ export default function Translate() {
             Save Translation
           </label>
         )}
-
-        <div className="message" role="alert" aria-live="assertive">
-          {message}
-        </div>
       </div>
     </>
   );

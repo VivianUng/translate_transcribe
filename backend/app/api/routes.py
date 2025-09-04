@@ -20,13 +20,13 @@ logger = logging.getLogger(__name__)
 class DetectLangRequest(BaseModel):
     text: str
 
-
 class DetectLangResponse(BaseModel):
     detected_lang: str
     confidence: float
 
 class TranslateRequest(BaseModel):
     text: str
+    source_lang: str
     target_lang: str
 
 class TranslateResponse(BaseModel):
@@ -55,13 +55,13 @@ async def get_languages():
             response.raise_for_status()
             data = response.json()
             # LibreTranslate returns [{"code": "en", "name": "English"}, ...]
-            # Map to {code, label} for your frontend
+            # Map to {code, label}
             return [{"code": lang["code"], "label": lang["name"]} for lang in data]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch languages: {str(e)}")
 
 @router.post("/detect-language", response_model=DetectLangResponse)
-async def detect_language(req: DetectLangResponse):
+async def detect_language(req: DetectLangRequest):
     async with httpx.AsyncClient() as client:
         detect_resp = await client.post(
             f"{LIBRETRANSLATE_URL}/detect",
@@ -74,11 +74,12 @@ async def detect_language(req: DetectLangResponse):
         if not detections:
             raise HTTPException(status_code=400, detail="Could not detect language")
 
-        best_match = detections[0]  # usually highest confidence
+        best_match = detections[0]
         return DetectLangResponse(
             detected_lang=best_match["language"],
             confidence=best_match["confidence"],
         )
+
 
 
 @router.post("/translate", response_model=TranslateResponse)
@@ -86,26 +87,13 @@ async def translate(
     req: TranslateRequest,
     user: Optional[dict] = Depends(get_current_user_optional),
 ):
-    # Call LibreTranslate API to auto-detect and translate
     async with httpx.AsyncClient() as client:
-        # Detect language
-        detect_resp = await client.post(
-            f"{LIBRETRANSLATE_URL}/detect",
-            json={"q": req.text},
-            timeout=10,
-        )
-        detect_resp.raise_for_status()
-        detections = detect_resp.json()
-        if not detections:
-            raise HTTPException(status_code=400, detail="Could not detect language")
-        detected_lang = detections[0]["language"]
-
-        # Translate
+        # Directly call translation since frontend already detected source_lang
         translate_resp = await client.post(
             f"{LIBRETRANSLATE_URL}/translate",
             json={
                 "q": req.text,
-                "source": detected_lang,
+                "source": req.source_lang,
                 "target": req.target_lang,
                 "format": "text",
             },
@@ -116,10 +104,11 @@ async def translate(
 
     return TranslateResponse(
         input_text=req.text,
-        input_lang=detected_lang,
+        input_lang=req.source_lang,
         translated_text=translated,
         output_lang=req.target_lang,
     )
+
 
 @router.post("/save", status_code=201)
 async def save_translation(
