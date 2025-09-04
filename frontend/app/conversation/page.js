@@ -5,19 +5,19 @@ import React, { useState, useRef, useEffect } from "react";
 
 export default function ConversationPage() {
   const [listening, setListening] = useState(false);
+  const [recordingType, setRecordingType] = useState(null); // "mic" or "screen"
   const [transcription, setTranscription] = useState("");
   const [translatedText, setTranslation] = useState("");
   const [targetLang, setTargetLang] = useState("en");
   const [languages, setLanguages] = useState([]);
-  const mediaRecorderRef = useRef(null);
+
+  const micRecorderRef = useRef(null);
+  const screenRecorderRef = useRef(null);
   const audioChunks = useRef([]);
 
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
+  useEffect(() => setMounted(true), []);
 
   // Load supported languages
   useEffect(() => {
@@ -28,60 +28,127 @@ export default function ConversationPage() {
         const data = await res.json();
         setLanguages([{ value: "auto", label: "Auto-Detect" }, ...data.map(l => ({ value: l.code, label: l.label }))]);
       } catch (err) {
-        setMessage("Could not load languages");
+        console.error("Could not load languages", err);
       }
     }
     fetchLanguages();
   }, []);
 
-  // Start recording
-  const startRecording = async () => {
+  // ---------- MIC RECORDING ----------
+  const startMicRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      console.log("Microphone stream obtained", stream);
 
+      micRecorderRef.current = new MediaRecorder(stream);
       audioChunks.current = [];
 
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunks.current.push(event.data);
-        }
+      micRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunks.current.push(event.data);
       };
 
-      mediaRecorderRef.current.start();
-      setListening(true);
-      setTranscription("");
+      micRecorderRef.current.onstart = () => {
+        console.log("Mic recording started");
+        setListening(true);
+        setRecordingType("mic");
+        setTranscription("");
+      };
+
+      micRecorderRef.current.onstop = async () => {
+        console.log("Mic recording stopped");
+        const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
+        const formData = new FormData();
+        formData.append("file", audioBlob, "mic-recording.webm");
+
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/transcribe`, {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+          console.log("Transcription result:", data);
+          setTranscription(data.transcription || "No speech detected.");
+        } catch (err) {
+          console.error("Transcription error:", err);
+        }
+
+        setListening(false);
+        setRecordingType(null);
+      };
+
+      micRecorderRef.current.start();
     } catch (err) {
       console.error("Microphone error:", err);
+      alert("Unable to access microphone.");
     }
   };
 
-  // Stop recording and send audio for transcription
-  const stopRecording = async () => {
-    if (!mediaRecorderRef.current) return;
-
-    mediaRecorderRef.current.stop();
-    mediaRecorderRef.current.onstop = async () => {
-      const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
-      const formData = new FormData();
-      formData.append("file", audioBlob, "recording.webm");
-
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/transcribe`, {
-          method: "POST",
-          body: formData,
-        });
-        const data = await res.json();
-        setTranscription(data.transcription || "No speech detected.");
-      } catch (error) {
-        console.error("Transcription error:", error);
+  // ---------- INTERNAL AUDIO / SCREEN RECORDING ----------
+  const startScreenRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      console.log("Screen stream obtained:", stream);
+      if (stream.getAudioTracks().length === 0) {
+        alert("No audio track detected. Internal audio capture may not be supported on your browser.");
+        console.warn("Audio tracks:", stream.getAudioTracks());
+        return;
       }
-    };
 
-    setListening(false);
+      const audioStream = new MediaStream(stream.getAudioTracks()); // only audio
+      screenRecorderRef.current = new MediaRecorder(audioStream);
+      audioChunks.current = [];
+
+      screenRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunks.current.push(event.data);
+      };
+
+      screenRecorderRef.current.onstart = () => {
+        console.log("Screen recording started");
+        setListening(true);
+        setRecordingType("screen");
+        setTranscription("");
+      };
+
+      screenRecorderRef.current.onstop = async () => {
+        console.log("Screen recording stopped");
+        const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
+        const formData = new FormData();
+        formData.append("file", audioBlob, "screen-recording.webm");
+
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/transcribe`, {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+          console.log("Transcription result:", data);
+          setTranscription(data.transcription || "No speech detected.");
+        } catch (err) {
+          console.error("Transcription error:", err);
+        }
+
+        setListening(false);
+        setRecordingType(null);
+      };
+
+      screenRecorderRef.current.start();
+    } catch (err) {
+      console.error("Screen recording error:", err);
+      alert("Unable to start screen recording. Make sure you allow screen/audio permissions.");
+    }
   };
 
-  // Call translation API
+  // Stop current recording (mic or screen)
+  const stopRecording = () => {
+    console.log("Stop recording clicked");
+    if (recordingType === "mic" && micRecorderRef.current) {
+      micRecorderRef.current.stop();
+    } else if (recordingType === "screen" && screenRecorderRef.current) {
+      screenRecorderRef.current.stop();
+    }
+  };
+
+  // ---------- TRANSLATION ----------
   const translateText = async () => {
     if (!transcription.trim()) return;
     try {
@@ -91,6 +158,7 @@ export default function ConversationPage() {
         body: JSON.stringify({ text: transcription, target_lang: targetLang }),
       });
       const data = await res.json();
+      console.log("Translation result:", data);
       setTranslation(data.translated_text);
     } catch (error) {
       console.error("Translation error:", error);
@@ -101,12 +169,21 @@ export default function ConversationPage() {
     <div className="container">
       <h1 className="page-title">Conversation</h1>
 
-      <button
-        onClick={listening ? stopRecording : startRecording}
-        className="button conversation-button"
-      >
-        {listening ? "Stop 🎙️" : "Start 🎙️"}
-      </button>
+      <div className="button-group" style={{ display: "flex", gap: "10px", marginBottom: "1rem" }}>
+        <button
+          onClick={recordingType === "mic" && listening ? stopRecording : startMicRecording}
+          className="button conversation-button"
+        >
+          {recordingType === "mic" && listening ? "Stop 🎙️" : "Start 🎙️"}
+        </button>
+
+        <button
+          onClick={recordingType === "screen" && listening ? stopRecording : startScreenRecording}
+          className="button conversation-button"
+        >
+          {recordingType === "screen" && listening ? "Stop Recording 🔊" : "Capture Internal Audio 🔊"}
+        </button>
+      </div>
 
       <section className="section conversation-section">
         <h3>Transcription</h3>
@@ -123,7 +200,6 @@ export default function ConversationPage() {
             className="flex-1"
           />
         )}
-
         <div className="translation-result" tabIndex={0}>
           {translatedText || "Translation will appear here...."}
         </div>
@@ -131,12 +207,14 @@ export default function ConversationPage() {
           Translate
         </button>
       </section>
-
-
     </div>
   );
 }
 
+
+
+///////////////////////////////////////////////////////////
+// For real-time converstion (not working yet)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // "use client";
