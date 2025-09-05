@@ -63,6 +63,14 @@ a {
   margin-bottom: 20px;
 }
 
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
 .message {
     margin-top: 1rem;
     font-weight: 600;
@@ -70,6 +78,26 @@ a {
     text-align: center;
 }
 
+.translation-result {
+    background: #f1edfa;
+    border-radius: 10px;
+    padding: 1rem;
+    box-shadow: 0 0 8px #ddd;
+    margin-top: 1rem;
+    min-height: 120px;
+    font-size: 1rem;
+    white-space: pre-wrap;
+    line-height: 1.4;
+}
+
+.save-checkbox {
+    margin-top: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-weight: 600;
+    color: #444;
+}
 
 
 /* ===========================
@@ -82,6 +110,10 @@ a {
   padding: 0.75rem 2rem;
   background-color: #d7d9e8;
   border-bottom: 1px solid #ccc;
+  position: sticky; 
+  top: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .navbar-logo {
@@ -97,6 +129,7 @@ a {
   gap: 2rem;
   font-size: 1.1rem;
   color: #4a4a63;
+  flex-wrap: wrap; /* prevents overflow on small screens */
 }
 
 .navbar-links a {
@@ -124,7 +157,7 @@ a {
    Conversation Page Styles
    ========================== */
 
-
+/*transcription display field*/
 .conversation-text {
   white-space: pre-wrap;
   min-height: 100px;
@@ -135,41 +168,18 @@ a {
   border: 1px solid #ccc;
 }
 
-.conversation-select {
-  margin-bottom: 10px;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-}
-
-.conversation-save {
-  display: block;
-  margin-bottom: 20px;
-  font-size: 0.95rem;
-}
-
-.conversation-save input {
-  margin-right: 8px;
-}
-
-
 /* ===========================
       Translation Page Styles
    =========================== */
 
-/* translate page */
-
-
-
-.top-row {
+.translator-top-row {
     display: flex;
     gap: 1rem;
     margin-bottom: 1rem;
 }
 
 
-
-textarea {
+.input-text-area {
     flex-grow: 1;
     resize: vertical;
     border-radius: 6px;
@@ -225,35 +235,53 @@ input[type="file"] {
     display: none;
 }
 
-.translation-result {
-    background: #f1edfa;
-    border-radius: 10px;
-    padding: 1rem;
-    box-shadow: 0 0 8px #ddd;
-    margin-top: 1rem;
-    min-height: 120px;
-    font-size: 1rem;
-    white-space: pre-wrap;
-    line-height: 1.4;
+
+
+/* ===========================
+      Meeting Page Styles
+   =========================== */
+
+.meetings-section {
+  margin-bottom: 2.5rem;
 }
 
-.translation-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
+.create-btn {
+  font-size: 0.9rem;
+  margin: 0rem;
 }
 
-.save-checkbox {
-    margin-top: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-weight: 600;
-    color: #444;
+.start-btn {
+  font-size: 0.9rem;
+  margin: 0rem;
 }
 
+.meeting-card {
+  background-color: #e8ecf8; /* light purple/blue background */
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 
+.meeting-name {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.2rem;
+}
+
+.meeting-host {
+  font-size: 0.85rem;
+  color: #6b6b6b;
+  margin-bottom: 0.2rem;
+}
+
+.meeting-time {
+  font-size: 0.8rem;
+  color: #6b6b6b;
+  display: flex;
+  align-items: center;
+}
 
 

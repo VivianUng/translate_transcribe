@@ -204,20 +204,22 @@ export default function ConversationPage() {
       </div>
 
       <section className="section conversation-section">
-        <h3>Transcription</h3>
+        <p className="section-header">Transcription</p>
         <div className="conversation-text">{transcription || "..."}</div>
       </section>
 
       <section className="section translation-section">
-        <h3>Translation</h3>
-        {mounted && (
-          <Select
-            options={languages.filter(opt => opt.value !== "auto")}
-            value={languages.find(opt => opt.value === targetLang)}
-            onChange={(opt) => setTargetLang(opt.value)}
-            className="flex-1"
-          />
-        )}
+        <div className="section-header">
+            <span>Translation</span>
+            {mounted && (
+              <Select
+              options={languages.filter(opt => opt.value !== "auto")}
+              value={languages.find(opt => opt.value === targetLang)}
+              onChange={(opt) => setTargetLang(opt.value)}
+              className="flex-1"
+            />
+            )}
+          </div>
         <div className="translation-result" tabIndex={0}>
           {translatedText || "Translation will appear here...."}
         </div>
@@ -233,6 +235,7 @@ export default function ConversationPage() {
 
 ///////////////////////////////////////////////////////////
 // For real-time converstion (problem with some words not detected (chunk size))
+// temp : debugging statements appending the [empty] output in the transcription field for empty chunks
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // "use client";
 

@@ -176,10 +176,10 @@ export default function Translate() {
       <div className="container">
         <h1 className="page-title">Translator</h1>
 
-        <div className="top-row">
+        <div className="translator-top-row">
           {/* Text Input */}
           <div className="section">
-            <div className="translation-header">
+            <div className="section-header">
               <span>Text / Mic</span>
               {mounted && (
                 <Select
@@ -191,7 +191,7 @@ export default function Translate() {
               )}
               
             </div>
-            <textarea
+            <textarea className="input-text-area"
               rows={8}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
@@ -206,7 +206,7 @@ export default function Translate() {
 
           {/* File Upload */}
           <div className="section">
-            <div className="translation-header">
+            <div className="section-header">
               <span>File Upload</span>
               {mounted && (
                 <Select
@@ -252,7 +252,7 @@ export default function Translate() {
         </button>
 
         <div className="section" style={{ marginTop: "1rem" }}>
-          <div className="translation-header">
+          <div className="section-header">
             <span>Translation</span>
             {mounted && (
               <Select
@@ -262,7 +262,6 @@ export default function Translate() {
               className="flex-1"
             />
             )}
-            
           </div>
           <div className="translation-result" tabIndex={0}>
             {translatedText || "Translation will appear here...."}

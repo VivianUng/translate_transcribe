@@ -11,7 +11,9 @@ export default function RootLayout({ children }) {
     <html>
       <body>
         <NavBar />
-        <main style={{ padding: '1rem', maxWidth: 800, margin: 'auto' }}>
+        <main style={{ 
+          padding: '1rem', // padding between navbar and page content
+        }}>
           {children}
         </main>
       </body>
