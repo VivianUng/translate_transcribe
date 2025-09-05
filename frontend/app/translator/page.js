@@ -46,8 +46,8 @@ export default function Translate() {
     if (!file) return;
 
     setPreviewImage(URL.createObjectURL(file));
-    setMessage("");
-    setLoading(true);
+    setOCRMessage("Extracting...");
+
 
     const formData = new FormData();
     formData.append("file", file);
@@ -138,6 +138,9 @@ export default function Translate() {
           setMessage("Input is not a valid language.");
           return;
         }
+
+        setInputLang(detectedLang);
+
       } else {
         // user picked a specific language
         detectedLang = inputLang;

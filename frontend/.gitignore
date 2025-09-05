@@ -40,4 +40,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-backend/db/sessions/
+backend/db/sessions/*
