@@ -2,7 +2,11 @@
 
 import Select from "react-select";
 import { useState, useRef, useEffect } from "react";
+import { useLanguages } from "@/contexts/LanguagesContext";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
+import { translateText } from "@/utils/translation";
+import { startMicRecording, stopRecording } from "@/utils/transcription";
+
 
 export default function Translate() {
   const [inputText, setInputText] = useState("");
@@ -10,12 +14,16 @@ export default function Translate() {
   const [imageLang, setImageLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("en");
   const [translatedText, setTranslatedText] = useState("");
-  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [ocr_message, setOCRMessage] = useState("");
   const [saveTranslation, setSaveTranslation] = useState(false);
-  const [languages, setLanguages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const { languages, error } = useLanguages();
   const [previewImage, setPreviewImage] = useState(null);
+
+  const micRecorderRef = useRef(null);
+  const audioChunks = useRef([]);
+  const [listening, setListening] = useState(false);
 
   const isLoggedIn = false;
   const fileInputRef = useRef(null);
@@ -26,21 +34,6 @@ export default function Translate() {
     setMounted(true);
   }, []);
 
-  // Load supported languages
-  useEffect(() => {
-    async function fetchLanguages() {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/languages`);
-        if (!res.ok) throw new Error("Failed to load languages");
-        const data = await res.json();
-        setLanguages([{ value: "auto", label: "Auto-Detect" }, ...data.map(l => ({ value: l.code, label: l.label }))]);
-      } catch (err) {
-        setMessage("Could not load languages");
-      }
-    }
-    fetchLanguages();
-  }, []);
-
   // Handle image upload + preview
   async function handleImageUpload(e) {
     const file = e.target.files[0];
@@ -48,7 +41,6 @@ export default function Translate() {
 
     setPreviewImage(URL.createObjectURL(file));
     setOCRMessage("Extracting...");
-
 
     const formData = new FormData();
     formData.append("file", file);
@@ -66,9 +58,6 @@ export default function Translate() {
       setInputText(data.extracted_text || "");
       setTranslatedText("");
       setOCRMessage("Text extracted from image.");
-
-
-
     } catch (error) {
       setOCRMessage(error.message);
     } finally {
@@ -81,66 +70,62 @@ export default function Translate() {
   }
 
   async function handleTranslate() {
-    if (!inputText.trim()) {
-      setMessage("Please enter text or upload an image first.");
-      return;
-    }
-    // Regex 1: any alphabetic script word with 2+ letters
-    const alphabeticWord = /\p{L}{2,}/u;
-
-    // Regex 2: any single CJK character (Chinese/Japanese/Korean)
-    const cjkChar = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
-
-    if (!(alphabeticWord.test(inputText) || cjkChar.test(inputText))) {
-      setMessage("Please enter valid text with letters or numbers.");
-      return;
-    }
-
-    if (inputText.length > 5000) {
-      setMessage("Input text is too long. Please limit to 5000 characters.");
-      return;
-    }
-
     setLoading(true);
     setMessage("");
     setTranslatedText("");
 
     try {
       // Step 1: Detect + validate language
-      const { valid, detectedLang, confidence, message } =
-        await detectAndValidateLanguage(inputLang, inputText);
-
-      setMessage(message); // message of the detected language confidence (for now leave for debugging)
-
-      if (!valid) return;
-      setInputLang(detectedLang);
-
-      // Step 2: Translate
-      const translateRes = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/translate`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: inputText,
-            source_lang: detectedLang,
-            target_lang: targetLang,
-          }),
-        }
+      const { valid, detectedLang, message } = await detectAndValidateLanguage(
+        inputLang,
+        inputText
       );
 
-      const translateData = await translateRes.json();
-      if (!translateRes.ok) {
-        throw new Error(translateData.detail || "Translation failed.");
-      }
+      setMessage(message); // language detection feedback
 
-      setTranslatedText(translateData.translated_text);
+      if (!valid) return;
+
+      setInputLang(detectedLang);
+      // Step 2: Translate using utils
+      const translated = await translateText(inputText, detectedLang, targetLang);
+      setTranslatedText(translated);
     } catch (error) {
       setMessage(error.message || "Unexpected error occurred.");
     } finally {
       setLoading(false);
     }
   }
+
+
+  async function handleMicInput() {
+    if (listening) {
+      // stop recording
+      stopRecording({
+        recordingType: "mic",
+        micRecorderRef,
+        setListening,
+        setRecordingType: () => { },
+      });
+    } else {
+      // start recording
+      try {
+        await startMicRecording({
+          micRecorderRef,
+          audioChunks,
+          setListening,
+          setRecordingType: () => { },
+          onTranscription: (text) => {
+            setInputText(text); // put transcription into textarea
+          },
+          setTranscription: () => { },
+        });
+      } catch (err) {
+        setMessage(err.message || "Transcription failed.");
+      }
+    }
+  }
+
+
 
   return (
     <>
@@ -155,20 +140,27 @@ export default function Translate() {
               {mounted && (
                 <Select
                   options={languages}
-                  value={languages.find(opt => opt.value === inputLang)}
+                  value={languages.find((opt) => opt.value === inputLang)}
                   onChange={(opt) => setInputLang(opt.value)}
                   className="flex-1"
                 />
               )}
-
             </div>
-            <textarea className="input-text-area"
+            <textarea
+              className="input-text-area"
               rows={8}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="Type text to translate"
             />
-            <div className="mic-icon" title="Microphone (not implemented)">🎙️</div>
+            <div
+              className="mic-icon"
+              title={listening ? "Stop Recording" : "Start Recording"}
+              onClick={handleMicInput}
+            >
+              {listening ? "⏹️" : "🎙️"}
+            </div>
+
             {/* Message displayed below the box */}
             <div className="message" role="alert" aria-live="assertive">
               {message}
@@ -182,12 +174,11 @@ export default function Translate() {
               {mounted && (
                 <Select
                   options={languages}
-                  value={languages.find(opt => opt.value === imageLang)}
+                  value={languages.find((opt) => opt.value === imageLang)}
                   onChange={(opt) => setImageLang(opt.value)}
                   className="flex-1"
                 />
               )}
-
             </div>
 
             <input
@@ -201,13 +192,21 @@ export default function Translate() {
             <div>
               <div className="upload-box" onClick={triggerFileInput}>
                 {previewImage ? (
-                  <img src={previewImage} alt="Preview" className="image-preview" />
+                  <img
+                    src={previewImage}
+                    alt="Preview"
+                    className="image-preview"
+                  />
                 ) : (
                   <span className="upload-text">Click to upload image</span>
                 )}
               </div>
               {/* Message displayed below the box */}
-              <div className="message ocr-message" role="alert" aria-live="assertive">
+              <div
+                className="message ocr-message"
+                role="alert"
+                aria-live="assertive"
+              >
                 {ocr_message}
               </div>
             </div>
@@ -217,7 +216,7 @@ export default function Translate() {
         <button
           className="button translate-button"
           onClick={handleTranslate}
-          disabled={loading || !inputText.trim()}
+          disabled={loading || !inputText || !inputText.trim()}
         >
           {loading ? "Translating..." : "Translate"}
         </button>
@@ -227,8 +226,8 @@ export default function Translate() {
             <span>Translation</span>
             {mounted && (
               <Select
-                options={languages.filter(opt => opt.value !== "auto")}
-                value={languages.find(opt => opt.value === targetLang)}
+                options={languages.filter((opt) => opt.value !== "auto")}
+                value={languages.find((opt) => opt.value === targetLang)}
                 onChange={(opt) => setTargetLang(opt.value)}
                 className="flex-1"
               />
@@ -253,4 +252,3 @@ export default function Translate() {
     </>
   );
 }
-
