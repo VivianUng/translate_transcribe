@@ -6,6 +6,7 @@ import { useLanguages } from "@/contexts/LanguagesContext";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { translateText } from "@/utils/translation";
 import { startMicRecording, stopRecording } from "@/utils/transcription";
+import { extractTextFromImage } from "@/utils/fileProcessing";
 
 
 export default function Translate() {
@@ -42,20 +43,9 @@ export default function Translate() {
     setPreviewImage(URL.createObjectURL(file));
     setOCRMessage("Extracting...");
 
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/extract-text`, {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) throw new Error("Failed to extract text from image");
-      const data = await res.json();
-
-      if (!data.extracted_text) throw new Error("No text extracted from image");
-
-      setInputText(data.extracted_text || "");
+      const extractedText = await extractTextFromImage(file);
+      setInputText(extractedText);
       setTranslatedText("");
       setOCRMessage("Text extracted from image.");
     } catch (error) {
@@ -63,7 +53,10 @@ export default function Translate() {
     } finally {
       setLoading(false);
     }
+
   }
+
+
 
   function triggerFileInput() {
     if (fileInputRef.current) fileInputRef.current.click();
@@ -150,7 +143,10 @@ export default function Translate() {
               className="input-text-area"
               rows={8}
               value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
+              onChange={(e) => {
+                setInputText(e.target.value);
+                setMessage("");   // reset message whenever text changes
+              }}
               placeholder="Type text to translate"
             />
             <div
@@ -233,7 +229,10 @@ export default function Translate() {
               />
             )}
           </div>
-          <div className="translation-result" tabIndex={0}>
+          <div
+            className={`translation-result ${!translatedText ? "placeholder" : ""}`}
+            tabIndex={0}
+          >
             {translatedText || "Translation will appear here...."}
           </div>
         </div>

@@ -16,11 +16,13 @@ export default function ConversationPage() {
   const [listening, setListening] = useState(false);
   const [recordingType, setRecordingType] = useState(null); // "mic" or "screen"
   const [transcription, setTranscription] = useState("");
-  const [translatedText, setTranslation] = useState("");
+  const [translatedText, setTranslatedText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("en");
   const { languages, error } = useLanguages();
   const [message, setMessage] = useState("");
+  const [transcription_message, setTranscriptMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const micRecorderRef = useRef(null);
   const screenRecorderRef = useRef(null);
@@ -68,26 +70,33 @@ export default function ConversationPage() {
 
 
   // ---------- TRANSLATION ----------
-  const handleTranslate = async () => {
-    if (!transcription.trim()) return;
+  async function handleTranslate() {
+    setLoading(true);
+    setMessage("");
+    setTranscriptMessage("")
+    setTranslatedText("");
 
     try {
+      // Step 1: Detect + validate language
       const { valid, detectedLang, message } = await detectAndValidateLanguage(
         inputLang,
         transcription
       );
-      setMessage(message);
+
+      setTranscriptMessage(message); // language detection feedback
 
       if (!valid) return;
 
       setInputLang(detectedLang);
-
-      const translated = await translateText(transcription, inputLang, targetLang);
-      setTranslation(translated);
+      // Step 2: Translate using utils
+      const translated = await translateText(transcription, detectedLang, targetLang);
+      setTranslatedText(translated);
     } catch (error) {
-      setMessage("Translation error:", error);
+      setMessage(error.message || "Unexpected error occurred.");
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
 
   return (
@@ -124,6 +133,13 @@ export default function ConversationPage() {
 
         </div>
         <div className="conversation-text">{transcription || "..."}</div>
+        <div
+          className="message"
+          role="alert"
+          aria-live="assertive"
+        >
+          {transcription_message}
+        </div>
       </section>
 
       <section className="section translation-section">
@@ -141,8 +157,12 @@ export default function ConversationPage() {
         <div className="translation-result" tabIndex={0}>
           {translatedText || "Translation will appear here...."}
         </div>
-        <button onClick={handleTranslate} className="button translate-button">
-          Translate
+        <button
+          className="button translate-button"
+          onClick={handleTranslate}
+          disabled={loading || !transcription || !transcription.trim()}
+        >
+          {loading ? "Translating..." : "Translate"}
         </button>
         <div
           className="message"
