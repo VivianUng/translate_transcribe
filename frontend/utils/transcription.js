@@ -1,6 +1,13 @@
+
+//////////////////////
+// using python SpeechRecognition + rexognise_google 
+// not real-time
+// works
+//////////////////////
+
 // utils/transcription.js
 
-// --- Helper: convert Blob to File ---
+//--- Helper: convert Blob to File ---
 function blobToFile(blob, filename) {
   return new File([blob], filename, { type: blob.type });
 }

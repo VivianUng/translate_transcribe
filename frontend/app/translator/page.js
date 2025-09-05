@@ -1,13 +1,13 @@
 "use client";
 
 import Select from "react-select";
+import { supabase } from '../../lib/supabaseClient';
 import { useState, useRef, useEffect } from "react";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { translateText } from "@/utils/translation";
 import { startMicRecording, stopRecording } from "@/utils/transcription";
 import { extractTextFromImage } from "@/utils/fileProcessing";
-
 
 export default function Translate() {
   const [inputText, setInputText] = useState("");
@@ -26,13 +26,27 @@ export default function Translate() {
   const audioChunks = useRef([]);
   const [listening, setListening] = useState(false);
 
-  const isLoggedIn = false;
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const fileInputRef = useRef(null);
-
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    setMounted(true); // for react-seect component
+
+    // Get initial session
+    const fetchSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsLoggedIn(!!session);
+    };
+    fetchSession();
+
+    // Subscribe to auth changes
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session);
+    });
+
+    // Cleanup subscription on unmount
+    return () => subscription?.subscription?.unsubscribe?.();
   }, []);
 
   // Handle image upload + preview
@@ -42,6 +56,7 @@ export default function Translate() {
 
     setPreviewImage(URL.createObjectURL(file));
     setOCRMessage("Extracting...");
+    setLoading(true);
 
     try {
       const extractedText = await extractTextFromImage(file);
@@ -53,10 +68,7 @@ export default function Translate() {
     } finally {
       setLoading(false);
     }
-
   }
-
-
 
   function triggerFileInput() {
     if (fileInputRef.current) fileInputRef.current.click();
@@ -68,18 +80,16 @@ export default function Translate() {
     setTranslatedText("");
 
     try {
-      // Step 1: Detect + validate language
       const { valid, detectedLang, message } = await detectAndValidateLanguage(
         inputLang,
         inputText
       );
-
-      setMessage(message); // language detection feedback
+      setMessage(message);
 
       if (!valid) return;
 
       setInputLang(detectedLang);
-      // Step 2: Translate using utils
+
       const translated = await translateText(inputText, detectedLang, targetLang);
       setTranslatedText(translated);
     } catch (error) {
@@ -89,10 +99,8 @@ export default function Translate() {
     }
   }
 
-
   async function handleMicInput() {
     if (listening) {
-      // stop recording
       stopRecording({
         recordingType: "mic",
         micRecorderRef,
@@ -100,21 +108,60 @@ export default function Translate() {
         setRecordingType: () => { },
       });
     } else {
-      // start recording
       try {
         await startMicRecording({
           micRecorderRef,
           audioChunks,
           setListening,
           setRecordingType: () => { },
-          onTranscription: (text) => {
-            setInputText(text); // put transcription into textarea
-          },
+          onTranscription: (text) => setInputText(text),
           setTranscription: () => { },
         });
       } catch (err) {
         setMessage(err.message || "Transcription failed.");
       }
+    }
+  }
+
+  async function handleSaveTranslation() {
+    if (!isLoggedIn || !translatedText) return;
+
+    setLoading(true);
+    setMessage("");
+
+    try {
+      // get Supabase JWT token from localstorage
+      const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+
+    if (!token) {
+      alert("You must be logged in to save translations.");
+      return;
+    }
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/save-translation`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          input_text: inputText,
+          input_lang: inputLang,
+          output_text: translatedText,
+          output_lang: targetLang,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) throw new Error(result.detail || "Failed to save translation");
+
+      setMessage(data.message);
+    } catch (err) {
+      setMessage(err.message || "Failed to save translation.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -238,14 +285,13 @@ export default function Translate() {
         </div>
 
         {isLoggedIn && translatedText && (
-          <label className="save-checkbox">
-            <input
-              type="checkbox"
-              checked={saveTranslation}
-              onChange={(e) => setSaveTranslation(e.target.checked)}
-            />
-            Save Translation
-          </label>
+          <button
+            className="button save-translation-button"
+            onClick={handleSaveTranslation}
+            disabled={loading}
+          >
+            {loading ? "Saving..." : "Save Translation"}
+          </button>
         )}
       </div>
     </>

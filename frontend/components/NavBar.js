@@ -1,15 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from '../lib/supabaseClient';
 import logo from "./icons/main_icon.png";
 
 export default function NavBar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  useEffect(() => {
+    // Check current session
+    const session = supabase.auth.getSession();
+    session.then(({ data }) => {
+      setIsLoggedIn(!!data.session);
+    });
+
+    // Subscribe to auth changes
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session);
+    });
+
+    return () => {
+      listener.subscription?.unsubscribe();
+    };
+  }, []);
+  
   const loggedInLinks = [
     { href: "/conversation", label: "Conversation" },
     { href: "/translator", label: "Translator" },
@@ -26,6 +45,17 @@ export default function NavBar() {
   ];
 
   const links = isLoggedIn ? loggedInLinks : guestLinks;
+
+  const handleLoginLogout = async () => {
+    if (isLoggedIn) {
+      await supabase.auth.signOut();
+      setIsLoggedIn(false);
+      router.push("/"); // redirect after logout
+    } else {
+      // Redirect to login page
+      router.push("/login");
+    }
+  };
 
   return (
     <nav className="navbar">
@@ -50,11 +80,7 @@ export default function NavBar() {
       {/* Login/Logout button */}
       <button
         className="button navbar-button"
-
-        // replace with login logic /////
-        onClick={() => setIsLoggedIn(!isLoggedIn)}
-        ////////
-
+        onClick={handleLoginLogout}
         aria-label={isLoggedIn ? "Logout" : "Login"}
       >
         {isLoggedIn ? "Logout" : "Login"}

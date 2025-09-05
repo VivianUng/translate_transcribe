@@ -1,12 +1,9 @@
 # backend/app/api/routes.py
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, WebSocket, WebSocketDisconnect, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
 from pydantic import BaseModel
 from typing import Optional
 import httpx
-from app.api.dependencies import get_current_user_optional, get_current_user
-from app.db.models import Translation
-from app.db.database import database
 from datetime import datetime
 import pytesseract
 import speech_recognition as sr
@@ -17,10 +14,24 @@ import io
 import logging
 import json
 import subprocess
+from supabase import create_client, Client
+import os
+from fastapi.security import OAuth2PasswordBearer
+from dotenv import load_dotenv
+import jwt
+
+load_dotenv()
 
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
+
+
+# Supabase client
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 
 class DetectLangRequest(BaseModel):
     text: str
@@ -57,8 +68,62 @@ class OCRResponse(BaseModel) :
     extracted_text: str
 
 
+class TranslationPayload(BaseModel):
+    input_text: str
+    input_lang: str
+    output_text: str
+    output_lang: str
+
+
+
 LIBRETRANSLATE_URL = "http://127.0.0.1:5000"
 pytesseract.pytesseract.tesseract_cmd = r"C:\Users\Vivian\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
+
+def get_current_user(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid Authorization header",
+        )
+
+    token = auth_header.split(" ")[1]
+
+    try:
+        user = supabase.auth.get_user(token).user
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+            )
+        return user
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token: {str(e)}",
+        )
+
+
+@router.post("/save-translation")
+async def save_translation(payload: TranslationPayload, current_user = Depends(get_current_user)):
+    """
+    Save translation for authenticated user
+    """
+    try:
+        result = supabase.table("translations").insert({
+            "user_id": current_user.id,
+            "input_text": payload.input_text,
+            "input_lang": payload.input_lang,
+            "output_text": payload.output_text,
+            "output_lang": payload.output_lang,
+            "created_at": "now()"
+        }).execute()
+
+        return {"message": "Translation saved successfully!"}
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to save translation: {e}")
+
 
 @router.get("/languages")
 async def get_languages():
@@ -118,7 +183,6 @@ async def detect_language2(req: DetectLangRequest):
 @router.post("/translate", response_model=TranslateResponse)
 async def translate(
     req: TranslateRequest,
-    user: Optional[dict] = Depends(get_current_user_optional),
 ):
     async with httpx.AsyncClient() as client:
         # Directly call translation since frontend already detected source_lang
@@ -143,21 +207,6 @@ async def translate(
     )
 
 
-@router.post("/save", status_code=201)
-async def save_translation(
-    req: SaveRequest,
-    current_user=Depends(get_current_user),
-):
-    query = Translation.__table__.insert().values(
-        user_id=current_user["id"],
-        source_text=req.input_text,
-        source_lang=req.input_lang,
-        translated_text=req.output_text,
-        target_lang=req.output_lang,
-        created_at=datetime.utcnow(),
-    )
-    await database.execute(query)
-    return {"message": "Translation saved successfully"}
 
 @router.post("/extract-text", response_model=OCRResponse)
 async def extract_text(file: UploadFile = File(...)):
@@ -182,48 +231,7 @@ async def extract_text(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Text extraction failed: {str(e)}")
     
 
-@router.websocket("/ws/conversation")
-async def conversation_ws(websocket: WebSocket):
-    await websocket.accept()
-    recognizer = sr.Recognizer()
-
-    try:
-        while True:
-            data = await websocket.receive_bytes()  # raw webm chunk
-
-            # Convert WebM/Opus → WAV (PCM16) using ffmpeg
-            process = subprocess.Popen(
-                [ffmpeg.get_ffmpeg_exe(), "-i", "pipe:0", "-f", "wav", "-ar", "16000", "-ac", "1", "pipe:1"],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL
-            )
-            wav_data, _ = process.communicate(input=data)
-
-            if not wav_data:
-                continue
-
-            audio_file = io.BytesIO(wav_data)
-            with sr.AudioFile(audio_file) as source:
-                audio = recognizer.record(source)
-
-            try:
-                text = recognizer.recognize_google(audio)
-                await websocket.send_text(json.dumps({"transcription": text}))
-            except sr.UnknownValueError:
-                # No speech recognized
-                pass
-            except sr.RequestError as e:
-                await websocket.send_text(json.dumps({"error": f"Speech recognition error: {e}"}))
-                break
-
-    except WebSocketDisconnect:
-        print("Client disconnected")
-    except Exception as e:
-        await websocket.send_text(json.dumps({"error": str(e)}))
-
-
-# for testing purpose (after complete recording then transcribe) : 
+# # for testing purpose (after complete recording then transcribe) : 
 @router.post("/transcribe")
 async def transcribe_audio(file: UploadFile = File(...)):
     recognizer = sr.Recognizer()
@@ -251,39 +259,3 @@ async def transcribe_audio(file: UploadFile = File(...)):
         return {"transcription": ""}
     except Exception as e:
         return {"error": str(e)}
-
-
-# with language input : 
-# @router.post("/transcribe", response_model=TranscribeResponse)
-# async def transcribe_audio(
-#     file: UploadFile = File(...),
-#     language: str = Form("en-US")
-# ):
-#     recognizer = sr.Recognizer()
-#     try:
-#         # Read uploaded audio (WebM)
-#         input_data = await file.read()
-
-#         # Convert WebM/Opus → WAV using ffmpeg
-#         process = subprocess.Popen(
-#             [ffmpeg.get_ffmpeg_exe(), "-i", "pipe:0", "-f", "wav", "-ar", "16000", "-ac", "1", "pipe:1"],
-#             stdin=subprocess.PIPE,
-#             stdout=subprocess.PIPE,
-#             stderr=subprocess.DEVNULL
-#         )
-#         wav_data, _ = process.communicate(input=input_data)
-
-#         # Transcribe
-#         audio_file = io.BytesIO(wav_data)
-#         with sr.AudioFile(audio_file) as source:
-#             audio = recognizer.record(source)
-
-#         # Pass in the language explicitly
-#         text = recognizer.recognize_google(audio, language=language)
-
-#         return TranscribeResponse(transcription=text, language=language)
-
-#     except sr.UnknownValueError:
-#         return TranscribeResponse(transcription="", language=language)
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
