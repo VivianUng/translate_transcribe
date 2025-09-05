@@ -2,6 +2,7 @@
 
 import Select from "react-select";
 import { useState, useRef, useEffect } from "react";
+import { detectAndValidateLanguage } from "@/utils/languageDetection";
 
 export default function Translate() {
   const [inputText, setInputText] = useState("");
@@ -105,47 +106,14 @@ export default function Translate() {
     setTranslatedText("");
 
     try {
-      let detectedLang = inputLang;
+      // Step 1: Detect + validate language
+      const { valid, detectedLang, confidence, message } =
+        await detectAndValidateLanguage(inputLang, inputText);
 
-      // Step 1: Detect language (if user selected auto detect)
-      if (inputLang === "auto") {
-        const detectRes = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/detect-language`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: inputText }),
-          }
-        );
+      setMessage(message); // message of the detected language confidence (for now leave for debugging)
 
-        const detectData = await detectRes.json();
-        if (!detectRes.ok) {
-          throw new Error(detectData.detail || "Could not detect language.");
-        }
-
-        detectedLang = detectData.detected_lang;
-
-        setMessage(
-          `Detected language: ${detectedLang} (confidence: ${detectData.confidence})`
-        );
-
-        if (detectData.confidence < 20) {
-          setMessage(`Input is not valid text\n Detected language: ${detectedLang} (confidence: ${detectData.confidence})`);
-          return;
-        }
-
-        if (detectedLang === "und") {
-          setMessage("Input is not a valid language.");
-          return;
-        }
-
-        setInputLang(detectedLang);
-
-      } else {
-        // user picked a specific language
-        detectedLang = inputLang;
-        setMessage(`Source language: ${detectedLang}`);
-      }
+      if (!valid) return;
+      setInputLang(detectedLang);
 
       // Step 2: Translate
       const translateRes = await fetch(
@@ -192,7 +160,7 @@ export default function Translate() {
                   className="flex-1"
                 />
               )}
-              
+
             </div>
             <textarea className="input-text-area"
               rows={8}
@@ -213,13 +181,13 @@ export default function Translate() {
               <span>File Upload</span>
               {mounted && (
                 <Select
-                options={languages}
-                value={languages.find(opt => opt.value === imageLang)}
-                onChange={(opt) => setImageLang(opt.value)}
-                className="flex-1"
-              />
+                  options={languages}
+                  value={languages.find(opt => opt.value === imageLang)}
+                  onChange={(opt) => setImageLang(opt.value)}
+                  className="flex-1"
+                />
               )}
-              
+
             </div>
 
             <input
@@ -259,11 +227,11 @@ export default function Translate() {
             <span>Translation</span>
             {mounted && (
               <Select
-              options={languages.filter(opt => opt.value !== "auto")}
-              value={languages.find(opt => opt.value === targetLang)}
-              onChange={(opt) => setTargetLang(opt.value)}
-              className="flex-1"
-            />
+                options={languages.filter(opt => opt.value !== "auto")}
+                value={languages.find(opt => opt.value === targetLang)}
+                onChange={(opt) => setTargetLang(opt.value)}
+                className="flex-1"
+              />
             )}
           </div>
           <div className="translation-result" tabIndex={0}>

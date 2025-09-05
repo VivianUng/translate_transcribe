@@ -1,6 +1,6 @@
 # backend/app/api/routes.py
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, WebSocket, WebSocketDisconnect, Form
 from pydantic import BaseModel
 from typing import Optional
 import httpx
@@ -10,6 +10,7 @@ from app.db.database import database
 from datetime import datetime
 import pytesseract
 import speech_recognition as sr
+from langdetect import detect, detect_langs
 from PIL import Image, UnidentifiedImageError
 import imageio_ffmpeg as ffmpeg
 import io
@@ -27,6 +28,13 @@ class DetectLangRequest(BaseModel):
 class DetectLangResponse(BaseModel):
     detected_lang: str
     confidence: float
+
+class TranscribeRequest(BaseModel):
+    language: str
+
+class TranscribeResponse(BaseModel):
+    transcription: str
+    language: str
 
 class TranslateRequest(BaseModel):
     text: str
@@ -84,6 +92,26 @@ async def detect_language(req: DetectLangRequest):
             detected_lang=best_match["language"],
             confidence=best_match["confidence"],
         )
+
+# for testing : second version of detect-lang 
+@router.post("/detect-language2", response_model=DetectLangResponse)
+async def detect_language2(req: DetectLangRequest):
+    try:
+        # langdetect can return multiple candidates with probabilities
+        candidates = detect_langs(req.text)
+
+        if not candidates:
+            raise HTTPException(status_code=400, detail="Could not detect language")
+
+        # pick the best match (highest probability)
+        best_match = candidates[0]
+
+        return DetectLangResponse(
+            detected_lang=best_match.lang,
+            confidence=best_match.prob *100 #prob is out of 1 (libretranslate out of 100)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Language detection failed: {str(e)}")
 
 
 
@@ -223,3 +251,39 @@ async def transcribe_audio(file: UploadFile = File(...)):
         return {"transcription": ""}
     except Exception as e:
         return {"error": str(e)}
+
+
+# with language input : 
+# @router.post("/transcribe", response_model=TranscribeResponse)
+# async def transcribe_audio(
+#     file: UploadFile = File(...),
+#     language: str = Form("en-US")
+# ):
+#     recognizer = sr.Recognizer()
+#     try:
+#         # Read uploaded audio (WebM)
+#         input_data = await file.read()
+
+#         # Convert WebM/Opus → WAV using ffmpeg
+#         process = subprocess.Popen(
+#             [ffmpeg.get_ffmpeg_exe(), "-i", "pipe:0", "-f", "wav", "-ar", "16000", "-ac", "1", "pipe:1"],
+#             stdin=subprocess.PIPE,
+#             stdout=subprocess.PIPE,
+#             stderr=subprocess.DEVNULL
+#         )
+#         wav_data, _ = process.communicate(input=input_data)
+
+#         # Transcribe
+#         audio_file = io.BytesIO(wav_data)
+#         with sr.AudioFile(audio_file) as source:
+#             audio = recognizer.record(source)
+
+#         # Pass in the language explicitly
+#         text = recognizer.recognize_google(audio, language=language)
+
+#         return TranscribeResponse(transcription=text, language=language)
+
+#     except sr.UnknownValueError:
+#         return TranscribeResponse(transcription="", language=language)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
