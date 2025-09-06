@@ -50,7 +50,7 @@ export default function NavBar() {
     if (isLoggedIn) {
       await supabase.auth.signOut();
       setIsLoggedIn(false);
-      router.push("/"); // redirect after logout
+      router.push("/?toast=logoutSuccess");
     } else {
       // Redirect to login page
       router.push("/login");

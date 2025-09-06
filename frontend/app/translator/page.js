@@ -17,6 +17,7 @@ export default function Translate() {
   const [translatedText, setTranslatedText] = useState("");
   const [message, setMessage] = useState("");
   const [ocr_message, setOCRMessage] = useState("");
+  const [save_message, setSaveMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const { languages, error } = useLanguages();
   const [previewImage, setPreviewImage] = useState(null);
@@ -30,7 +31,7 @@ export default function Translate() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true); // for react-seect component
+    setMounted(true); // for react-select component
 
     // Get initial session
     const fetchSession = async () => {
@@ -76,6 +77,8 @@ export default function Translate() {
   async function handleTranslate() {
     setLoading(true);
     setMessage("");
+    setOCRMessage("");
+    setSaveMessage("");
     setTranslatedText("");
 
     try {
@@ -127,16 +130,17 @@ export default function Translate() {
 
     setLoading(true);
     setMessage("");
+    setSaveMessage("")
 
     try {
       // get Supabase JWT token from localstorage
       const { data } = await supabase.auth.getSession();
-    const token = data?.session?.access_token;
+      const token = data?.session?.access_token;
 
-    if (!token) {
-      alert("You must be logged in to save translations.");
-      return;
-    }
+      if (!token) {
+        alert("You must be logged in to save translations.");
+        return;
+      }
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/save-translation`, {
         method: "POST",
@@ -156,9 +160,9 @@ export default function Translate() {
 
       if (!res.ok) throw new Error(result.detail || "Failed to save translation");
 
-      setMessage(data.message);
+      setSaveMessage("Translation saved Successfully");
     } catch (err) {
-      setMessage(err.message || "Failed to save translation.");
+      setSaveMessage(err.message || "Failed to save translation.");
     } finally {
       setLoading(false);
     }
@@ -213,6 +217,7 @@ export default function Translate() {
           <div className="section">
             <div className="section-header">
               <span>File Upload</span>
+              {/* Select language for file upload (to be removed until check if use different ocr lib depending on char type) */}
               {mounted && (
                 <Select
                   options={languages}
@@ -284,13 +289,24 @@ export default function Translate() {
         </div>
 
         {isLoggedIn && translatedText && (
-          <button
-            className="button save-translation-button"
-            onClick={handleSaveTranslation}
-            disabled={loading}
-          >
-            {loading ? "Saving..." : "Save Translation"}
-          </button>
+          <div>
+            <button
+              className="button save-translation-button"
+              onClick={handleSaveTranslation}
+              disabled={loading}
+            >
+              {loading ? "Saving..." : "Save Translation"}
+            </button>
+
+            <div
+              className="message save-message"
+              role="alert"
+              aria-live="assertive"
+            >
+              {save_message}
+            </div>
+          </div>
+
         )}
       </div>
     </>

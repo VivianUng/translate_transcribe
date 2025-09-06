@@ -1,6 +1,7 @@
 import "../styles/styles.css";
 import NavBar from '../components/NavBar';
 import { LanguagesProvider } from "@/contexts/LanguagesContext";
+import ToastProvider from "@/components/ToastProvider";
 
 export const metadata = {
   title: 'Translation App',
@@ -12,12 +13,15 @@ export default function RootLayout({ children }) {
     <html>
       <body>
         <LanguagesProvider>
+          
           <NavBar />
+          <ToastProvider />
           <main
             style={{
               padding: "1rem", // padding between navbar and page content
             }}
           >
+            
             {children}
           </main>
         </LanguagesProvider>

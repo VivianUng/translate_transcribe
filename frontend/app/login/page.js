@@ -52,7 +52,7 @@ export default function Login() {
       setErrorMsg(error.message);
     } else {
       setIsLoggedIn(true);
-      router.push("/");
+      router.push("/?toast=loginSuccess");
     }
   }
 
