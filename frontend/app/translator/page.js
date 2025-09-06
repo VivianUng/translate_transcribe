@@ -17,7 +17,6 @@ export default function Translate() {
   const [translatedText, setTranslatedText] = useState("");
   const [message, setMessage] = useState("");
   const [ocr_message, setOCRMessage] = useState("");
-  const [saveTranslation, setSaveTranslation] = useState(false);
   const [loading, setLoading] = useState(false);
   const { languages, error } = useLanguages();
   const [previewImage, setPreviewImage] = useState(null);

@@ -15,9 +15,9 @@ a {
 
 /* Main container for page */
 .container {
-    max-width: 900px;
-    margin: 1rem auto;
-    font-family: Arial, sans-serif;
+  max-width: 900px;
+  margin: 1rem auto;
+  font-family: Arial, sans-serif;
 }
 
 .page-title {
@@ -28,17 +28,17 @@ a {
 }
 
 .button {
-    display: block;
-    margin: 1rem auto;
-    background: #5a5f9f;
-    color: white;
-    border: none;
-    border-radius: 20px;
-    padding: 0.7rem 2rem;
-    font-size: 1.1rem;
-    cursor: pointer;
-    box-shadow: 0 4px 8px rgba(108, 99, 255, 0.4);
-    transition: background 0.3s ease;
+  display: block;
+  margin: 1rem auto;
+  background: #5a5f9f;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 0.7rem 2rem;
+  font-size: 1.1rem;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(108, 99, 255, 0.4);
+  transition: background 0.3s ease;
 }
 
 .button:hover {
@@ -46,13 +46,13 @@ a {
 }
 
 .button:disabled {
-    background: #bbb;
-    cursor: not-allowed;
-    box-shadow: none;
+  background: #bbb;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* box sections within page */
-.section { 
+.section {
   flex: 1;
   background: #f7f5fb;
   border-radius: 10px;
@@ -64,43 +64,56 @@ a {
 }
 
 .section-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
 }
 
 .message {
-    margin-top: 1rem;
-    font-weight: 600;
-    min-height: 1.2em;
-    text-align: center;
+  margin-top: 1rem;
+  font-weight: 600;
+  min-height: 1.2em;
+  text-align: center;
 }
 
 .placeholder {
   color: gray;
 }
 
+.input-label {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.page-link-word {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #6B63FF;
+  text-decoration: underline;
+}
+
 .translation-result {
-    background: #f1edfa;
-    border-radius: 10px;
-    padding: 1rem;
-    box-shadow: 0 0 8px #ddd;
-    margin-top: 1rem;
-    min-height: 120px;
-    font-size: 1rem;
-    white-space: pre-wrap;
-    line-height: 1.4;
+  background: #f1edfa;
+  border-radius: 10px;
+  padding: 1rem;
+  box-shadow: 0 0 8px #ddd;
+  margin-top: 1rem;
+  min-height: 120px;
+  font-size: 1rem;
+  white-space: pre-wrap;
+  line-height: 1.4;
 }
 
 .save-checkbox {
-    margin-top: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-weight: 600;
-    color: #444;
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 600;
+  color: #444;
 }
 
 
@@ -114,10 +127,11 @@ a {
   padding: 0.75rem 2rem;
   background-color: #d7d9e8;
   border-bottom: 1px solid #ccc;
-  position: sticky; 
+  position: sticky;
   top: 0;
   width: 100%;
-  z-index: 10000; /* higher than react-select menu */
+  z-index: 10000;
+  /* higher than react-select menu */
   box-sizing: border-box;
 }
 
@@ -134,7 +148,8 @@ a {
   gap: 2rem;
   font-size: 1.1rem;
   color: #4a4a63;
-  flex-wrap: wrap; /* prevents overflow on small screens */
+  flex-wrap: wrap;
+  /* prevents overflow on small screens */
 }
 
 .navbar-links a {
@@ -151,10 +166,74 @@ a {
 
 
 .navbar-button {
-  display: inline-block;      
-  margin: 0;               
+  display: inline-block;
+  margin: 0;
   padding: 0.5rem 1.2rem;
   font-size: 0.9rem;
+}
+
+
+/* ===========================
+      Login / Signup Styles
+   =========================== */
+
+.login-container,
+.signup-container {
+  max-width: 400px;
+  margin: auto;
+  padding: 2rem;
+}
+
+.login-input,
+.signup-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin-top: 0.5rem;
+  margin-bottom: 1.2rem;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background-color: #fafafa;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.login-input:hover,
+.signup-input:hover {
+  border-color: #888;
+}
+
+/* Highlight when typing */
+.login-input:focus,
+.signup-input:focus {
+  outline: none;
+  border-color: #6B63FF;
+  box-shadow: 0 0 0 3px rgba(107, 99, 255, 0.2);
+  background-color: #fff;
+}
+
+.forgot-password {
+  text-align: right;
+}
+
+.continue-guest {
+  text-align: center;
+}
+
+.login-button,
+.signup-button {
+  width: 100%;
+  border-radius: 8px;
+}
+
+.error-message {
+  color: red;
+  text-align: center;
+}
+
+.signup-text {
+  margin-top: 1rem;
+  text-align: center;
 }
 
 
@@ -178,66 +257,66 @@ a {
    =========================== */
 
 .translator-top-row {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 
 .input-text-area {
-    flex-grow: 1;
-    resize: vertical;
-    border-radius: 10px;
-    border: 1px solid #ccc;
-    padding: 0.5rem;
-    font-size: 1rem;
-    font-family: inherit;
-    background: white;
+  flex-grow: 1;
+  resize: vertical;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  padding: 0.5rem;
+  font-size: 1rem;
+  font-family: inherit;
+  background: white;
 }
 
 .mic-icon {
-    margin-top: 0.5rem;
-    font-size: 1.5rem;
-    color: #666;
-    align-self: flex-end;
-    cursor: pointer;
+  margin-top: 0.5rem;
+  font-size: 1.5rem;
+  color: #666;
+  align-self: flex-end;
+  cursor: pointer;
 }
 
 .upload-box {
-    height: 150px;
-    border: 2px dashed #bbb;
-    border-radius: 10px;
-    padding: 0.5rem;
-    background: #e7e3f0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: #555;
-    font-size: 1rem;
-    text-align: center;
-    cursor: pointer;
-    transition: background 0.3s ease;
+  height: 150px;
+  border: 2px dashed #bbb;
+  border-radius: 10px;
+  padding: 0.5rem;
+  background: #e7e3f0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #555;
+  font-size: 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.3s ease;
 }
 
 .upload-box:hover {
-    background: #ddd8eb;
+  background: #ddd8eb;
 }
 
 .upload-text {
-    padding: 0.5rem;
-    font-weight: 500;
-    color: #666;
+  padding: 0.5rem;
+  font-weight: 500;
+  color: #666;
 }
 
 .image-preview {
-    max-height: 100%;
-    max-width: 100%;
-    border-radius: 10px;
-    object-fit: contain;
+  max-height: 100%;
+  max-width: 100%;
+  border-radius: 10px;
+  object-fit: contain;
 }
 
 input[type="file"] {
-    display: none;
+  display: none;
 }
 
 
@@ -261,7 +340,8 @@ input[type="file"] {
 }
 
 .meeting-card {
-  background-color: #e8ecf8; /* light purple/blue background */
+  background-color: #e8ecf8;
+  /* light purple/blue background */
   border-radius: 8px;
   padding: 1rem 1.5rem;
   margin-bottom: 1rem;
@@ -288,5 +368,3 @@ input[type="file"] {
   display: flex;
   align-items: center;
 }
-
-
