@@ -1,7 +1,13 @@
 /* ===========================
          Global Styles
    =========================== */
-body {
+:root {
+  --button-color: #5a5f9f;
+  --button-hover: #484c8a;
+  --section-color: #f7f5fb;
+}
+
+   body {
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: #ffffff;
@@ -40,7 +46,7 @@ a {
 .button {
   display: block;
   margin: 1rem auto;
-  background: #5a5f9f;
+  background: var(--button-color);
   color: white;
   border: none;
   border-radius: 20px;
@@ -52,7 +58,7 @@ a {
 }
 
 .button:hover {
-  background-color: #484c8a;
+  background-color: var(--button-hover);
 }
 
 .button:disabled {
@@ -64,7 +70,7 @@ a {
 /* box sections within page */
 .section {
   flex: 1;
-  background: #f7f5fb;
+  background: var(--section-color);
   border-radius: 10px;
   padding: 1rem;
   box-shadow: 0 0 8px #ddd;
@@ -105,7 +111,8 @@ a {
   text-decoration: underline;
 }
 
-.translation-result {
+.translation-result,
+.summary-result {
   background: #f1edfa;
   border-radius: 10px;
   padding: 1rem;
@@ -115,6 +122,17 @@ a {
   font-size: 1rem;
   white-space: pre-wrap;
   line-height: 1.4;
+}
+
+.input-text-area {
+  flex-grow: 1;
+  resize: vertical;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  padding: 0.5rem;
+  font-size: 1rem;
+  font-family: inherit;
+  background: white;
 }
 
 .save-checkbox {
@@ -277,17 +295,6 @@ a {
   margin-bottom: 1rem;
 }
 
-
-.input-text-area {
-  flex-grow: 1;
-  resize: vertical;
-  border-radius: 10px;
-  border: 1px solid #ccc;
-  padding: 0.5rem;
-  font-size: 1rem;
-  font-family: inherit;
-  background: white;
-}
 
 .mic-icon {
   margin-top: 0.5rem;

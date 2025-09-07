@@ -2,13 +2,16 @@
 
 import { Toaster, toast } from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function ToastProvider() {
   const searchParams = useSearchParams();
   const toastParam = searchParams.get("toast");
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+
     if (toastParam === "loginSuccess") {
       toast.success("🎉 Successfully Logged In!");
     } else if (toastParam === "logoutSuccess") {
@@ -21,7 +24,7 @@ export default function ToastProvider() {
       toast.error("🚫 Cannot Access this Page!");
     }
   }, [toastParam]);
-  return (
+  return mounted ? (
     <Toaster
       position="top-right"
       containerClassName="toast-container"
@@ -30,5 +33,5 @@ export default function ToastProvider() {
         duration: 3000,
       }}
     />
-  );
+  ) : null;
 }
