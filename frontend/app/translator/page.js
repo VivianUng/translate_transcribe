@@ -172,7 +172,7 @@ export default function Translate() {
 
   return (
     <>
-      <div className="container">
+      <div className="page-container">
         <h1 className="page-title">Translator</h1>
 
         <div className="translator-top-row">

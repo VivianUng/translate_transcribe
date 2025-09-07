@@ -100,7 +100,7 @@ export default function ConversationPage() {
 
 
   return (
-    <div className="container">
+    <div className="page-container">
       <h1 className="page-title">Conversation</h1>
 
       <div className="button-group" style={{ display: "flex", gap: "10px", marginBottom: "1rem" }}>

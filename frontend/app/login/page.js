@@ -8,15 +8,16 @@ import { useSearchParams } from 'next/navigation';
 
 export default function Login() {
   const router = useRouter();
-  
+
   const searchParams = useSearchParams();
-  const message = searchParams.get('message');
+  const toastParam = searchParams.get('toast');
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
     async function fetchSession() {
@@ -56,6 +57,30 @@ export default function Login() {
     }
   }
 
+  async function handleForgotPw() {
+    if (!email) {
+      setErrorMsg("Please enter your email to reset password.");
+      return;
+    }
+
+    setResetLoading(true);
+    setErrorMsg("");
+
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/update-password`
+    });
+
+    setResetLoading(false);
+
+    if (error) {
+      setErrorMsg(error.message);
+      return;
+    }
+
+    setErrorMsg("✅ Password reset email sent! Check your inbox.");
+
+  }
+
   async function handleGuest() {
     router.push("/");
   }
@@ -63,7 +88,7 @@ export default function Login() {
   return (
     <div className="login-container">
       <h1 className="page-title">Log In</h1>
-      {message === 'confirm' && (
+      {toastParam === 'signupSuccess' && (
         <p style={{ color: 'green', marginBottom: '1rem' }}>
           Please confirm your email before logging in.
         </p>
@@ -93,14 +118,18 @@ export default function Login() {
           className="login-input"
         />
         <div className="page-link-word forgot-password">
-          <span onClick={(e) => e.preventDefault()}>forgot password</span>
+          <span onClick={handleForgotPw}>forgot password</span>
         </div>
         <button
           className="button login-button"
           type="submit"
-          disabled={loading}
+          disabled={loading || resetLoading}
         >
-          {loading ? "Logging in..." : "Login"}
+          {loading
+            ? "Logging in..."
+            : resetLoading
+              ? "Sending reset email..."
+              : "Login"}
         </button>
       </form>
       {errorMsg && <p className="error-message">{errorMsg}</p>}

@@ -13,7 +13,7 @@ export default function RootLayout({ children }) {
     <html>
       <body>
         <LanguagesProvider>
-          
+
           <NavBar />
           <ToastProvider />
           <main
@@ -21,7 +21,7 @@ export default function RootLayout({ children }) {
               padding: "1rem", // padding between navbar and page content
             }}
           >
-            
+
             {children}
           </main>
         </LanguagesProvider>

@@ -13,23 +13,21 @@ export default function ToastProvider() {
       toast.success("🎉 Successfully Logged In!");
     } else if (toastParam === "logoutSuccess") {
       toast.success("👋 Successfully Logged Out!");
+    } else if (toastParam === "signupSuccess") {
+      toast.success("🎉 Successfully Signed Up!");
+    } else if (toastParam === "updatePwSuccess") {
+      toast.success("✅ Successfully Updated Password!");
+    } else if (toastParam === "notAuthenticated") {
+      toast.error("🚫 Cannot Access this Page!");
     }
   }, [toastParam]);
   return (
     <Toaster
       position="top-right"
-      containerStyle={{
-        top: "4.5rem",
-        right: "1rem",
-      }}
+      containerClassName="toast-container"
       toastOptions={{
+        className: "toast-message",
         duration: 3000,
-        style: {
-          background: "#333",
-          color: "#fff",
-          borderRadius: "8px",
-          padding: "12px",
-        },
       }}
     />
   );

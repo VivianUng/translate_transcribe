@@ -13,8 +13,18 @@ a {
   color: inherit;
 }
 
+.toast-container {
+  top: 4.5rem !important;  
+  right: 1rem !important;
+}
+
+.toast-message {
+  border-radius: 8px !important;
+  padding: 12px !important;
+}
+
 /* Main container for page */
-.container {
+.page-container {
   max-width: 900px;
   margin: 1rem auto;
   font-family: Arial, sans-serif;
@@ -178,14 +188,16 @@ a {
    =========================== */
 
 .login-container,
-.signup-container {
+.signup-container,
+.updatePw-container {
   max-width: 400px;
   margin: auto;
   padding: 2rem;
 }
 
 .login-input,
-.signup-input {
+.signup-input,
+.updatePw-input {
   width: 100%;
   padding: 0.75rem 1rem;
   margin-top: 0.5rem;
@@ -199,13 +211,15 @@ a {
 }
 
 .login-input:hover,
-.signup-input:hover {
+.signup-input:hover,
+.updatePw-input:hover {
   border-color: #888;
 }
 
 /* Highlight when typing */
 .login-input:focus,
-.signup-input:focus {
+.signup-input:focus,
+.updatePw-input:focus {
   outline: none;
   border-color: #6B63FF;
   box-shadow: 0 0 0 3px rgba(107, 99, 255, 0.2);
@@ -221,7 +235,8 @@ a {
 }
 
 .login-button,
-.signup-button {
+.signup-button,
+.updatePw-button {
   width: 100%;
   border-radius: 8px;
 }
@@ -330,18 +345,17 @@ input[type="file"] {
 }
 
 .create-btn {
-  font-size: 0.9rem;
+  font-size: 1rem;
   margin: 0rem;
 }
 
 .start-btn {
-  font-size: 0.9rem;
+  font-size: 1rem;
   margin: 0rem;
 }
 
 .meeting-card {
-  background-color: #e8ecf8;
-  /* light purple/blue background */
+  background-color: #f7f5fb;
   border-radius: 8px;
   padding: 1rem 1.5rem;
   margin-bottom: 1rem;
@@ -357,13 +371,13 @@ input[type="file"] {
 }
 
 .meeting-host {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: #6b6b6b;
   margin-bottom: 0.2rem;
 }
 
 .meeting-time {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: #6b6b6b;
   display: flex;
   align-items: center;

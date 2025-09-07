@@ -31,20 +31,37 @@ export default function Signup() {
     };
   }, []);
 
+  // currently using Supabase strongpw checking 
   function isStrongPassword(password) {
     const minLength = 8;
-    const hasUpper = /[A-Z]/.test(password);
-    const hasLower = /[a-z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    const hasSpecial = /[^A-Za-z0-9]/.test(password);
+    const errors = [];
 
-    return (
-      password.length >= minLength &&
-      hasUpper &&
-      hasLower &&
-      hasNumber &&
-      hasSpecial
-    );
+    if (password.length < minLength) {
+      errors.push(`Password must be at least ${minLength} characters long.`);
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      errors.push("Password must contain at least one uppercase letter (A–Z).");
+    }
+
+    if (!/[a-z]/.test(password)) {
+      errors.push("Password must contain at least one lowercase letter (a–z).");
+    }
+
+    if (!/[0-9]/.test(password)) {
+      errors.push("Password must contain at least one number (0–9).");
+    }
+
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      errors.push("Password must contain at least one special character (!@#$%^&* etc.).");
+    }
+
+    return {
+      valid: errors.length === 0,
+      message: errors.length === 0
+        ? "✅ Strong password!"
+        : errors.join("\n")
+    };
   }
 
   async function handleSignup(e) {
@@ -52,11 +69,14 @@ export default function Signup() {
     setLoading(true);
     setErrorMsg('');
 
-    if (!isStrongPassword(password)) {
-      setErrorMsg("Password must be at least 8 chars and include upper, lower, number, and symbol.");
-      setLoading(false);
-      return;
-    }
+    // const result = isStrongPassword(password);
+
+    // if (!result.valid) {
+    //   setErrorMsg(result.message);
+    //   setLoading(false);
+    //   return;
+    // }
+
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -79,7 +99,7 @@ export default function Signup() {
 
     // Success
     setIsLoggedIn(true);
-    router.push('/login?message=confirm');
+    router.push('/login?toast=signupSuccess');
   }
 
 
@@ -137,7 +157,13 @@ export default function Signup() {
         </button>
       </form>
 
-      {errorMsg && <p className="error-message">{errorMsg}</p>}
+      {errorMsg && (
+        <div className="error-message text-red-500">
+          {errorMsg.split("\n").map((line, idx) => (
+            <div key={idx}>{line}</div>
+          ))}
+        </div>
+      )}
 
       <p className="signup-text">
         Already have an account?{" "}
