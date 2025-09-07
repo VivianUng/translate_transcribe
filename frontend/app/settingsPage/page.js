@@ -1,23 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import useAuthCheck from "@/hooks/useAuthCheck";
 import { supabase } from '../../lib/supabaseClient';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function checkAuth() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/login?toast=notAuthenticated");
-      } else {
-        setLoading(false);
-      }
-    }
-    checkAuth();
-  }, [router]);
+  const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
 
   if (loading) return <p>Loading...</p>;
 
