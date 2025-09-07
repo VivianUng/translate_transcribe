@@ -30,6 +30,30 @@ export async function transcribeAudio(blob, language = "en-US") {
   return data.transcription;
 }
 
+// --- API Call: Transcribe Audio v2 ---
+export async function transcribeAudio2(blob, language = "auto") {
+  const formData = new FormData();
+  formData.append("file", blobToFile(blob, "recording.webm"));
+  formData.append("language", language);
+
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/transcribe2`, {
+    method: "POST",
+    body: formData,
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.detail || "Transcription failed.");
+  }
+
+  return {
+    transcription: data.transcription,
+    segments: data.segments || [],
+    detectedLanguage: data.detected_language || language,
+  };
+}
+
+
 // --- MIC RECORDING LOGIC ---
 export function startMicRecording({
   micRecorderRef,
@@ -121,6 +145,20 @@ export function startScreenRecording({
         setListening(false);
         setRecordingType(null);
       };
+
+      // --- Handle user clicking "Stop sharing" ---
+      stream.getTracks().forEach((track) => {
+        track.onended = () => {
+          console.log("User stopped screen sharing.");
+          stopRecording({
+            recordingType: "screen",
+            screenRecorderRef,
+            screenStreamRef,
+            setListening,
+            setRecordingType,
+          });
+        };
+      });
 
       screenRecorderRef.current.start();
     })
