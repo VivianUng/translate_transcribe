@@ -22,6 +22,8 @@ export default function ToastProvider() {
       toast.success("✅ Successfully Updated Password!");
     } else if (toastParam === "notAuthenticated") {
       toast.error("🚫 Cannot Access this Page!");
+    } else if (toastParam === "deleteAccSuccess") {
+      toast.success("Account Deleted.");
     }
   }, [toastParam]);
   return mounted ? (

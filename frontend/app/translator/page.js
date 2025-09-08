@@ -1,6 +1,7 @@
 "use client";
 
 import Select from "react-select";
+import { toast } from "react-hot-toast";
 import { supabase } from '../../lib/supabaseClient';
 import { useState, useRef, useEffect } from "react";
 import { useLanguages } from "@/contexts/LanguagesContext";
@@ -33,21 +34,67 @@ export default function Translate() {
   useEffect(() => {
     setMounted(true); // for react-select component
 
+    // Helper: ensure profile exists (first page that user goes to once verifying email)
+    const ensureProfile = async (user) => {
+      if (!user) return;
+
+      // Try to fetch existing profile
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error checking profile:", error.message);
+        return;
+      }
+
+      if (!profile) {
+        // Insert new profile row if not exists
+        const { error: insertError } = await supabase.from("profiles").insert({
+          id: user.id,
+          name: user.user_metadata?.full_name || null,
+          email: user.email,
+        });
+
+        if (insertError) {
+          console.error("Error inserting profile:", insertError.message);
+        } else {
+          toast.success("Login successful!");
+        }
+      }
+    };
+
+
     // Get initial session
     const fetchSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       setIsLoggedIn(!!session);
+
+      if (session?.user) {
+        await ensureProfile(session.user);
+      }
     };
     fetchSession();
 
     // Subscribe to auth changes
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session);
-    });
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        setIsLoggedIn(!!session);
+
+        if (session?.user) {
+          await ensureProfile(session.user);
+        }
+      }
+    );
 
     // Cleanup subscription on unmount
     return () => subscription?.subscription?.unsubscribe?.();
   }, []);
+
 
   // Handle image upload + preview
   async function handleImageUpload(e) {

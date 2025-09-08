@@ -104,7 +104,7 @@ export default function Login() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="login-input"
+          className="input-field login-input"
         />
         <label className="input-label" htmlFor="password">Password</label>
         <br />
@@ -115,7 +115,7 @@ export default function Login() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          className="login-input"
+          className="input-field login-input"
         />
         <div className="page-link-word forgot-password">
           <span onClick={handleForgotPw}>forgot password</span>
