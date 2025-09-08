@@ -60,8 +60,6 @@ export default function Translate() {
 
         if (insertError) {
           console.error("Error inserting profile:", insertError.message);
-        } else {
-          toast.success("Login successful!");
         }
       }
     };

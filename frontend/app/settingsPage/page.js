@@ -1,13 +1,19 @@
 "use client";
+import Select from "react-select";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import { supabase } from '../../lib/supabaseClient';
+import { useLanguages } from "@/contexts/LanguagesContext";
 import toast from 'react-hot-toast';
 
 export default function SettingsPage() {
   const router = useRouter();
   const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { languages, error } = useLanguages();
+  const [mounted, setMounted] = useState(false);
 
   const [profile, setProfile] = useState({
     name: '',
@@ -19,17 +25,10 @@ export default function SettingsPage() {
     default_language: 'en',
   });
 
-  const [loading, setLoading] = useState(false);
 
-  const languageOptions = [
-    { value: 'en', label: 'English' },
-    { value: 'ms', label: 'Malay' },
-    { value: 'zh', label: 'Chinese' },
-    { value: 'es', label: 'Spanish' },
-    // change to use language component
-  ];
 
   useEffect(() => {
+    setMounted(true);
     fetchProfile();
   }, []);
 
@@ -68,27 +67,56 @@ export default function SettingsPage() {
   };
 
   const changePassword = async () => {
-    const { error } = await supabase.auth.resetPasswordForEmail(profile.email);
-    if (error) toast.error(error.message);
-    else toast.success('Password reset email sent');
+    setMessage("");
+
+    const { data, error } = await supabase.auth.resetPasswordForEmail(profile.email, {
+      redirectTo: `${window.location.origin}/update-password`
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setMessage("✅ Password reset email sent! Check your inbox.");
   };
 
   const deleteAccount = async () => {
-    if (!confirm('Are you sure you want to delete your account? This is irreversible!')) return;
+    if (!confirm("Are you sure you want to delete your account? This is irreversible!")) return;
 
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error: deleteProfileError } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', user.id);
-    if (deleteProfileError) return toast.error(deleteProfileError.message);
+    try {
+      // 1. Get Supabase JWT token
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token;
 
-    const { error: deleteUserError } = await supabase.auth.deleteUser(user.id);
-    if (deleteUserError) return toast.error(deleteUserError.message);
+      if (!token) {
+        toast.error("You must be logged in to delete your account.");
+        return;
+      }
 
-    toast.success('Account deleted successfully');
-    setIsLoggedIn(false);
-    router.push("/?toast=deleteAccSuccess");
+      // 2. Call backend route
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/delete-account`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(dataRes?.detail || "Failed to delete account");
+      }
+
+      // 4. Clear local session + redirect
+      await supabase.auth.signOut();
+      router.push("/?toast=deleteAccSuccess");
+
+    } catch (err) {
+      console.error("Delete account error:", err);
+      toast.error(err.message || "Something went wrong, please try again");
+    }
   };
 
   return (
@@ -142,15 +170,13 @@ export default function SettingsPage() {
         {/* Language */}
         <div className="input-group">
           <label>Default Language</label>
-          <select
-            value={profile.default_language}
-            onChange={(e) => setProfile({ ...profile, default_language: e.target.value })}
-            className="input-field"
-          >
-            {languageOptions.map(lang => (
-              <option key={lang.value} value={lang.value}>{lang.label}</option>
-            ))}
-          </select>
+          {mounted  && (
+            <Select  
+              options={languages}
+              value={languages.find((opt) => opt.value === profile.default_language)}
+              onChange={(opt) => setProfile({ ...profile, default_language: opt.value })}
+            />
+          )}
         </div>
 
         {/* Update Profile Button */}
@@ -167,13 +193,14 @@ export default function SettingsPage() {
 
       {/* Account Actions */}
       <div className="account-actions">
-        <button className="button changePw-button" onClick={changePassword}>
-          Change Password
+        <button className="button changePw-button" onClick={changePassword} disabled={loading}>
+          {loading ? 'Sending Email..' : 'Change Password'}
         </button>
         <button className="button danger-button" onClick={deleteAccount}>
           Delete Account
         </button>
       </div>
+      {message && <p className="message">{message}</p>}
     </div>
 
   );

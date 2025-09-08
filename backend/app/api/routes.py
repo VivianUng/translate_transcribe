@@ -170,6 +170,29 @@ async def save_summary(payload: SummaryPayload, current_user = Depends(get_curre
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to save summary: {e}")
+    
+    
+@router.post("/delete-account")
+async def delete_account(current_user=Depends(get_current_user)):
+    """
+    Delete user account (profile + auth user)
+    """
+    try:
+        # 1. Delete profile
+        profile_response = (
+            supabase.table("profiles")
+            .delete()
+            .eq("id", current_user.id)
+            .execute()
+        )
+
+        # 2. Delete auth user
+        supabase.auth.admin.delete_user(current_user.id)
+
+        return {"message": "Account deleted successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to delete account: {e}")
 
 
 @router.get("/languages")
