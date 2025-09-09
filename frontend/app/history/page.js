@@ -33,41 +33,38 @@ export default function History() {
     history.translations.forEach((item) => {
       combined.push({
         id: item.id,
-        title: item.input_text?.substring(0, 30) || "Translation",
         type: "Translation",
         date: new Date(item.created_at).toLocaleDateString(),
         time: new Date(item.created_at).toLocaleTimeString(),
-        preview: item.output_text || "",
-        raw: item,
+        input: item.input_text || "",
+        output: item.output_text || "",
       });
     });
 
     history.conversations.forEach((item) => {
       combined.push({
         id: item.id,
-        title: item.input_text?.substring(0, 30) || "Conversation",
         type: "Conversation",
         date: new Date(item.created_at).toLocaleDateString(),
         time: new Date(item.created_at).toLocaleTimeString(),
-        preview: item.output_text || "",
-        raw: item,
+        input: item.input_text || "",
+        output: item.output_text || "",
       });
     });
 
     history.summaries.forEach((item) => {
       combined.push({
         id: item.id,
-        title: item.input_text?.substring(0, 30) || "Summary",
         type: "Summary",
         date: new Date(item.created_at).toLocaleDateString(),
         time: new Date(item.created_at).toLocaleTimeString(),
-        preview: item.output_text || "",
-        raw: item,
+        input: item.input_text || "",
+        output: item.output_text || "",
       });
     });
 
     // sort by created_at descending
-    combined.sort((a, b) => new Date(b.raw.created_at) - new Date(a.raw.created_at));
+    combined.sort((a, b) => new Date(b.date + " " + b.time) - new Date(a.date + " " + a.time));
 
     return combined;
   }, [history]);
@@ -76,9 +73,9 @@ export default function History() {
   const filteredHistory = useMemo(() => {
     return combinedHistory.filter((item) => {
       const matchesSearch =
-        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.preview.toLowerCase().includes(searchTerm.toLowerCase());
+        item.input.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.output.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.type.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesType =
         selectedType === "" || item.type === selectedType;
@@ -193,40 +190,40 @@ export default function History() {
                 {row.type === "Meeting" && (
                   <>
                     <p className="card-subtitle"><strong>Agenda:</strong></p>
-                    <p className="card-preview">{row.raw.input_text || "No agenda available"}</p>
+                    <p className="card-preview">{row.input || "No agenda available"}</p>
 
                     <p className="card-subtitle"><strong>Summary:</strong></p>
-                    <p className="card-preview">{row.raw.output_text || "No summary available"}</p>
+                    <p className="card-preview">{row.output || "No summary available"}</p>
                   </>
                 )}
 
                 {row.type === "Conversation" && (
                   <>
                     <p className="card-subtitle"><strong>Input:</strong></p>
-                    <p className="card-preview">{row.raw.input_text || "No input text"}</p>
+                    <p className="card-preview">{row.input || "No input text"}</p>
 
                     <p className="card-subtitle"><strong>Response:</strong></p>
-                    <p className="card-preview">{row.raw.output_text || "No response text"}</p>
+                    <p className="card-preview">{row.output || "No response text"}</p>
                   </>
                 )}
 
                 {row.type === "Translation" && (
                   <>
                     <p className="card-subtitle"><strong>Original:</strong></p>
-                    <p className="card-preview">{row.raw.input_text || "No original text"}</p>
+                    <p className="card-preview">{row.input || "No original text"}</p>
 
                     <p className="card-subtitle"><strong>Translated:</strong></p>
-                    <p className="card-preview">{row.raw.output_text || "No translation"}</p>
+                    <p className="card-preview">{row.output || "No translation"}</p>
                   </>
                 )}
 
                 {row.type === "Summary" && (
                   <>
                     <p className="card-subtitle"><strong>Source:</strong></p>
-                    <p className="card-preview">{row.raw.input_text || "No source text"}</p>
+                    <p className="card-preview">{row.input || "No source text"}</p>
 
                     <p className="card-subtitle"><strong>Summary:</strong></p>
-                    <p className="card-preview">{row.raw.output_text || "No summary"}</p>
+                    <p className="card-preview">{row.output || "No summary"}</p>
                   </>
                 )}
               </div>
