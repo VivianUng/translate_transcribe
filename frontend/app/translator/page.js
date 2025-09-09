@@ -87,7 +87,7 @@ export default function Translate() {
     // Only apply prefs if loaded, session exists, and prefs.default_language exists
     if (!prefsLoading && session?.user && prefs.default_language && !prefsAppliedRef.current) {
       setTargetLang(prefs.default_language);
-      if (prefs.auto_save_summaries) setAutoSave(true);
+      if (prefs.auto_save_translations) setAutoSave(true);
       prefsAppliedRef.current = true; // ensure this runs only once
     }
   }, [prefsLoading, session, prefs]);
