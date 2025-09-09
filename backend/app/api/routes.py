@@ -202,7 +202,7 @@ async def delete_account(current_user=Depends(get_current_user)):
     try:
         user_id = current_user.id
 
-        # 1. Delete dependent rows (adjust for your schema)
+        # 1. Delete dependent rows
         supabase.table("translations").delete().eq("user_id", user_id).execute()
         supabase.table("summaries").delete().eq("user_id", user_id).execute()
         supabase.table("conversations").delete().eq("user_id", user_id).execute()

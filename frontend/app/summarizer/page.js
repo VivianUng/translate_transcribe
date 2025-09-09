@@ -9,6 +9,7 @@ import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { startMicRecording, stopRecording } from "@/utils/transcription";
 import { summarizeText } from "@/utils/summarization";
+import { translateText } from "@/utils/translation";
 
 
 export default function Summarizer() {
@@ -88,11 +89,20 @@ export default function Summarizer() {
       setInputLang(detectedLang);
 
       const summarized = await summarizeText(inputText, targetLang);
-      setSummarizedText(summarized);
 
-      if (session?.user && autoSave) { // if user is logged in and has auto-save on
-        await handleSaveSummary(inputText, summarized);
+      let finalSummary = summarized;
+
+      if (targetLang !== "en") {
+        finalSummary = await translateText(summarized, "en", targetLang);
+        setSummarizedText(finalSummary);
+      } else {
+        setSummarizedText(summarized);
       }
+
+      if (session?.user && autoSave) {
+        await handleSaveSummary(inputText, finalSummary);
+      }
+
 
     } catch (error) {
       setMessage(error.message || "Unexpected error occurred.");
