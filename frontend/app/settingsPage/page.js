@@ -29,21 +29,45 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setMounted(true);
-    fetchProfile();
-  }, []);
+    if (session) {
+      fetchProfile();
+    }
+  }, [session]);
+
 
   const fetchProfile = async () => {
+    if (!session?.user) {
+      console.error("No session or user found");
+      return;
+    }
+
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+
     const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
+      .from("profiles")
+      .select("*")
+      .eq("id", session.user.id)
       .single();
-    if (error) console.error(error);
-    else setProfile({ ...profile, ...data, email: user.email, id: user.id });
+
+    if (error) {
+      console.error(error);
+    } else {
+      setProfile({
+        id: data?.id ?? session.user.id,
+        name: data?.name ?? "",
+        email: session.user.email ?? "",
+        auto_save_translations: data?.auto_save_translations ?? false,
+        auto_save_transcriptions: data?.auto_save_transcriptions ?? false,
+        auto_save_conversations: data?.auto_save_conversations ?? false,
+        auto_save_meetings: data?.auto_save_meetings ?? false,
+        default_language: data?.default_language ?? "en",
+      });
+    }
+
     setLoading(false);
   };
+
+
 
   const updateProfile = async () => {
     setLoading(true);
@@ -88,8 +112,7 @@ export default function SettingsPage() {
 
     try {
       // 1. Get Supabase JWT token
-      const { data } = await supabase.auth.getSession();
-      const token = data?.session?.access_token;
+      const token = session?.access_token;
 
       if (!token) {
         toast.error("You must be logged in to delete your account.");
@@ -170,8 +193,8 @@ export default function SettingsPage() {
         {/* Language */}
         <div className="input-group">
           <label>Default Language</label>
-          {mounted  && (
-            <Select  
+          {mounted && (
+            <Select
               options={languages}
               value={languages.find((opt) => opt.value === profile.default_language)}
               onChange={(opt) => setProfile({ ...profile, default_language: opt.value })}

@@ -59,7 +59,17 @@ const meetingsData = {
 
 export default function Meetings() {
   const router = useRouter();
-  const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
+  const { LoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
+  const [mounted, setMounted] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setMounted(true); // for react-select component
+
+    if (session?.user) {
+      setIsLoggedIn(!!session);
+    }
+  }, [session]);
 
   if (loading) return <p>Loading...</p>;
 
@@ -87,7 +97,7 @@ export default function Meetings() {
             Create New <span aria-hidden="true">+</span>
           </button>
         </div>
-          
+
         {meetingsData.upcoming.map((meeting) => (
           <div key={meeting.id} className="meeting-card">
             <div>

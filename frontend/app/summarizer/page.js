@@ -4,13 +4,14 @@ import Select from "react-select";
 import { supabase } from '../../lib/supabaseClient';
 import { useState, useRef, useEffect } from "react";
 import { useLanguages } from "@/contexts/LanguagesContext";
+import useAuthCheck from "@/hooks/useAuthCheck";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { startMicRecording, stopRecording } from "@/utils/transcription";
 import { summarizeText } from "@/utils/summarization";
 
 
 export default function Summarizer() {
-
+  const { LoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const [inputText, setInputText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("en");
@@ -30,21 +31,10 @@ export default function Summarizer() {
   useEffect(() => {
     setMounted(true); // for react-select component
 
-    // Get initial session
-    const fetchSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
       setIsLoggedIn(!!session);
-    };
-    fetchSession();
-
-    // Subscribe to auth changes
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session);
-    });
-
-    // Cleanup subscription on unmount
-    return () => subscription?.subscription?.unsubscribe?.();
-  }, []);
+    }
+  }, [session]);
 
   async function handleMicInput() {
     if (listening) {
@@ -105,9 +95,8 @@ export default function Summarizer() {
     setSaveMessage("")
 
     try {
-      // get Supabase JWT token from localstorage
-      const { data } = await supabase.auth.getSession();
-      const token = data?.session?.access_token;
+      // get Supabase JWT token
+      const token = session?.access_token;
 
       if (!token) {
         alert("You must be logged in to save summaries.");

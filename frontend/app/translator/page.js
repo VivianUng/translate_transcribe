@@ -6,11 +6,13 @@ import { supabase } from '../../lib/supabaseClient';
 import { useState, useRef, useEffect } from "react";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
+import useAuthCheck from "@/hooks/useAuthCheck";
 import { translateText } from "@/utils/translation";
 import { startMicRecording, stopRecording } from "@/utils/transcription";
 import { extractTextFromImage } from "@/utils/fileProcessing";
 
 export default function Translate() {
+  const { LoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const [inputText, setInputText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
   const [imageLang, setImageLang] = useState("auto");
@@ -52,7 +54,7 @@ export default function Translate() {
 
       if (!profile) {
         // Insert new profile row if not exists
-        const { error: insertError } = await supabase.from("profiles").insert({
+        const { error: insertError } = await supabase.from("profiles").upsert({
           id: user.id,
           name: user.user_metadata?.full_name || null,
           email: user.email,
@@ -63,35 +65,11 @@ export default function Translate() {
         }
       }
     };
-
-
-    // Get initial session
-    const fetchSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    if (session?.user) {
+      ensureProfile(session.user);
       setIsLoggedIn(!!session);
-
-      if (session?.user) {
-        await ensureProfile(session.user);
-      }
-    };
-    fetchSession();
-
-    // Subscribe to auth changes
-    const { data: subscription } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setIsLoggedIn(!!session);
-
-        if (session?.user) {
-          await ensureProfile(session.user);
-        }
-      }
-    );
-
-    // Cleanup subscription on unmount
-    return () => subscription?.subscription?.unsubscribe?.();
-  }, []);
+    }
+  }, [session]);
 
 
   // Handle image upload + preview
@@ -178,9 +156,8 @@ export default function Translate() {
     setSaveMessage("")
 
     try {
-      // get Supabase JWT token from localstorage
-      const { data } = await supabase.auth.getSession();
-      const token = data?.session?.access_token;
+      // get Supabase JWT token
+      const token =session?.access_token;
 
       if (!token) {
         alert("You must be logged in to save translations.");

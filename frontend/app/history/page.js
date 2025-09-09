@@ -76,8 +76,19 @@ const historyData = [
 export default function History() {
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
-  if (loading) return <div>Loading...</div>;
+  const { LoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
+  const [mounted, setMounted] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setMounted(true); // for react-select component
+
+    if (session?.user) {
+      setIsLoggedIn(!!session);
+    }
+  }, [session]);
+
+  if (loading) return <p>Loading...</p>;
 
 
   // Filter history based on search input
@@ -96,7 +107,7 @@ export default function History() {
   return (
     <div className="page-container">
       <h1 className="page-title">History</h1>
-            <input
+      <input
         type="text"
         placeholder="Search history..."
         value={searchTerm}
