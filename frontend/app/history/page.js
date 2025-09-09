@@ -10,6 +10,8 @@ export default function History() {
   const [history, setHistory] = useState({ translations: [], conversations: [], summaries: [] });
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [selectedType, setSelectedType] = useState("");
+
 
   useEffect(() => {
     if (session?.user) {
@@ -68,15 +70,23 @@ export default function History() {
     return combined;
   }, [history]);
 
+  // Filter history based on search input and type
+  const filteredHistory = useMemo(() => {
+    return combinedHistory.filter((item) => {
+      const matchesSearch =
+        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.preview.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesType =
+        selectedType === "" || item.type === selectedType;
+
+      return matchesSearch && matchesType;
+    });
+  }, [combinedHistory, searchTerm, selectedType]);
+
   if (loading) return <p>Loading...</p>;
 
-  // Filter history based on search input
-  const filteredHistory = combinedHistory.filter(
-    (item) =>
-      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.preview.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   async function fetchUserHistory() {
     try {
@@ -124,13 +134,28 @@ export default function History() {
   return (
     <div className="page-container">
       <h1 className="page-title">History</h1>
-      <input
-        type="text"
-        placeholder="Search history..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        className="searchInput"
-      />
+      {/* Search and Type Filter */}
+      <div className="filter-container">
+        <input
+          type="text"
+          placeholder="Search history..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="searchInput"
+        />
+
+        <select
+          value={selectedType}
+          onChange={(e) => setSelectedType(e.target.value)}
+          className="typeDropdown"
+        >
+          <option value="">All Types</option>
+          <option value="Translation">Translation</option>
+          <option value="Conversation">Conversation</option>
+          <option value="Summary">Summary</option>
+          <option value="Meeting">Meeting</option>
+        </select>
+      </div>
 
       <div className="history-container">
         {filteredHistory.length > 0 ? (

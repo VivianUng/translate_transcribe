@@ -421,6 +421,30 @@ input[type="file"] {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
+.filter-container {
+  display: flex;
+  gap: 12px; /* space between input and dropdown */
+  margin-bottom: 16px;
+  
+}
+
+.typeDropdown {
+  padding: 10px;
+  height: 38.5px; 
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  background-color: #fff;
+  cursor: pointer;
+  min-width: 150px;
+}
+
+.typeDropdown:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
 .history-card {
   width: 100%;
   padding: 16px;
