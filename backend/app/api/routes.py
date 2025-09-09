@@ -91,7 +91,9 @@ class TranslationPayload(BaseModel):
 
 class SummaryPayload(BaseModel):
     input_text: str
+    input_lang: str
     output_text: str
+    output_lang: str
 
 class ConversationPayload(BaseModel):
     input_text: str
@@ -175,6 +177,8 @@ async def save_summary(payload: SummaryPayload, current_user = Depends(get_curre
             "user_id": current_user.id,
             "input_text": payload.input_text,
             "output_text": payload.output_text,
+            "input_lang": payload.input_lang,
+            "output_lang": payload.output_lang,
             "created_at": "now()"
         }).execute()
 
