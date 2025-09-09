@@ -1,14 +1,17 @@
 "use client";
 
 import Select from "react-select";
+import { supabase } from '../../lib/supabaseClient';
 import React, { useState, useRef, useEffect } from "react";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import { translateText } from "@/utils/translation";
+import useAuthCheck from "@/hooks/useAuthCheck";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { startMicRecording, startScreenRecording, stopRecording, } from "@/utils/transcription";
 
 
 export default function ConversationPage() {
+  const { LoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const [listening, setListening] = useState(false);
   const [recordingType, setRecordingType] = useState(null); // "mic" or "screen"
   const [transcription, setTranscription] = useState("");
@@ -18,7 +21,12 @@ export default function ConversationPage() {
   const { languages, error } = useLanguages();
   const [message, setMessage] = useState("");
   const [transcription_message, setTranscriptMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [autoSave, setAutoSave] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [save_message, setSaveMessage] = useState("");
+
+  const [loading, setLoading] = useState(false); // for translation
+  const [saving, setSaving] = useState(false);   // for saving conversation
 
   const [segments, setSegments] = useState([]); // store diarized segments
 
@@ -29,7 +37,29 @@ export default function ConversationPage() {
 
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true); // for react-select component
+
+    const loadProfilePrefs = async (user) => {
+      if (!user) return; // only fetch if logged in
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("default_language, auto_save_conversations")
+        .eq("id", user.id)
+        .single();
+
+      if (!error && data) {
+        if (data.default_language) setTargetLang(data.default_language);
+        if (data.auto_save_conversations) setAutoSave(true);
+      }
+    };
+
+    if (session?.user) {
+      setIsLoggedIn(!!session);
+      loadProfilePrefs(session.user);
+    }
+  }, [session]);
 
   // ---------- Transcription ----------
   const handleMicStart = () => {
@@ -118,12 +148,61 @@ export default function ConversationPage() {
       // Step 2: Translate using utils
       const translated = await translateText(transcription, detectedLang, targetLang);
       setTranslatedText(translated);
+
+      if (session?.user && autoSave) { // if user is logged in and has auto-save on
+        await handleSaveConversation(transcription, translated);
+      }
+
     } catch (error) {
       setMessage(error.message || "Unexpected error occurred.");
     } finally {
       setLoading(false);
     }
   }
+
+  async function handleSaveConversation(
+    input_text = transcription,
+    output_text = translatedText
+  ) {
+    if (!isLoggedIn || !transcription || !translatedText) return;
+
+    setSaving(true);
+    setSaveMessage("");
+
+    try {
+      // get Supabase JWT token
+      const token = session?.access_token;
+      if (!token) {
+        alert("You must be logged in to save conversations.");
+        return;
+      }
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/save-conversation`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            input_text,
+            output_text,
+          }),
+        }
+      );
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.detail || "Failed to save conversation");
+
+      setSaveMessage("Conversation saved successfully ✅");
+    } catch (err) {
+      setSaveMessage(err.message || "Failed to save conversation ❌");
+    } finally {
+      setSaving(false);
+    }
+  }
+
 
 
   return (
@@ -210,6 +289,27 @@ export default function ConversationPage() {
           {message}
         </div>
       </section>
+
+      {isLoggedIn && transcription && translatedText && (
+        <div>
+          <button
+            className="button save-conversation-button"
+            onClick={() => handleSaveConversation(transcription, translatedText)}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Save Conversation"}
+          </button>
+
+          <div
+            className="message save-message"
+            role="alert"
+            aria-live="assertive"
+          >
+            {save_message}
+          </div>
+        </div>
+
+      )}
     </div>
   );
 }

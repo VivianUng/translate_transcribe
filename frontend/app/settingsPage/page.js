@@ -19,7 +19,7 @@ export default function SettingsPage() {
     name: '',
     email: '',
     auto_save_translations: false,
-    auto_save_transcriptions: false,
+    auto_save_summaries: false,
     auto_save_conversations: false,
     auto_save_meetings: false,
     default_language: 'en',
@@ -57,7 +57,7 @@ export default function SettingsPage() {
         name: data?.name ?? "",
         email: session.user.email ?? "",
         auto_save_translations: data?.auto_save_translations ?? false,
-        auto_save_transcriptions: data?.auto_save_transcriptions ?? false,
+        auto_save_summaries: data?.auto_save_summaries ?? false,
         auto_save_conversations: data?.auto_save_conversations ?? false,
         auto_save_meetings: data?.auto_save_meetings ?? false,
         default_language: data?.default_language ?? "en",
@@ -67,28 +67,6 @@ export default function SettingsPage() {
     setLoading(false);
   };
 
-
-
-  // const updateProfile = async () => {
-  //   setLoading(true);
-
-  //   const { error } = await supabase
-  //     .from('profiles')
-  //     .upsert({
-  //       id: profile.id,
-  //       name: profile.name,
-  //       auto_save_translations: profile.auto_save_translations,
-  //       auto_save_transcriptions: profile.auto_save_transcriptions,
-  //       auto_save_conversations: profile.auto_save_conversations,
-  //       auto_save_meetings: profile.auto_save_meetings,
-  //       default_language: profile.default_language,
-  //     });
-
-  //   if (error) toast.error(error.message);
-  //   else toast.success('Profile updated successfully');
-
-  //   setLoading(false);
-  // };
 
   const updateProfile = async () => {
     setLoading(true);
@@ -101,7 +79,7 @@ export default function SettingsPage() {
           id: profile.id,
           name: profile.name,
           auto_save_translations: profile.auto_save_translations,
-          auto_save_transcriptions: profile.auto_save_transcriptions,
+          auto_save_summaries: profile.auto_save_summaries,
           auto_save_conversations: profile.auto_save_conversations,
           auto_save_meetings: profile.auto_save_meetings,
           default_language: profile.default_language,
@@ -210,7 +188,7 @@ export default function SettingsPage() {
         {[
           { key: 'auto_save_conversations', label: 'Auto-save Conversations' },
           { key: 'auto_save_translations', label: 'Auto-save Translations' },
-          { key: 'auto_save_transcriptions', label: 'Auto-save Transcriptions' },
+          { key: 'auto_save_summaries', label: 'Auto-save Summaries' },
           { key: 'auto_save_meetings', label: 'Auto-save Meetings' },
         ].map(({ key, label }) => (
           <div key={key} className="checkbox-group">

@@ -93,6 +93,10 @@ class SummaryPayload(BaseModel):
     input_text: str
     output_text: str
 
+class ConversationPayload(BaseModel):
+    input_text: str
+    output_text: str
+
 class TranscribeSegment(BaseModel):
     speaker: str
     start: float
@@ -171,6 +175,24 @@ async def save_summary(payload: SummaryPayload, current_user = Depends(get_curre
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to save summary: {e}")
     
+@router.post("/save-conversation")
+async def save_conversation(payload: ConversationPayload, current_user = Depends(get_current_user)):
+    """
+    Save conversation for authenticated user
+    """
+    try:
+        result = supabase.table("conversations").insert({
+            "user_id": current_user.id,
+            "input_text": payload.input_text,
+            "output_text": payload.output_text,
+            "created_at": "now()"
+        }).execute()
+
+        return {"message": "Summary saved successfully!"}
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to save summary: {e}")
+    
     
 @router.post("/delete-account")
 async def delete_account(current_user=Depends(get_current_user)):
@@ -183,7 +205,7 @@ async def delete_account(current_user=Depends(get_current_user)):
         # 1. Delete dependent rows (adjust for your schema)
         supabase.table("translations").delete().eq("user_id", user_id).execute()
         supabase.table("summaries").delete().eq("user_id", user_id).execute()
-        #supabase.table("conversations").delete().eq("user_id", user_id).execute()
+        supabase.table("conversations").delete().eq("user_id", user_id).execute()
         #deletion for meeting will be dependent on meeting table strucutre
         # add more tables
 

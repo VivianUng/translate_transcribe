@@ -24,6 +24,7 @@ export default function Translate() {
   const [loading, setLoading] = useState(false);
   const { languages, error } = useLanguages();
   const [previewImage, setPreviewImage] = useState(null);
+  const [autoSave, setAutoSave] = useState(false);
 
   const micRecorderRef = useRef(null);
   const audioChunks = useRef([]);
@@ -65,8 +66,26 @@ export default function Translate() {
         }
       }
     };
+
+    const loadProfilePrefs = async (user) => {
+      if (!user) return; // only fetch if logged in
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("default_language, auto_save_translations")
+        .eq("id", user.id)
+        .single();
+
+      if (!error && data) {
+        if (data.default_language) setTargetLang(data.default_language);
+        if (data.auto_save_translations) setAutoSave(true);
+      }
+    };
+
+
     if (session?.user) {
       ensureProfile(session.user);
+      loadProfilePrefs(session.user);
       setIsLoggedIn(!!session);
     }
   }, [session]);
@@ -117,6 +136,10 @@ export default function Translate() {
 
       const translated = await translateText(inputText, detectedLang, targetLang);
       setTranslatedText(translated);
+      if (session?.user && autoSave) { // if user is logged in and has auto-save on
+        await handleSaveTranslation(inputText, detectedLang, translated, targetLang);
+      }
+
     } catch (error) {
       setMessage(error.message || "Unexpected error occurred.");
     } finally {
@@ -148,17 +171,21 @@ export default function Translate() {
     }
   }
 
-  async function handleSaveTranslation() {
-    if (!isLoggedIn || !translatedText) return;
+
+  async function handleSaveTranslation(
+    input_text = inputText,
+    input_lang = inputLang,
+    output_text = translatedText,
+    output_lang = targetLang
+  ) {
+    if (!isLoggedIn || !output_text) return;
 
     setLoading(true);
     setMessage("");
-    setSaveMessage("")
+    setSaveMessage("");
 
     try {
-      // get Supabase JWT token
-      const token =session?.access_token;
-
+      const token = session?.access_token;
       if (!token) {
         alert("You must be logged in to save translations.");
         return;
@@ -171,18 +198,17 @@ export default function Translate() {
           "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
-          input_text: inputText,
-          input_lang: inputLang,
-          output_text: translatedText,
-          output_lang: targetLang,
+          input_text,
+          input_lang,
+          output_text,
+          output_lang,
         }),
       });
 
       const result = await res.json();
-
       if (!res.ok) throw new Error(result.detail || "Failed to save translation");
 
-      setSaveMessage("Translation saved Successfully");
+      setSaveMessage("Translation saved successfully");
     } catch (err) {
       setSaveMessage(err.message || "Failed to save translation.");
     } finally {
@@ -314,7 +340,7 @@ export default function Translate() {
           <div>
             <button
               className="button save-translation-button"
-              onClick={handleSaveTranslation}
+              onClick={() => handleSaveTranslation(inputText, inputLang, translatedText, targetLang)}
               disabled={loading}
             >
               {loading ? "Saving..." : "Save Translation"}

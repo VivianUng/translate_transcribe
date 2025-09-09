@@ -20,6 +20,7 @@ export default function Summarizer() {
   const [save_message, setSaveMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const { languages, error } = useLanguages();
+  const [autoSave, setAutoSave] = useState(false);
 
   const micRecorderRef = useRef(null);
   const audioChunks = useRef([]);
@@ -31,8 +32,24 @@ export default function Summarizer() {
   useEffect(() => {
     setMounted(true); // for react-select component
 
+    const loadProfilePrefs = async (user) => {
+      if (!user) return; // only fetch if logged in
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("default_language, auto_save_summaries")
+        .eq("id", user.id)
+        .single();
+
+      if (!error && data) {
+        if (data.default_language) setTargetLang(data.default_language);
+        if (data.auto_save_summaries) setAutoSave(true);
+      }
+    };
+
     if (session?.user) {
       setIsLoggedIn(!!session);
+      loadProfilePrefs(session.user);
     }
   }, [session]);
 
@@ -80,6 +97,10 @@ export default function Summarizer() {
       const summarized = await summarizeText(inputText, targetLang);
       setSummarizedText(summarized);
 
+      if (session?.user && autoSave) { // if user is logged in and has auto-save on
+        await handleSaveSummary(inputText, summarized);
+      }
+
     } catch (error) {
       setMessage(error.message || "Unexpected error occurred.");
     } finally {
@@ -87,17 +108,19 @@ export default function Summarizer() {
     }
   }
 
-  async function handleSaveSummary() {
-    if (!isLoggedIn || !summarizedText) return;
+  async function handleSaveSummary(
+    input_text = inputText,
+    output_text = summarizedText
+  ) {
+
+    if (!isLoggedIn || !output_text) return;
 
     setLoading(true);
     setMessage("");
-    setSaveMessage("")
+    setSaveMessage("");
 
     try {
-      // get Supabase JWT token
       const token = session?.access_token;
-
       if (!token) {
         alert("You must be logged in to save summaries.");
         return;
@@ -110,13 +133,12 @@ export default function Summarizer() {
           "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
-          input_text: inputText,
-          output_text: summarizedText,
+          input_text,
+          output_text,
         }),
       });
 
       const result = await res.json();
-
       if (!res.ok) throw new Error(result.detail || "Failed to save summary");
 
       setSaveMessage("Summary saved Successfully");
@@ -200,7 +222,7 @@ export default function Summarizer() {
         <div>
           <button
             className="button save-summary-button"
-            onClick={handleSaveSummary}
+            onClick={() => handleSaveSummary(inputText, summarizedText)}
             disabled={loading}
           >
             {loading ? "Saving..." : "Save Summary"}
