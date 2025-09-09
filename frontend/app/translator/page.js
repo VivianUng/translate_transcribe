@@ -193,13 +193,14 @@ export default function Translate() {
         return;
       }
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/save-translation`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/save`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
+          type: "translation",
           input_text,
           input_lang,
           output_text,

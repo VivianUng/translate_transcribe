@@ -182,7 +182,7 @@ export default function ConversationPage() {
       }
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/save-conversation`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/save`,
         {
           method: "POST",
           headers: {
@@ -190,6 +190,7 @@ export default function ConversationPage() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
+            type: "conversation",
             input_text,
             output_text,
             input_lang: inputLang,

@@ -143,13 +143,14 @@ export default function Summarizer() {
         return;
       }
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/save-summary`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/save`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
+          type: "summary",
           input_text,
           output_text,
           input_lang: inputLang,

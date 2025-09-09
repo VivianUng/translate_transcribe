@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request, Form
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Literal
 import httpx
 from datetime import datetime
 import pytesseract
@@ -73,33 +73,15 @@ class SummarizeResponse(BaseModel):
     summarized_text: str
     output_lang: str = "en"
 
-class SaveRequest(BaseModel):
+class GenericSavePayload(BaseModel):
     input_text: str
-    input_lang: str
     output_text: str
+    input_lang: str
     output_lang: str
+    type: Literal["translation", "summary", "conversation"]
 
 class OCRResponse(BaseModel) :
     extracted_text: str
-
-
-class TranslationPayload(BaseModel):
-    input_text: str
-    input_lang: str
-    output_text: str
-    output_lang: str
-
-class SummaryPayload(BaseModel):
-    input_text: str
-    input_lang: str
-    output_text: str
-    output_lang: str
-
-class ConversationPayload(BaseModel):
-    input_text: str
-    input_lang: str
-    output_text: str
-    output_lang: str
 
 class RecordUpdate(BaseModel):
     input_text: Optional[str] = None
@@ -146,66 +128,37 @@ def get_current_user(request: Request):
             detail=f"Invalid token: {str(e)}",
         )
 
-
-@router.post("/save-translation")
-async def save_translation(payload: TranslationPayload, current_user = Depends(get_current_user)):
+@router.post("/save")
+async def save_item(payload: GenericSavePayload, current_user=Depends(get_current_user)):
     """
-    Save translation for authenticated user
-    """
-    try:
-        result = supabase.table("translations").insert({
-            "user_id": current_user.id,
-            "input_text": payload.input_text,
-            "input_lang": payload.input_lang,
-            "output_text": payload.output_text,
-            "output_lang": payload.output_lang,
-            "created_at": "now()"
-        }).execute()
-
-        return {"message": "Translation saved successfully!"}
-
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to save translation: {e}")
-    
-@router.post("/save-summary")
-async def save_summary(payload: SummaryPayload, current_user = Depends(get_current_user)):
-    """
-    Save summary for authenticated user
+    Save translation/summary/conversation for authenticated user
     """
     try:
-        result = supabase.table("summaries").insert({
-            "user_id": current_user.id,
-            "input_text": payload.input_text,
-            "output_text": payload.output_text,
-            "input_lang": payload.input_lang,
-            "output_lang": payload.output_lang,
-            "created_at": "now()"
-        }).execute()
+        table_map = {
+            "translation": "translations",
+            "summary": "summaries",
+            "conversation": "conversations",
+        }
+        table_name = table_map[payload.type]
 
-        return {"message": "Summary saved successfully!"}
+        result = (
+            supabase.table(table_name)
+            .insert({
+                "user_id": current_user.id,
+                "input_text": payload.input_text,
+                "output_text": payload.output_text,
+                "input_lang": payload.input_lang,
+                "output_lang": payload.output_lang,
+                "created_at": "now()",
+            })
+            .execute()
+        )
 
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to save summary: {e}")
-    
-@router.post("/save-conversation")
-async def save_conversation(payload: ConversationPayload, current_user = Depends(get_current_user)):
-    """
-    Save conversation for authenticated user
-    """
-    try:
-        result = supabase.table("conversations").insert({
-            "user_id": current_user.id,
-            "input_text": payload.input_text,
-            "output_text": payload.output_text,
-            "input_lang": payload.input_lang,
-            "output_lang": payload.output_lang,
-            "created_at": "now()"
-        }).execute()
-
-        return {"message": "Summary saved successfully!"}
+        return {"message": f"{payload.type.capitalize()} saved successfully!"}
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to save summary: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to save {payload.type}: {e}")
+
     
 @router.get("/user-history")
 async def get_user_history(current_user=Depends(get_current_user)):
