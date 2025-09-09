@@ -469,10 +469,7 @@ input[type="file"] {
   margin-bottom: 6px;
 }
 
-.card-header h3 {
-  margin: 0;
-  font-size: 16px;
-}
+
 
 .type {
   background-color: var(--secondary-color);
@@ -486,6 +483,13 @@ input[type="file"] {
   font-size: 12px;
   color: #888;
   margin-bottom: 8px;
+}
+
+.card-subtitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: #555;
+  margin: 4px 0 2px;
 }
 
 .card-preview {

@@ -176,18 +176,60 @@ export default function History() {
         {filteredHistory.length > 0 ? (
           filteredHistory.map((row) => (
             <div
-              key={`${row.type}-${row.id}`} // unique key
+              key={`${row.type}-${row.id}`}
               className="history-card"
               onClick={() => viewDetails(row)}
             >
+              {/* Header: type + timestamp */}
               <div className="card-header">
-                <h3>{row.title}</h3>
                 <span className="type">{row.type}</span>
+                <div className="card-meta">
+                  <span>{row.date}</span> | <span>{row.time}</span>
+                </div>
               </div>
-              <div className="card-meta">
-                <span>{row.date}</span> | <span>{row.time}</span>
+
+              {/* Body: compact preview */}
+              <div className="card-body">
+                {row.type === "Meeting" && (
+                  <>
+                    <p className="card-subtitle"><strong>Agenda:</strong></p>
+                    <p className="card-preview">{row.raw.input_text || "No agenda available"}</p>
+
+                    <p className="card-subtitle"><strong>Summary:</strong></p>
+                    <p className="card-preview">{row.raw.output_text || "No summary available"}</p>
+                  </>
+                )}
+
+                {row.type === "Conversation" && (
+                  <>
+                    <p className="card-subtitle"><strong>Input:</strong></p>
+                    <p className="card-preview">{row.raw.input_text || "No input text"}</p>
+
+                    <p className="card-subtitle"><strong>Response:</strong></p>
+                    <p className="card-preview">{row.raw.output_text || "No response text"}</p>
+                  </>
+                )}
+
+                {row.type === "Translation" && (
+                  <>
+                    <p className="card-subtitle"><strong>Original:</strong></p>
+                    <p className="card-preview">{row.raw.input_text || "No original text"}</p>
+
+                    <p className="card-subtitle"><strong>Translated:</strong></p>
+                    <p className="card-preview">{row.raw.output_text || "No translation"}</p>
+                  </>
+                )}
+
+                {row.type === "Summary" && (
+                  <>
+                    <p className="card-subtitle"><strong>Source:</strong></p>
+                    <p className="card-preview">{row.raw.input_text || "No source text"}</p>
+
+                    <p className="card-subtitle"><strong>Summary:</strong></p>
+                    <p className="card-preview">{row.raw.output_text || "No summary"}</p>
+                  </>
+                )}
               </div>
-              <p className="card-preview">{row.preview}</p>
             </div>
           ))
         ) : (
