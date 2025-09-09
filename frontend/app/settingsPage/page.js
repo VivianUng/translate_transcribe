@@ -69,26 +69,61 @@ export default function SettingsPage() {
 
 
 
+  // const updateProfile = async () => {
+  //   setLoading(true);
+
+  //   const { error } = await supabase
+  //     .from('profiles')
+  //     .upsert({
+  //       id: profile.id,
+  //       name: profile.name,
+  //       auto_save_translations: profile.auto_save_translations,
+  //       auto_save_transcriptions: profile.auto_save_transcriptions,
+  //       auto_save_conversations: profile.auto_save_conversations,
+  //       auto_save_meetings: profile.auto_save_meetings,
+  //       default_language: profile.default_language,
+  //     });
+
+  //   if (error) toast.error(error.message);
+  //   else toast.success('Profile updated successfully');
+
+  //   setLoading(false);
+  // };
+
   const updateProfile = async () => {
     setLoading(true);
 
-    const { error } = await supabase
-      .from('profiles')
-      .upsert({
-        id: profile.id,
-        name: profile.name,
-        auto_save_translations: profile.auto_save_translations,
-        auto_save_transcriptions: profile.auto_save_transcriptions,
-        auto_save_conversations: profile.auto_save_conversations,
-        auto_save_meetings: profile.auto_save_meetings,
-        default_language: profile.default_language,
+    try {
+      // 1. Update profile table
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .upsert({
+          id: profile.id,
+          name: profile.name,
+          auto_save_translations: profile.auto_save_translations,
+          auto_save_transcriptions: profile.auto_save_transcriptions,
+          auto_save_conversations: profile.auto_save_conversations,
+          auto_save_meetings: profile.auto_save_meetings,
+          default_language: profile.default_language,
+        });
+
+      if (profileError) throw profileError;
+
+      // 2. Update auth.user metadata (full_name)
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { full_name: profile.name },
       });
 
-    if (error) toast.error(error.message);
-    else toast.success('Profile updated successfully');
+      if (authError) throw authError;
 
-    setLoading(false);
+      toast.success("Profile updated successfully");
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
+
 
   const changePassword = async () => {
     setMessage("");

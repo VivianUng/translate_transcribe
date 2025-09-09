@@ -175,24 +175,30 @@ async def save_summary(payload: SummaryPayload, current_user = Depends(get_curre
 @router.post("/delete-account")
 async def delete_account(current_user=Depends(get_current_user)):
     """
-    Delete user account (profile + auth user)
+    Delete user account (all related rows + profile + auth user)
     """
     try:
-        # 1. Delete profile
-        profile_response = (
-            supabase.table("profiles")
-            .delete()
-            .eq("id", current_user.id)
-            .execute()
-        )
+        user_id = current_user.id
 
-        # 2. Delete auth user
-        supabase.auth.admin.delete_user(current_user.id)
+        # 1. Delete dependent rows (adjust for your schema)
+        supabase.table("translations").delete().eq("user_id", user_id).execute()
+        supabase.table("summaries").delete().eq("user_id", user_id).execute()
+        #supabase.table("conversations").delete().eq("user_id", user_id).execute()
+        #deletion for meeting will be dependent on meeting table strucutre
+        # add more tables
+
+        # 2. Delete profile
+        supabase.table("profiles").delete().eq("id", user_id).execute()
+
+        # 3. Delete auth user
+        supabase.auth.admin.delete_user(user_id)
 
         return {"message": "Account deleted successfully"}
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to delete account: {e}")
+        raise HTTPException(
+            status_code=400, detail=f"Failed to delete account: {str(e)}"
+        )
 
 
 @router.get("/languages")
