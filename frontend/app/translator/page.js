@@ -24,9 +24,11 @@ export default function Translate() {
   const [ocr_message, setOCRMessage] = useState("");
   const [save_message, setSaveMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const { languages, error } = useLanguages();
   const [previewImage, setPreviewImage] = useState(null);
   const [autoSave, setAutoSave] = useState(false);
+  const [isSaved, setIsSaved] = useState(false); // track if translation is saved
 
   const micRecorderRef = useRef(null);
   const audioChunks = useRef([]);
@@ -72,13 +74,23 @@ export default function Translate() {
     }
   }, [session]);
 
-  //  Apply preferences after hook has fetched them
+  // Whenever input or target language changes, reset isSaved
   useEffect(() => {
-    if (!prefsLoading) {
-      if (prefs.default_language) setTargetLang(prefs.default_language);
-      if (prefs.auto_save_translations) setAutoSave(true);
+    setIsSaved(false);
+    setMessage("");
+    setSaveMessage("");
+  }, [inputText, targetLang]);
+
+  const prefsAppliedRef = useRef(false);
+
+  useEffect(() => {
+    // Only apply prefs if loaded, session exists, and prefs.default_language exists
+    if (!prefsLoading && session?.user && prefs.default_language && !prefsAppliedRef.current) {
+      setTargetLang(prefs.default_language);
+      if (prefs.auto_save_summaries) setAutoSave(true);
+      prefsAppliedRef.current = true; // ensure this runs only once
     }
-  }, [prefs, prefsLoading]);
+  }, [prefsLoading, session, prefs]);
 
 
   // Handle image upload + preview
@@ -170,7 +182,7 @@ export default function Translate() {
   ) {
     if (!isLoggedIn || !output_text) return;
 
-    setLoading(true);
+    setSaving(true);
     setMessage("");
     setSaveMessage("");
 
@@ -199,10 +211,11 @@ export default function Translate() {
       if (!res.ok) throw new Error(result.detail || "Failed to save translation");
 
       setSaveMessage("Translation saved successfully");
+      setIsSaved(true); // disable button after successful save
     } catch (err) {
       setSaveMessage(err.message || "Failed to save translation.");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   }
 
@@ -331,9 +344,9 @@ export default function Translate() {
             <button
               className="button save-translation-button"
               onClick={() => handleSaveTranslation(inputText, inputLang, translatedText, targetLang)}
-              disabled={loading}
+              disabled={saving || loading || isSaved}
             >
-              {loading ? "Saving..." : "Save Translation"}
+              {saving ? "Saving..." : isSaved ? "Saved" : "Save Translation"}
             </button>
 
             <div

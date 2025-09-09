@@ -24,6 +24,8 @@ export default function Summarizer() {
   const [loading, setLoading] = useState(false);
   const { languages, error } = useLanguages();
   const [autoSave, setAutoSave] = useState(false);
+  const [isSaved, setIsSaved] = useState(false); // track if summary is saved
+  const [saving, setSaving] = useState(false);
 
   const micRecorderRef = useRef(null);
   const audioChunks = useRef([]);
@@ -39,13 +41,24 @@ export default function Summarizer() {
     }
   }, [session]);
 
-  // Apply prefs when loaded
+  // Whenever input or target language changes, reset isSaved
   useEffect(() => {
-    if (!prefsLoading) {
-      if (prefs.default_language) setTargetLang(prefs.default_language);
+    setIsSaved(false);
+    setMessage("");
+    setSaveMessage("");
+  }, [inputText, targetLang]);
+
+  const prefsAppliedRef = useRef(false);
+
+  useEffect(() => {
+    // Only apply prefs if loaded, session exists, and prefs.default_language exists
+    if (!prefsLoading && session?.user && prefs.default_language && !prefsAppliedRef.current) {
+      setTargetLang(prefs.default_language);
       if (prefs.auto_save_summaries) setAutoSave(true);
+      prefsAppliedRef.current = true; // ensure this runs only once
     }
-  }, [prefs, prefsLoading]);
+  }, [prefsLoading, session, prefs]);
+
 
   async function handleMicInput() {
     if (listening) {
@@ -89,15 +102,15 @@ export default function Summarizer() {
       setInputLang(detectedLang);
 
       let enInput = inputText;
-      if (detectedLang != "en"){
+      if (detectedLang != "en") {
         enInput = await translateText(inputText, detectedLang, "en");
-      } 
+      }
       const summarized = await summarizeText(enInput, targetLang);
 
       let finalSummary = summarized;
       if (targetLang !== "en") {
         finalSummary = await translateText(summarized, "en", targetLang);
-      } 
+      }
       setSummarizedText(finalSummary);
 
       if (session?.user && autoSave) {
@@ -119,7 +132,7 @@ export default function Summarizer() {
 
     if (!isLoggedIn || !output_text) return;
 
-    setLoading(true);
+    setSaving(true);
     setMessage("");
     setSaveMessage("");
 
@@ -146,10 +159,11 @@ export default function Summarizer() {
       if (!res.ok) throw new Error(result.detail || "Failed to save summary");
 
       setSaveMessage("Summary saved Successfully");
+      setIsSaved(true); // disable button after successful save
     } catch (err) {
       setSaveMessage(err.message || "Failed to save summary.");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   }
 
@@ -227,9 +241,9 @@ export default function Summarizer() {
           <button
             className="button save-summary-button"
             onClick={() => handleSaveSummary(inputText, summarizedText)}
-            disabled={loading}
+            disabled={saving || loading || isSaved}
           >
-            {loading ? "Saving..." : "Save Summary"}
+            {saving ? "Saving..." : isSaved ? "Saved" : "Save Summary"}
           </button>
 
           <div

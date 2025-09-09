@@ -26,6 +26,7 @@ export default function ConversationPage() {
   const [autoSave, setAutoSave] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [save_message, setSaveMessage] = useState("");
+  const [isSaved, setIsSaved] = useState(false); // track if conversation is saved
 
   const [loading, setLoading] = useState(false); // for translation
   const [saving, setSaving] = useState(false);   // for saving conversation
@@ -46,13 +47,23 @@ export default function ConversationPage() {
     }
   }, [session]);
 
-  // Apply prefs when loaded
+  // Whenever input or target language changes, reset isSaved
   useEffect(() => {
-    if (!prefsLoading) {
-      if (prefs.default_language) setTargetLang(prefs.default_language);
-      if (prefs.auto_save_conversations) setAutoSave(true);
+    setIsSaved(false);
+    setMessage("");
+    setSaveMessage("");
+  }, [transcription, targetLang]);
+
+  const prefsAppliedRef = useRef(false);
+
+  useEffect(() => {
+    // Only apply prefs if loaded, session exists, and prefs.default_language exists
+    if (!prefsLoading && session?.user && prefs.default_language && !prefsAppliedRef.current) {
+      setTargetLang(prefs.default_language);
+      if (prefs.auto_save_summaries) setAutoSave(true);
+      prefsAppliedRef.current = true; // ensure this runs only once
     }
-  }, [prefs, prefsLoading]);
+  }, [prefsLoading, session, prefs]);
 
   // ---------- Transcription ----------
   const handleMicStart = () => {
@@ -189,6 +200,7 @@ export default function ConversationPage() {
       if (!res.ok) throw new Error(result.detail || "Failed to save conversation");
 
       setSaveMessage("Conversation saved successfully ✅");
+      setIsSaved(true); // disable button after successful save
     } catch (err) {
       setSaveMessage(err.message || "Failed to save conversation ❌");
     } finally {
@@ -288,9 +300,9 @@ export default function ConversationPage() {
           <button
             className="button save-conversation-button"
             onClick={() => handleSaveConversation(transcription, translatedText)}
-            disabled={saving}
+            disabled={saving || loading || isSaved}
           >
-            {saving ? "Saving..." : "Save Conversation"}
+            {saving ? "Saving..." : isSaved ? "Saved" : "Save Conversation"}
           </button>
 
           <div
