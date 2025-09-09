@@ -7,12 +7,14 @@ import { useState, useRef, useEffect } from "react";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import useAuthCheck from "@/hooks/useAuthCheck";
+import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { translateText } from "@/utils/translation";
 import { startMicRecording, stopRecording } from "@/utils/transcription";
 import { extractTextFromImage } from "@/utils/fileProcessing";
 
 export default function Translate() {
   const { LoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
+  const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_translations",]);
   const [inputText, setInputText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
   const [imageLang, setImageLang] = useState("auto");
@@ -35,13 +37,11 @@ export default function Translate() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true); // for react-select component
+    setMounted(true);
 
-    // Helper: ensure profile exists (first page that user goes to once verifying email)
     const ensureProfile = async (user) => {
       if (!user) return;
 
-      // Try to fetch existing profile
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("id")
@@ -54,7 +54,6 @@ export default function Translate() {
       }
 
       if (!profile) {
-        // Insert new profile row if not exists
         const { error: insertError } = await supabase.from("profiles").upsert({
           id: user.id,
           name: user.user_metadata?.full_name || null,
@@ -67,28 +66,19 @@ export default function Translate() {
       }
     };
 
-    const loadProfilePrefs = async (user) => {
-      if (!user) return; // only fetch if logged in
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("default_language, auto_save_translations")
-        .eq("id", user.id)
-        .single();
-
-      if (!error && data) {
-        if (data.default_language) setTargetLang(data.default_language);
-        if (data.auto_save_translations) setAutoSave(true);
-      }
-    };
-
-
     if (session?.user) {
       ensureProfile(session.user);
-      loadProfilePrefs(session.user);
-      setIsLoggedIn(!!session);
+      setIsLoggedIn(true);
     }
   }, [session]);
+
+  //  Apply preferences after hook has fetched them
+  useEffect(() => {
+    if (!prefsLoading) {
+      if (prefs.default_language) setTargetLang(prefs.default_language);
+      if (prefs.auto_save_translations) setAutoSave(true);
+    }
+  }, [prefs, prefsLoading]);
 
 
   // Handle image upload + preview

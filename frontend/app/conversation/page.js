@@ -6,12 +6,14 @@ import React, { useState, useRef, useEffect } from "react";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import { translateText } from "@/utils/translation";
 import useAuthCheck from "@/hooks/useAuthCheck";
+import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { startMicRecording, startScreenRecording, stopRecording, } from "@/utils/transcription";
 
 
 export default function ConversationPage() {
   const { LoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
+  const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_conversations",]);
   const [listening, setListening] = useState(false);
   const [recordingType, setRecordingType] = useState(null); // "mic" or "screen"
   const [transcription, setTranscription] = useState("");
@@ -39,27 +41,18 @@ export default function ConversationPage() {
 
   useEffect(() => {
     setMounted(true); // for react-select component
-
-    const loadProfilePrefs = async (user) => {
-      if (!user) return; // only fetch if logged in
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("default_language, auto_save_conversations")
-        .eq("id", user.id)
-        .single();
-
-      if (!error && data) {
-        if (data.default_language) setTargetLang(data.default_language);
-        if (data.auto_save_conversations) setAutoSave(true);
-      }
-    };
-
     if (session?.user) {
-      setIsLoggedIn(!!session);
-      loadProfilePrefs(session.user);
+      setIsLoggedIn(true);
     }
   }, [session]);
+
+  // Apply prefs when loaded
+  useEffect(() => {
+    if (!prefsLoading) {
+      if (prefs.default_language) setTargetLang(prefs.default_language);
+      if (prefs.auto_save_conversations) setAutoSave(true);
+    }
+  }, [prefs, prefsLoading]);
 
   // ---------- Transcription ----------
   const handleMicStart = () => {

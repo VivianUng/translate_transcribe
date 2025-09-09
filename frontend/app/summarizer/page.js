@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useState, useRef, useEffect } from "react";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import useAuthCheck from "@/hooks/useAuthCheck";
+import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { startMicRecording, stopRecording } from "@/utils/transcription";
 import { summarizeText } from "@/utils/summarization";
@@ -12,6 +13,7 @@ import { summarizeText } from "@/utils/summarization";
 
 export default function Summarizer() {
   const { LoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
+  const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_summaries",]);
   const [inputText, setInputText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("en");
@@ -31,27 +33,18 @@ export default function Summarizer() {
 
   useEffect(() => {
     setMounted(true); // for react-select component
-
-    const loadProfilePrefs = async (user) => {
-      if (!user) return; // only fetch if logged in
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("default_language, auto_save_summaries")
-        .eq("id", user.id)
-        .single();
-
-      if (!error && data) {
-        if (data.default_language) setTargetLang(data.default_language);
-        if (data.auto_save_summaries) setAutoSave(true);
-      }
-    };
-
     if (session?.user) {
-      setIsLoggedIn(!!session);
-      loadProfilePrefs(session.user);
+      setIsLoggedIn(true);
     }
   }, [session]);
+
+  // Apply prefs when loaded
+  useEffect(() => {
+    if (!prefsLoading) {
+      if (prefs.default_language) setTargetLang(prefs.default_language);
+      if (prefs.auto_save_summaries) setAutoSave(true);
+    }
+  }, [prefs, prefsLoading]);
 
   async function handleMicInput() {
     if (listening) {
