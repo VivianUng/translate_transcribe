@@ -1,104 +1,121 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useMemo } from "react";
 import useAuthCheck from "@/hooks/useAuthCheck";
-import { supabase } from '../../lib/supabaseClient';
-
-// dummy data
-const historyData = [
-  {
-    title: "Text1",
-    type: "Conversation",
-    date: "2023/09/17",
-    time: "12.00PM - 1.00PM",
-    preview:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit ...............",
-  },
-  {
-    title: "Text2",
-    type: "Meeting",
-    date: "2023/09/17",
-    time: "2.00PM - 2.30PM",
-    preview:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit ...............",
-  },
-  {
-    title: "Text3",
-    type: "Translation",
-    date: "2023/09/17",
-    time: "2.00PM - 2.30PM",
-    preview:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit ...............",
-  },
-  {
-    title: "Text4",
-    type: "Summary",
-    date: "2023/09/17",
-    time: "2.00PM - 2.30PM",
-    preview:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit ...............",
-  },
-  {
-    title: "Text5",
-    type: "Conversation",
-    date: "2023/09/17",
-    time: "2.00PM - 2.30PM",
-    preview:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit ...............",
-  },
-  {
-    title: "Meeting with Supervisor",
-    type: "Translation",
-    date: "2023/09/17",
-    time: "2.00PM - 2.30PM",
-    preview:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit ...............",
-  },
-  {
-    title: "Meeting for Presentation",
-    type: "Translation",
-    date: "2023/09/17",
-    time: "2.00PM - 2.30PM",
-    preview:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit ...............",
-  },
-  {
-    title: "Class 2",
-    type: "Translation",
-    date: "2023/09/17",
-    time: "2.00PM - 2.30PM",
-    preview:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit ...............",
-  },
-];
 
 export default function History() {
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { LoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
-  const [mounted, setMounted] = useState(false);
+  const { LoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
+  const [history, setHistory] = useState({ translations: [], conversations: [], summaries: [] });
+  const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    setMounted(true); // for react-select component
-
     if (session?.user) {
       setIsLoggedIn(!!session);
+      fetchUserHistory().then((data) => {
+        setHistory(data);
+        setLoading(false);
+      });
     }
   }, [session]);
 
+
+  // Combine all history items into a single array for display
+  const combinedHistory = useMemo(() => {
+    const combined = [];
+
+    history.translations.forEach((item) => {
+      combined.push({
+        id: item.id,
+        title: item.input_text?.substring(0, 30) || "Translation",
+        type: "Translation",
+        date: new Date(item.created_at).toLocaleDateString(),
+        time: new Date(item.created_at).toLocaleTimeString(),
+        preview: item.output_text || "",
+        raw: item,
+      });
+    });
+
+    history.conversations.forEach((item) => {
+      combined.push({
+        id: item.id,
+        title: item.input_text?.substring(0, 30) || "Conversation",
+        type: "Conversation",
+        date: new Date(item.created_at).toLocaleDateString(),
+        time: new Date(item.created_at).toLocaleTimeString(),
+        preview: item.output_text || "",
+        raw: item,
+      });
+    });
+
+    history.summaries.forEach((item) => {
+      combined.push({
+        id: item.id,
+        title: item.input_text?.substring(0, 30) || "Summary",
+        type: "Summary",
+        date: new Date(item.created_at).toLocaleDateString(),
+        time: new Date(item.created_at).toLocaleTimeString(),
+        preview: item.output_text || "",
+        raw: item,
+      });
+    });
+
+    // sort by created_at descending
+    combined.sort((a, b) => new Date(b.raw.created_at) - new Date(a.raw.created_at));
+
+    return combined;
+  }, [history]);
+
   if (loading) return <p>Loading...</p>;
 
-
   // Filter history based on search input
-  const filteredHistory = historyData.filter(
+  const filteredHistory = combinedHistory.filter(
     (item) =>
       item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.preview.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  async function fetchUserHistory() {
+    try {
+      // get Supabase JWT token
+      const token = session?.access_token;
+      if (!token) {
+        alert("You must be logged in to view history.");
+        return { translations: [], conversations: [], summaries: [] };
+      }
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/user-history`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const errorResult = await res.json();
+        throw new Error(errorResult.detail || "Failed to fetch user history");
+      }
+
+      const result = await res.json();
+      return {
+        translations: result.translations || [],
+        conversations: result.conversations || [],
+        summaries: result.summaries || [],
+      };
+    } catch (err) {
+      console.error("Error fetching user history:", err.message || err);
+      return { translations: [], conversations: [], summaries: [] };
+    }
+  }
+
+  // Logic for viewing meeting details page
   const viewDetails = (row) => {
     console.log("View details for:", row);
     // Navigate to detail page or open modal
@@ -117,9 +134,9 @@ export default function History() {
 
       <div className="history-container">
         {filteredHistory.length > 0 ? (
-          filteredHistory.map((row, idx) => (
+          filteredHistory.map((row) => (
             <div
-              key={idx}
+              key={`${row.type}-${row.id}`} // unique key
               className="history-card"
               onClick={() => viewDetails(row)}
             >

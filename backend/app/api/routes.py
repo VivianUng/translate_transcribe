@@ -193,6 +193,32 @@ async def save_conversation(payload: ConversationPayload, current_user = Depends
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to save summary: {e}")
     
+@router.get("/user-history")
+async def get_user_history(current_user=Depends(get_current_user)):
+    """
+    Fetch translations, conversations, and summaries for the logged-in user.
+    """
+    user_id = current_user.id
+
+    try:
+        # Fetch translations
+        translations = supabase.table("translations").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+
+        # Fetch conversations
+        conversations = supabase.table("conversations").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+
+        # Fetch summaries
+        summaries = supabase.table("summaries").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+
+        return {
+            "translations": translations.data or [],
+            "conversations": conversations.data or [],
+            "summaries": summaries.data or []
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch user history: {e}")
+    
     
 @router.post("/delete-account")
 async def delete_account(current_user=Depends(get_current_user)):
