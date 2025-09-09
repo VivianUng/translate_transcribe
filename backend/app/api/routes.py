@@ -95,7 +95,15 @@ class SummaryPayload(BaseModel):
 
 class ConversationPayload(BaseModel):
     input_text: str
+    input_lang: str
     output_text: str
+    output_lang: str
+
+class RecordUpdate(BaseModel):
+    input_text: Optional[str] = None
+    output_text: Optional[str] = None
+    input_lang: Optional[str] = None
+    output_lang: Optional[str] = None
 
 class TranscribeSegment(BaseModel):
     speaker: str
@@ -185,6 +193,8 @@ async def save_conversation(payload: ConversationPayload, current_user = Depends
             "user_id": current_user.id,
             "input_text": payload.input_text,
             "output_text": payload.output_text,
+            "input_lang": payload.input_lang,
+            "output_lang": payload.output_lang,
             "created_at": "now()"
         }).execute()
 
@@ -218,7 +228,98 @@ async def get_user_history(current_user=Depends(get_current_user)):
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to fetch user history: {e}")
-    
+
+def get_table(record_type: str):
+    table = record_type
+    if not table:
+        raise HTTPException(status_code=400, detail="Invalid record type")
+    return table
+
+# GET record
+@router.get("/{record_type}/{record_id}")
+async def get_record(record_type: str, record_id: str, current_user=Depends(get_current_user)):
+    try:
+        table = get_table(record_type)
+        result = (
+            supabase.table(table)
+            .select("*")
+            .eq("id", record_id)
+            .eq("user_id", current_user.id)
+            .single()
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail=f"{record_type[:-1].capitalize()} not found")
+
+        return result.data
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error fetching {record_type}: {e}")
+
+
+# UPDATE record
+@router.put("/{record_type}/{record_id}")
+async def update_record(
+    record_type: str,
+    record_id: str,
+    payload: RecordUpdate,
+    current_user=Depends(get_current_user)
+):
+    try:
+        table = get_table(record_type)
+
+        updates = {}
+        if payload.input_text is not None:
+            updates["input_text"] = payload.input_text
+        if payload.output_text is not None:
+            updates["output_text"] = payload.output_text
+        if payload.input_lang is not None:
+            updates["input_lang"] = payload.input_lang
+        if payload.output_lang is not None:
+            updates["output_lang"] = payload.output_lang
+
+        if not updates:
+            raise HTTPException(status_code=400, detail="No updates provided")
+
+        result = (
+            supabase.table(table)
+            .update(updates)
+            .eq("id", record_id)
+            .eq("user_id", current_user.id)
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail=f"{record_type[:-1].capitalize()} not found")
+
+        return result.data[0]
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error updating {record_type}: {e}")
+
+
+# DELETE record
+@router.delete("/{record_type}/{record_id}")
+async def delete_record(record_type: str, record_id: str, current_user=Depends(get_current_user)):
+    try:
+        table = get_table(record_type)
+
+        result = (
+            supabase.table(table)
+            .delete()
+            .eq("id", record_id)
+            .eq("user_id", current_user.id)
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail=f"{record_type[:-1].capitalize()} not found")
+
+        return {"message": f"{record_type[:-1].capitalize()} deleted successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error deleting {record_type}: {e}")
     
 @router.post("/delete-account")
 async def delete_account(current_user=Depends(get_current_user)):

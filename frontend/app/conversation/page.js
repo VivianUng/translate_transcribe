@@ -192,6 +192,8 @@ export default function ConversationPage() {
           body: JSON.stringify({
             input_text,
             output_text,
+            input_lang: inputLang,
+            output_lang: targetLang,
           }),
         }
       );

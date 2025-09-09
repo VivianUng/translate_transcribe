@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 
 export default function History() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
 
   const { LoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
@@ -125,10 +127,23 @@ export default function History() {
     }
   }
 
-  // Logic for viewing meeting details page
   const viewDetails = (row) => {
-    console.log("View details for:", row);
-    // Navigate to detail page or open modal
+    switch (row.type) {
+      case "Meeting":
+        router.push(`/meeting/details?id=${row.id}`);
+        break;
+      case "Conversation":
+        router.push(`/conversation/details?id=${row.id}`);
+        break;
+      case "Translation":
+        router.push(`/translation/details?id=${row.id}`);
+        break;
+      case "Summary":
+        router.push(`/summary/details?id=${row.id}`);
+        break;
+      default:
+        console.warn("Unknown type:", row.type);
+    }
   };
 
   return (
