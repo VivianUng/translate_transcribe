@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
-import { supabase } from '../../lib/supabaseClient';
 
 // dummy data
 const meetingsData = {

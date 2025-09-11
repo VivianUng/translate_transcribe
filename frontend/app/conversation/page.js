@@ -1,8 +1,7 @@
 "use client";
 
 import Select from "react-select";
-import { supabase } from '../../lib/supabaseClient';
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import { translateText } from "@/utils/translation";
 import useAuthCheck from "@/hooks/useAuthCheck";
@@ -65,8 +64,20 @@ export default function ConversationPage() {
     }
   }, [prefsLoading, session, prefs]);
 
+  function clearDisplay() {
+    setIsSaved(false);
+    setSaving(false);
+    setLoading(false);
+    setMessage("");
+    setSaveMessage("");
+    setTranscription("");
+    setTranscriptMessage("");
+    setTranslatedText("");
+  }
+
   // ---------- Transcription ----------
   const handleMicStart = () => {
+    clearDisplay();
     startMicRecording({
       micRecorderRef,
       audioChunks,
@@ -79,6 +90,7 @@ export default function ConversationPage() {
   };
 
   const handleScreenStart = () => {
+    clearDisplay();
     startScreenRecording({
       screenStreamRef,
       screenRecorderRef,
@@ -136,7 +148,7 @@ export default function ConversationPage() {
   async function handleTranslate() {
     setLoading(true);
     setMessage("");
-    setTranscriptMessage("")
+    setTranscriptMessage("");
     setTranslatedText("");
 
     try {
@@ -170,7 +182,7 @@ export default function ConversationPage() {
     input_text = transcription,
     output_text = translatedText
   ) {
-    if (!isLoggedIn || !transcription || !translatedText) return;
+    if (!isLoggedIn || !transcription) return;
 
     setSaving(true);
     setSaveMessage("");
@@ -300,7 +312,7 @@ export default function ConversationPage() {
         </div>
       </section>
 
-      {isLoggedIn && transcription && translatedText && (
+      {isLoggedIn && transcription && (
         <div>
           <button
             className="button save-conversation-button"

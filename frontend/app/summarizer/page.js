@@ -1,7 +1,6 @@
 "use client";
 
 import Select from "react-select";
-import { supabase } from '../../lib/supabaseClient';
 import { useState, useRef, useEffect } from "react";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import useAuthCheck from "@/hooks/useAuthCheck";
@@ -59,8 +58,18 @@ export default function Summarizer() {
     }
   }, [prefsLoading, session, prefs]);
 
+    function clearDisplay() {
+    setIsSaved(false);
+    setSaving(false);
+    setLoading(false);
+    setMessage("");
+    setSaveMessage("");
+    setInputText("");
+    setSummarizedText("");
+  }
 
   async function handleMicInput() {
+    clearDisplay();
     if (listening) {
       stopRecording({
         recordingType: "mic",

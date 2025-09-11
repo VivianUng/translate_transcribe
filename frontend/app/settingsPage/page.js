@@ -15,7 +15,8 @@ export default function SettingsPage() {
   const { languages, error } = useLanguages();
   const [mounted, setMounted] = useState(false);
 
-  const [profile, setProfile] = useState({
+  const [formData, setFormData] = useState({
+    id: '',
     name: '',
     email: '',
     auto_save_translations: false,
@@ -24,6 +25,19 @@ export default function SettingsPage() {
     auto_save_meetings: false,
     default_language: 'en',
   });
+
+  const [profile, setProfile] = useState({
+    id: '',
+    name: '',
+    email: '',
+    auto_save_translations: false,
+    auto_save_summaries: false,
+    auto_save_conversations: false,
+    auto_save_meetings: false,
+    default_language: 'en',
+  });
+
+  const isChanged = JSON.stringify(formData) !== JSON.stringify(profile);
 
 
 
@@ -52,7 +66,7 @@ export default function SettingsPage() {
     if (error) {
       console.error(error);
     } else {
-      setProfile({
+      const normalized = {
         id: data?.id ?? session.user.id,
         name: data?.name ?? "",
         email: session.user.email ?? "",
@@ -61,38 +75,48 @@ export default function SettingsPage() {
         auto_save_conversations: data?.auto_save_conversations ?? false,
         auto_save_meetings: data?.auto_save_meetings ?? false,
         default_language: data?.default_language ?? "en",
-      });
+      };
+
+      // set both to the same normalized object
+      setProfile(normalized);
+      setFormData(normalized);
     }
 
     setLoading(false);
   };
 
 
+
   const updateProfile = async () => {
     setLoading(true);
+    if (!formData.name) {
+      setLoading(false);
+      return toast.error("Name cannot be empty.")
+    }
 
     try {
-      // 1. Update profile table
       const { error: profileError } = await supabase
         .from("profiles")
         .upsert({
-          id: profile.id,
-          name: profile.name,
-          auto_save_translations: profile.auto_save_translations,
-          auto_save_summaries: profile.auto_save_summaries,
-          auto_save_conversations: profile.auto_save_conversations,
-          auto_save_meetings: profile.auto_save_meetings,
-          default_language: profile.default_language,
+          id: formData.id,
+          name: formData.name,
+          email: formData.email,
+          auto_save_translations: formData.auto_save_translations,
+          auto_save_summaries: formData.auto_save_summaries,
+          auto_save_conversations: formData.auto_save_conversations,
+          auto_save_meetings: formData.auto_save_meetings,
+          default_language: formData.default_language,
         });
 
       if (profileError) throw profileError;
 
-      // 2. Update auth.user metadata (full_name)
       const { error: authError } = await supabase.auth.updateUser({
-        data: { full_name: profile.name },
+        data: { full_name: formData.name },
       });
 
       if (authError) throw authError;
+
+      setProfile(formData);
 
       toast.success("Profile updated successfully");
     } catch (err) {
@@ -101,6 +125,7 @@ export default function SettingsPage() {
       setLoading(false);
     }
   };
+
 
 
   const changePassword = async () => {
@@ -167,8 +192,8 @@ export default function SettingsPage() {
           <label>Name</label>
           <input
             type="text"
-            value={profile.name}
-            onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             className="input-field"
           />
         </div>
@@ -194,8 +219,8 @@ export default function SettingsPage() {
           <div key={key} className="checkbox-group">
             <input
               type="checkbox"
-              checked={profile[key]}
-              onChange={(e) => setProfile({ ...profile, [key]: e.target.checked })}
+              checked={formData[key]}
+              onChange={(e) => setFormData({ ...formData, [key]: e.target.checked })}
             />
             <label>{label}</label>
           </div>
@@ -209,8 +234,8 @@ export default function SettingsPage() {
           {mounted && (
             <Select
               options={languages}
-              value={languages.find((opt) => opt.value === profile.default_language)}
-              onChange={(opt) => setProfile({ ...profile, default_language: opt.value })}
+              value={languages.find((opt) => opt.value === formData.default_language)}
+              onChange={(opt) => setFormData({ ...formData, default_language: opt.value })}
             />
           )}
         </div>
@@ -220,7 +245,7 @@ export default function SettingsPage() {
           <button
             className="button updateProfile-button"
             onClick={updateProfile}
-            disabled={loading}
+            disabled={loading || !isChanged}
           >
             {loading ? 'Updating...' : 'Update Profile'}
           </button>

@@ -96,6 +96,15 @@ export default function Translate() {
     }
   }, [prefsLoading, session, prefs]);
 
+  function clearDisplay() {
+    setIsSaved(false);
+    setSaving(false);
+    setLoading(false);
+    setMessage("");
+    setSaveMessage("");
+    setInputText("");
+    setTranslatedText("");
+  }
 
   // Handle image upload + preview
   async function handleImageUpload(e) {
@@ -154,6 +163,7 @@ export default function Translate() {
   }
 
   async function handleMicInput() {
+    clearDisplay();
     if (listening) {
       stopRecording({
         recordingType: "mic",

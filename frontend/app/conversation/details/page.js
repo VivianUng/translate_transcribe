@@ -1,6 +1,7 @@
 "use client";
 import Select from "react-select";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import toast from 'react-hot-toast';
 import { useSearchParams, useRouter } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import { useLanguages } from "@/contexts/LanguagesContext";
@@ -11,16 +12,19 @@ export default function ConversationDetails() {
     const id = searchParams.get("id");
     const { session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
     const [mounted, setMounted] = useState(false);
-    const [conversation, setConversation] = useState(null);
+    const [conversation, setConversation] = useState(null); // snapshot (last saved)
+    const [formData, setFormData] = useState(null);        // editable copy
     const [loading, setLoading] = useState(true);
-    const [editInputText, setEditInputText] = useState("");
-    const [editOutputText, setEditOutputText] = useState("");
-    const [inputLang, setInputLang] = useState("en");
-    const [targetLang, setTargetLang] = useState("en"); // default English
     const [saving, setSaving] = useState(false);
     const [translating, setTranslating] = useState(false);
-    const { languages, err } = useLanguages();
+    const { languages } = useLanguages();
     const [error, setError] = useState(null);
+
+    // 🔹 detect changes
+    const isChanged = useMemo(() => {
+        if (!conversation || !formData) return false;
+        return JSON.stringify(formData) !== JSON.stringify(conversation);
+    }, [conversation, formData]);
 
     // Fetch conversation by ID
     useEffect(() => {
@@ -46,11 +50,18 @@ export default function ConversationDetails() {
                 if (!res.ok) throw new Error("Failed to fetch conversation");
 
                 const data = await res.json();
-                setConversation(data);
-                setEditInputText(data.input_text || "");
-                setInputLang(data.input_lang || "en");
-                setEditOutputText(data.output_text || "");
-                setTargetLang(data.output_lang || "en");
+
+                const normalized = {
+                    id: data.id,
+                    input_text: data.input_text || "",
+                    input_lang: data.input_lang || "en",
+                    output_text: data.output_text || "",
+                    output_lang: data.output_lang || "en",
+                    created_at: data.created_at,
+                };
+
+                setConversation(normalized); // snapshot
+                setFormData(normalized);     // editable copy
             } catch (err) {
                 setError(err.message || "Error fetching conversation");
             } finally {
@@ -63,7 +74,8 @@ export default function ConversationDetails() {
 
     // Update record
     const handleUpdate = async () => {
-        if (!id) return;
+        if (!id || !formData) return;
+        if (!formData.input_text) return toast.error("Input field cannot be empty.")
         setSaving(true);
         try {
             const res = await fetch(
@@ -75,9 +87,9 @@ export default function ConversationDetails() {
                         Authorization: `Bearer ${session?.access_token}`,
                     },
                     body: JSON.stringify({
-                        input_text: editInputText,
-                        output_text: editOutputText,
-                        output_lang: targetLang,
+                        input_text: formData.input_text,
+                        output_text: formData.output_text,
+                        output_lang: formData.output_lang,
                     }),
                 }
             );
@@ -85,11 +97,12 @@ export default function ConversationDetails() {
             if (!res.ok) throw new Error("Failed to update conversation");
 
             const updated = await res.json();
-            setConversation(updated);
-            alert("Conversation updated successfully!");
+            setConversation(updated); // reset snapshot
+            setFormData(updated);     // sync editable
+            toast.success("Conversation updated successfully!");
         } catch (err) {
             console.error("Error updating:", err);
-            alert("Update failed.");
+            toast.error("Update failed.");
         } finally {
             setSaving(false);
         }
@@ -114,17 +127,17 @@ export default function ConversationDetails() {
 
             if (!res.ok) throw new Error("Failed to delete conversation");
 
-            alert("Conversation deleted.");
-            router.push("/conversation"); // back to conversation list
+            toast.message("Conversation deleted.");
+            router.push("/history");
         } catch (err) {
             console.error("Error deleting:", err);
-            alert("Delete failed.");
+            toast.error("Delete failed.");
         }
     };
 
     // Retranslate with selected target language
     const handleRetranslate = async () => {
-        if (!editInputText) return alert("No text to translate");
+        if (!formData?.input_text) return toast.error("No text to translate");
         setTranslating(true);
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/translate`, {
@@ -134,19 +147,22 @@ export default function ConversationDetails() {
                     Authorization: `Bearer ${session?.access_token}`,
                 },
                 body: JSON.stringify({
-                    text: editInputText,
-                    source_lang: inputLang,
-                    target_lang: targetLang,
+                    text: formData.input_text,
+                    source_lang: formData.input_lang,
+                    target_lang: formData.output_lang,
                 }),
             });
 
             if (!res.ok) throw new Error("Translation failed");
 
             const result = await res.json();
-            setEditOutputText(result.translated_text || "");
+            setFormData((prev) => ({
+                ...prev,
+                output_text: result.translated_text || "",
+            }));
         } catch (err) {
             console.error("Error retranslating:", err);
-            alert("Retranslation failed.");
+            toast.error("Retranslation failed.");
         } finally {
             setTranslating(false);
         }
@@ -167,8 +183,10 @@ export default function ConversationDetails() {
                     </div>
                     <textarea
                         className="input-text-area"
-                        value={editInputText}
-                        onChange={(e) => setEditInputText(e.target.value)}
+                        value={formData.input_text}
+                        onChange={(e) =>
+                            setFormData({ ...formData, input_text: e.target.value })
+                        }
                         rows={8}
                         placeholder="Edit transcription here..."
                     />
@@ -181,8 +199,12 @@ export default function ConversationDetails() {
                         {mounted && (
                             <Select
                                 options={languages.filter((opt) => opt.value !== "auto")}
-                                value={languages.find((opt) => opt.value === targetLang)}
-                                onChange={(opt) => setTargetLang(opt.value)}
+                                value={languages.find(
+                                    (opt) => opt.value === formData.output_lang
+                                )}
+                                onChange={(opt) =>
+                                    setFormData({ ...formData, output_lang: opt.value })
+                                }
                                 className="flex-1"
                             />
                         )}
@@ -197,8 +219,10 @@ export default function ConversationDetails() {
 
                     <textarea
                         className="input-text-area"
-                        value={editOutputText}
-                        onChange={(e) => setEditOutputText(e.target.value)}
+                        value={formData.output_text}
+                        onChange={(e) =>
+                            setFormData({ ...formData, output_text: e.target.value })
+                        }
                         rows={8}
                         placeholder="Edit translation here..."
                     />
@@ -220,7 +244,7 @@ export default function ConversationDetails() {
                 <div className="button-group">
                     <button
                         onClick={handleUpdate}
-                        disabled={saving}
+                        disabled={saving || !isChanged}
                         className="button save"
                     >
                         {saving ? "Saving..." : "Save Changes"}
