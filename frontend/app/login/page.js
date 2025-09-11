@@ -18,6 +18,7 @@ export default function Login() {
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   useEffect(() => {
     async function fetchSession() {
@@ -78,6 +79,7 @@ export default function Login() {
     }
 
     setErrorMsg("✅ Password reset email sent! Check your inbox.");
+    setResetSent(true); // disable after successful send
 
   }
 
@@ -117,8 +119,18 @@ export default function Login() {
           required
           className="input-field login-input"
         />
+        {/* Forgot password link */}
         <div className="page-link-word forgot-password">
-          <span onClick={handleForgotPw}>forgot password</span>
+          <span
+            onClick={resetSent ? undefined : handleForgotPw}
+            style={{ opacity: resetSent ? 0.6 : 1, pointerEvents: resetSent ? "none" : "auto" }}
+          >
+            {resetLoading
+              ? "Sending reset email..."
+              : resetSent
+                ? "Reset Email Sent"
+                : "Forgot password"}
+          </span>
         </div>
         <button
           className="button login-button"
