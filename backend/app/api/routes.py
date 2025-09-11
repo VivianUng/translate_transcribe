@@ -340,25 +340,81 @@ async def detect_language(req: DetectLangRequest):
             confidence=best_match["confidence"],
         )
 
-# for testing : second version of detect-lang 
+
+LANGDETECT_TO_LIBRE = {
+    "zh-cn": "zh-Hans",
+    "zh-tw": "zh-Hant",
+}
+
+def normalize_lang(code: str) -> str:
+    return LANGDETECT_TO_LIBRE.get(code, code)
+
 @router.post("/detect-language2", response_model=DetectLangResponse)
 async def detect_language2(req: DetectLangRequest):
+    libre_result = None
+    langdetect_result = None
+
+    # 1. LibreTranslate detection
     try:
-        # langdetect can return multiple candidates with probabilities
+        async with httpx.AsyncClient() as client:
+            detect_resp = await client.post(
+                f"{LIBRETRANSLATE_URL}/detect",
+                json={"q": req.text},
+                timeout=10,
+            )
+            detect_resp.raise_for_status()
+            detections = detect_resp.json()
+            if detections:
+                best = detections[0]
+                libre_result = {
+                    "lang": normalize_lang(best["language"]),
+                    "confidence": best["confidence"],
+                }
+    except Exception:
+        pass
+
+    # 2. Langdetect detection
+    try:
         candidates = detect_langs(req.text)
+        if candidates:
+            best = candidates[0]
+            langdetect_result = {
+                "lang": normalize_lang(best.lang),
+                "confidence": best.prob * 100,
+            }
+    except Exception:
+        pass
+    
+    SUPPORTED_LANGS = set(lang["code"] for lang in await get_languages())
+    # 3. Filter by supported languages
+    if libre_result and libre_result["lang"] not in SUPPORTED_LANGS:
+        libre_result = None
+    if langdetect_result and langdetect_result["lang"] not in SUPPORTED_LANGS:
+        langdetect_result = None
 
-        if not candidates:
-            raise HTTPException(status_code=400, detail="Could not detect language")
+    # 4. Decision logic
+    chosen = None
+    if libre_result and langdetect_result:
+        if libre_result["lang"] == langdetect_result["lang"]:
+            chosen = max([libre_result, langdetect_result], key=lambda x: x["confidence"])
+        else:
+            if len(req.text.strip()) < 20:
+                chosen = langdetect_result
+            else:
+                chosen = libre_result
+    elif libre_result:
+        chosen = libre_result
+    elif langdetect_result:
+        chosen = langdetect_result
+    else:
+        raise HTTPException(status_code=400, detail="Could not detect language")
 
-        # pick the best match (highest probability)
-        best_match = candidates[0]
+    return DetectLangResponse(
+        detected_lang=chosen["lang"],
+        confidence=chosen["confidence"],
+    )
 
-        return DetectLangResponse(
-            detected_lang=best_match.lang,
-            confidence=best_match.prob *100 #prob is out of 1 (libretranslate out of 100)
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Language detection failed: {str(e)}")
+
 
 
 

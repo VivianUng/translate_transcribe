@@ -1,5 +1,38 @@
+function isValidText(text) {
+  // An empty or whitespace-only string is not considered valid.
+  if (!text || !text.trim()) {
+    return false;
+  }
+
+  // Check if the string contains at least one letter.
+  // The \p{L} Unicode  match letters from any language.
+  const hasLetter = [...text].some(char => /\p{L}/u.test(char));
+  if (!hasLetter) {
+    return false;
+  }
+
+  // Check for sequences of special characters (not exceeding 3).
+  const text_merge = text.replace(/\s/g, "");
+  let specialCharCount = 0;
+
+  // Iterate through the string to count consecutive non-alphanumeric characters.
+  for (const char of text_merge) {
+    if (!char.match(/\p{L}|\p{N}/u)) {
+      specialCharCount++;
+      if (specialCharCount > 2) {
+        return false;
+      }
+    } else {
+      specialCharCount = 0;
+    }
+  }
+
+  return true;
+}
+
+
+
 export async function detectAndValidateLanguage(inputLang, inputText) {
-  // Step 0: Basic input validation
   if (!inputText.trim()) {
     return {
       valid: false,
@@ -9,13 +42,7 @@ export async function detectAndValidateLanguage(inputLang, inputText) {
     };
   }
 
-  // Regex 1: any alphabetic script word with 2+ letters
-  const alphabeticWord = /\p{L}{2,}/u;
-  // Regex 2: any single CJK character (Chinese/Japanese/Korean)
-  const cjkChar =
-    /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
-
-  if (!(alphabeticWord.test(inputText) || cjkChar.test(inputText))) {
+  if (!isValidText(inputText)) {
     return {
       valid: false,
       detectedLang: null,

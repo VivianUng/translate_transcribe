@@ -29,6 +29,7 @@ export default function Translate() {
   const [previewImage, setPreviewImage] = useState(null);
   const [autoSave, setAutoSave] = useState(false);
   const [isSaved, setIsSaved] = useState(false); // track if translation is saved
+  const [profileChecked, setProfileChecked] = useState(false);
 
   const micRecorderRef = useRef(null);
   const audioChunks = useRef([]);
@@ -41,9 +42,9 @@ export default function Translate() {
   useEffect(() => {
     setMounted(true);
 
-    const ensureProfile = async (user) => {
-      if (!user) return;
+    if (!session?.user || profileChecked) return;
 
+    const ensureProfile = async (user) => {
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("id")
@@ -64,15 +65,18 @@ export default function Translate() {
 
         if (insertError) {
           console.error("Error inserting profile:", insertError.message);
+        } else {
+          toast.success("🎉 Successfully Logged In!");
         }
       }
+
+      setProfileChecked(true); // ✅ prevents re-run
     };
 
-    if (session?.user) {
-      ensureProfile(session.user);
-      setIsLoggedIn(true);
-    }
-  }, [session]);
+    ensureProfile(session.user);
+    setIsLoggedIn(true);
+
+  }, [session, profileChecked]);
 
   // Whenever input or target language changes, reset isSaved
   useEffect(() => {

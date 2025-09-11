@@ -1,4 +1,5 @@
 backend/db/sessions/
+backend/__pycache__/
 
 # Environment files
 .env
