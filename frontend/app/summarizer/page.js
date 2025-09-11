@@ -77,6 +77,7 @@ export default function Summarizer() {
           setRecordingType: () => { },
           onTranscription: (text) => setInputText(text),
           setTranscription: () => { },
+          inputLang,
         });
       } catch (err) {
         setMessage(err.message || "Transcription failed.");

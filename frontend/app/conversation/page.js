@@ -74,6 +74,7 @@ export default function ConversationPage() {
       setRecordingType,
       onTranscription: setTranscription,
       setTranscription,
+      inputLang,
     });
   };
 
@@ -86,6 +87,7 @@ export default function ConversationPage() {
       setRecordingType,
       onTranscription: setTranscription,
       setTranscription,
+      inputLang,
     });
   };
 

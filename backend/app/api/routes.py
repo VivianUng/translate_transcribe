@@ -320,6 +320,7 @@ async def get_languages():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch languages: {str(e)}")
 
+# detection using only libretranslate detect. (provides inaccurate results for short input)
 @router.post("/detect-language", response_model=DetectLangResponse)
 async def detect_language(req: DetectLangRequest):
     async with httpx.AsyncClient() as client:
@@ -510,9 +511,13 @@ async def extract_text(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Text extraction failed: {str(e)}")
     
 
-# # for testing purpose (after complete recording then transcribe) : 
+# # # for testing purpose (after complete recording then transcribe) : 
 @router.post("/transcribe")
-async def transcribe_audio(file: UploadFile = File(...)):
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    input_language: str = Form(...)
+):
+    # if language selected was auto-detect (for now default to english)
     recognizer = sr.Recognizer()
     try:
         # Read uploaded audio (WebM)
@@ -531,13 +536,19 @@ async def transcribe_audio(file: UploadFile = File(...)):
         audio_file = io.BytesIO(wav_data)
         with sr.AudioFile(audio_file) as source:
             audio = recognizer.record(source)
-        text = recognizer.recognize_google(audio)
 
-        return {"transcription": text}
+        # Recognize speech (with specified or default language)
+        text = recognizer.recognize_google(audio, language=input_language)
+
+        return {
+            "transcription": text,
+            "language_used": input_language
+        }
     except sr.UnknownValueError:
-        return {"transcription": ""}
+        return {"transcription": "", "language_used": input_language}
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": str(e), "language_used": input_language}
+
 
 # diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization", use_auth_token=os.getenv("HF_TOKEN"))
 # whisper_model = whisper.load_model("base")  # use "tiny" or "base" for lighter

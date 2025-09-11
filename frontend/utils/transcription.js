@@ -1,6 +1,7 @@
+import { isoToBCP47 } from "./languageCodeConverter.js";
 
 //////////////////////
-// using python SpeechRecognition + rexognise_google 
+// using python SpeechRecognition + recognise_google 
 // not real-time
 // works
 //////////////////////
@@ -12,11 +13,17 @@ function blobToFile(blob, filename) {
   return new File([blob], filename, { type: blob.type });
 }
 
+
 // --- API Call: Transcribe Audio ---
-export async function transcribeAudio(blob, language = "en-US") {
+export async function transcribeAudio(blob, inputLang) {
+  // convert language code format : 
+  const language_BCP = isoToBCP47(inputLang);
+
+  console.log("Language being sent:", language_BCP);
+
   const formData = new FormData();
   formData.append("file", blobToFile(blob, "recording.webm"));
-  formData.append("language", language);
+  formData.append("input_language", language_BCP);
 
   const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/transcribe`, {
     method: "POST",
@@ -28,6 +35,7 @@ export async function transcribeAudio(blob, language = "en-US") {
     throw new Error(data.detail || "Transcription failed.");
   }
   return data.transcription;
+
 }
 
 // --- API Call: Transcribe Audio v2 ---
@@ -62,7 +70,7 @@ export function startMicRecording({
   setRecordingType,
   onTranscription,
   setTranscription,
-  language = "en-US",
+  inputLang,
 }) {
   return navigator.mediaDevices.getUserMedia({ audio: true })
     .then((stream) => {
@@ -82,7 +90,7 @@ export function startMicRecording({
       micRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
         try {
-          const transcription = await transcribeAudio(audioBlob, language);
+          const transcription = await transcribeAudio(audioBlob, inputLang);
           onTranscription(transcription || "No speech detected.");
         } catch (err) {
           console.error("Mic transcription error:", err);
@@ -109,7 +117,7 @@ export function startScreenRecording({
   setRecordingType,
   onTranscription,
   setTranscription,
-  language = "en-US",
+  inputLang,
 }) {
   return navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
     .then((stream) => {
@@ -136,7 +144,7 @@ export function startScreenRecording({
       screenRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
         try {
-          const transcription = await transcribeAudio(audioBlob, language);
+          const transcription = await transcribeAudio(audioBlob, inputLang);
           onTranscription(transcription || "No speech detected.");
         } catch (err) {
           console.error("Screen transcription error:", err);
