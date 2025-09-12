@@ -13,6 +13,8 @@ export default function History() {
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [selectedType, setSelectedType] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
 
   useEffect(() => {
@@ -34,7 +36,8 @@ export default function History() {
       combined.push({
         id: item.id,
         type: "Translation",
-        date: new Date(item.created_at).toLocaleDateString(),
+        createdAt: new Date(item.created_at),
+        date: new Date(item.created_at).toLocaleDateString("en-GB"),
         time: new Date(item.created_at).toLocaleTimeString(),
         input: item.input_text || "",
         output: item.output_text || "",
@@ -45,7 +48,8 @@ export default function History() {
       combined.push({
         id: item.id,
         type: "Conversation",
-        date: new Date(item.created_at).toLocaleDateString(),
+        createdAt: new Date(item.created_at),
+        date: new Date(item.created_at).toLocaleDateString("en-GB"),
         time: new Date(item.created_at).toLocaleTimeString(),
         input: item.input_text || "",
         output: item.output_text || "",
@@ -56,7 +60,8 @@ export default function History() {
       combined.push({
         id: item.id,
         type: "Summary",
-        date: new Date(item.created_at).toLocaleDateString(),
+        createdAt: new Date(item.created_at),
+        date: new Date(item.created_at).toLocaleDateString("en-GB"),
         time: new Date(item.created_at).toLocaleTimeString(),
         input: item.input_text || "",
         output: item.output_text || "",
@@ -69,7 +74,22 @@ export default function History() {
     return combined;
   }, [history]);
 
-  // Filter history based on search input and type
+  // // Filter history based on search input and type
+  // const filteredHistory = useMemo(() => {
+  //   return combinedHistory.filter((item) => {
+  //     const matchesSearch =
+  //       item.input.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //       item.output.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //       item.type.toLowerCase().includes(searchTerm.toLowerCase());
+
+  //     const matchesType =
+  //       selectedType === "" || item.type === selectedType;
+
+  //     return matchesSearch && matchesType;
+  //   });
+  // }, [combinedHistory, searchTerm, selectedType]);
+
+  // Filter with searchTerm, type, AND date range
   const filteredHistory = useMemo(() => {
     return combinedHistory.filter((item) => {
       const matchesSearch =
@@ -77,12 +97,18 @@ export default function History() {
         item.output.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.type.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesType =
-        selectedType === "" || item.type === selectedType;
+      const matchesType = selectedType === "" || item.type === selectedType;
 
-      return matchesSearch && matchesType;
+      const itemDateStr = item.createdAt.toISOString().split("T")[0]; // "yyyy-mm-dd"
+
+      // Compare against startDate / endDate 
+      const matchesDate =
+        (!startDate || itemDateStr >= startDate) &&
+        (!endDate || itemDateStr <= endDate);
+
+      return matchesSearch && matchesType && matchesDate;
     });
-  }, [combinedHistory, searchTerm, selectedType]);
+  }, [combinedHistory, searchTerm, selectedType, startDate, endDate]);
 
   if (loading) return <p>Loading...</p>;
 
@@ -146,7 +172,7 @@ export default function History() {
   return (
     <div className="page-container">
       <h1 className="page-title">History</h1>
-      {/* Search and Type Filter */}
+      {/* Search and Type and Date Filter */}
       <div className="filter-container">
         <input
           type="text"
@@ -167,6 +193,29 @@ export default function History() {
           <option value="Summary">Summary</option>
           <option value="Meeting">Meeting</option>
         </select>
+
+        {/* Date Range Inputs */}
+        <div className="date-filters">
+          <div className="date-field">
+            <label>Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+
+          <div className="date-separator">to</div>
+
+          <div className="date-field">
+            <label>End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="history-container">

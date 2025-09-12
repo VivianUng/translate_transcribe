@@ -58,10 +58,3 @@ export function isoToBCP47(code) {
   return map[normalized] || normalized;
 }
 
-// Example usage
-console.log(isoToBCP47("en"));     // en-US
-console.log(isoToBCP47("fr"));     // fr-FR
-console.log(isoToBCP47("zh-cn"));  // zh-Hans
-console.log(isoToBCP47("zh-tw"));  // zh-Hant
-console.log(isoToBCP47("iw"));     // he-IL
-console.log(isoToBCP47("xx"));     // xx (no mapping, return as is)
