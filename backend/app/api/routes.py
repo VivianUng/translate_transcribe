@@ -1,12 +1,16 @@
 # backend/app/api/routes.py
 
+import tempfile
 from ..core.language_codes import LanguageConverter
+from ..core.image_preprocessing import process_image_for_ocr
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request, Form
 from pydantic import BaseModel
 from typing import Optional, Literal
 import httpx
 from datetime import datetime
 import pytesseract
+from pypdf import PdfReader
+import docx
 import speech_recognition as sr
 from langdetect import detect, detect_langs
 from PIL import Image, UnidentifiedImageError
@@ -501,18 +505,61 @@ async def extract_text(
             raise HTTPException(status_code=400, detail="Empty file uploaded")
 
         try:
-            image = Image.open(io.BytesIO(contents)).convert("RGB")
+            ############################ Preprocessing Section ########################################
+            # # Save upload temporarily
+            # with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+            #     tmp.write(contents)
+            #     tmp_path = tmp.name
+
+            # # Preprocess the image
+            # processed = process_image_for_ocr(tmp_path)
+
+            # # Convert OpenCV image back to PIL for pytesseract
+            # processed_pil = Image.fromarray(processed)
+            ############################################################################################
+            processed_pil = Image.open(io.BytesIO(contents)).convert("RGB")
+            ############################ Preprocessing Section #########################################
+
             lang_tess = LanguageConverter.to_tesseract(input_language)
         except UnidentifiedImageError:
             raise HTTPException(status_code=400, detail="Could not process image file")
 
-        extracted_text = pytesseract.image_to_string(image, lang=lang_tess)
+        extracted_text = pytesseract.image_to_string(processed_pil, lang=lang_tess)
         return OCRResponse(extracted_text=extracted_text.strip())
 
     except Exception as e:
         logger.exception("OCR failed")
         raise HTTPException(status_code=500, detail=f"Text extraction failed: {str(e)}")
-    
+
+@router.post("/extract-doc-text")
+async def extract_doc_text(
+    file: UploadFile = File(...),
+    input_language: str = Form(...)
+):
+    try:
+        content = ""
+        if file.filename.endswith(".pdf"):
+            pdf_reader = PdfReader(file.file)
+            for page in pdf_reader.pages:
+                content += page.extract_text() or ""
+        elif file.filename.endswith(".docx"):
+            doc = docx.Document(file.file)
+            for para in doc.paragraphs:
+                content += para.text + "\n"
+        elif file.filename.endswith(".txt"):
+            content = (await file.read()).decode("utf-8", errors="ignore")
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported document type")
+
+        if not content.strip():
+            raise HTTPException(status_code=400, detail="No text extracted from document")
+
+        return {"extracted_text": content, "input_language": input_language}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 # # # for testing purpose (after complete recording then transcribe) : 
 ## input language code of libretranslate code

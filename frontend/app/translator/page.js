@@ -11,6 +11,7 @@ import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { translateText } from "@/utils/translation";
 import { startMicRecording, stopRecording } from "@/utils/transcription";
 import { extractTextFromImage } from "@/utils/fileProcessing";
+import { extractTextFromDocument } from "@/utils/fileProcessing";
 
 export default function Translate() {
   const { LoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
@@ -27,6 +28,7 @@ export default function Translate() {
   const [saving, setSaving] = useState(false);
   const { languages, error } = useLanguages();
   const [previewImage, setPreviewImage] = useState(null);
+  const [previewDoc, setPreviewDoc] = useState(null);
   const [autoSave, setAutoSave] = useState(false);
   const [isSaved, setIsSaved] = useState(false); // track if translation is saved
   const [profileChecked, setProfileChecked] = useState(false);
@@ -106,9 +108,57 @@ export default function Translate() {
     setTranslatedText("");
   }
 
+  // // Handle image upload + preview
+  // async function handleImageUpload(e) {
+  //   clearDisplay();
+  //   const file = e.target.files[0];
+  //   if (!file) return;
+
+  //   setPreviewImage(URL.createObjectURL(file));
+  //   setOCRMessage("Extracting...");
+  //   setLoading(true);
+
+  //   try {
+  //     const extractedText = await extractTextFromImage(file, imageLang);
+  //     setInputText(extractedText);
+  //     setTranslatedText("");
+  //     setOCRMessage("Text extracted from image.");
+  //   } catch (error) {
+  //     setOCRMessage(error.message);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }
+
+  // // Handle document upload + preview
+  // async function handleDocUpload(e) {
+  //   clearDisplay();
+  //   const file = e.target.files[0];
+  //   if (!file) return;
+
+  //   setOCRMessage("Extracting...");
+  //   setLoading(true);
+
+  //   try {
+  //     const extractedText = await extractTextFromDocument(file, imageLang);
+  //     setInputText(extractedText);
+  //     setTranslatedText("");
+  //     setOCRMessage("Text extracted from document.");
+  //   } catch (error) {
+  //     setOCRMessage(error.message);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }
+
+
+  // function triggerFileInput() {
+  //   if (fileInputRef.current) fileInputRef.current.click();
+  // }
+
   // Handle image upload + preview
-  async function handleImageUpload(e) {
-    const file = e.target.files[0];
+  async function handleImageUpload(file) {
+    clearDisplay();
     if (!file) return;
 
     setPreviewImage(URL.createObjectURL(file));
@@ -127,8 +177,62 @@ export default function Translate() {
     }
   }
 
+  // Handle document upload + preview
+  async function handleDocUpload(file) {
+    clearDisplay();
+    if (!file) return;
+
+    // Set preview info for documents
+    setPreviewImage(null);
+    setPreviewDoc({
+      name: file.name,
+      type: file.type,
+      size: `${(file.size / 1024).toFixed(1)} KB`,
+      url: file.type === "application/pdf" ? URL.createObjectURL(file) : null,
+    });
+
+    setOCRMessage("Extracting...");
+    setLoading(true);
+
+    try {
+      const extractedText = await extractTextFromDocument(file, imageLang);
+      setInputText(extractedText);
+      setTranslatedText("");
+      setOCRMessage("Text extracted from document.");
+    } catch (error) {
+      setOCRMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Wrapper function: decides image vs document
+  async function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.type.startsWith("image/")) {
+      await handleImageUpload(file);
+    } else if (
+      file.type === "application/pdf" ||
+      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      file.type === "text/plain"
+    ) {
+      await handleDocUpload(file);
+    } else {
+      setOCRMessage("Unsupported file type. Please upload an image, PDF, DOCX, or TXT.");
+    }
+  }
+
+  // Trigger file input
   function triggerFileInput() {
-    if (fileInputRef.current) fileInputRef.current.click();
+    if (fileInputRef.current) {
+      fileInputRef.current.setAttribute(
+        "accept",
+        "image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+      );
+      fileInputRef.current.click();
+    }
   }
 
   async function handleTranslate() {
@@ -235,15 +339,13 @@ export default function Translate() {
     }
   }
 
-
-
   return (
     <>
       <div className="page-container">
         <h1 className="page-title">Translator</h1>
 
         <div className="translator-top-row">
-          {/* Text Input */}
+          {/* Text / Mic Input */}
           <div className="section">
             <div className="section-header">
               <span>Text / Mic</span>
@@ -256,16 +358,20 @@ export default function Translate() {
                 />
               )}
             </div>
+
+            {/* Textarea */}
             <textarea
               className="input-text-area"
               rows={8}
               value={inputText}
               onChange={(e) => {
                 setInputText(e.target.value);
-                setMessage("");   // reset message whenever text changes
+                setMessage(""); // reset message whenever text changes
               }}
               placeholder="Type text to translate"
             />
+
+            {/* Mic icon */}
             <div
               className="mic-icon"
               title={listening ? "Stop Recording" : "Start Recording"}
@@ -274,7 +380,7 @@ export default function Translate() {
               {listening ? "⏹️" : "🎙️"}
             </div>
 
-            {/* Message displayed below the box */}
+            {/* Message */}
             <div className="message" role="alert" aria-live="assertive">
               {message}
             </div>
@@ -284,7 +390,6 @@ export default function Translate() {
           <div className="section">
             <div className="section-header">
               <span>File Upload</span>
-              {/* Select language for file upload (to be removed until check if use different ocr lib depending on char type) */}
               {mounted && (
                 <Select
                   options={languages}
@@ -295,27 +400,47 @@ export default function Translate() {
               )}
             </div>
 
+            {/* Hidden input */}
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
+              accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+              onChange={handleFileUpload}
+              style={{ display: "none" }}
             />
 
             {/* Custom upload box */}
             <div>
               <div className="upload-box" onClick={triggerFileInput}>
                 {previewImage ? (
+                  // Image preview
                   <img
                     src={previewImage}
                     alt="Preview"
                     className="image-preview"
                   />
+                ) : previewDoc ? (
+                  // Document preview
+                  <div className="doc-preview">
+                    <p className="doc-name">
+                      <strong>{previewDoc.name}</strong>
+                    </p>
+                    {previewDoc.type === "application/pdf" && previewDoc.url && (
+                      <iframe
+                        src={previewDoc.url}
+                        title="PDF Preview"
+                        className="doc-frame"
+                      />
+                    )}
+                  </div>
                 ) : (
-                  <span className="upload-text">Click to upload image</span>
+                  // Default placeholder
+                  <span className="upload-text">Click to upload image or document</span>
                 )}
               </div>
-              {/* Message displayed below the box */}
+
+
+              {/* Message for OCR / Docs */}
               <div
                 className="message ocr-message"
                 role="alert"
@@ -327,6 +452,7 @@ export default function Translate() {
           </div>
         </div>
 
+        {/* Translate Button */}
         <button
           className="button translate-button"
           onClick={handleTranslate}
@@ -335,6 +461,7 @@ export default function Translate() {
           {loading ? "Translating..." : "Translate"}
         </button>
 
+        {/* Translation Output */}
         <div className="section" style={{ marginTop: "1rem" }}>
           <div className="section-header">
             <span>Translation</span>
@@ -348,18 +475,27 @@ export default function Translate() {
             )}
           </div>
           <div
-            className={`translation-result ${!translatedText ? "placeholder" : ""}`}
+            className={`translation-result ${!translatedText ? "placeholder" : ""
+              }`}
             tabIndex={0}
           >
             {translatedText || "Translation will appear here...."}
           </div>
         </div>
 
+        {/* Save Translation (only if logged in) */}
         {isLoggedIn && translatedText && (
           <div>
             <button
               className="button save-translation-button"
-              onClick={() => handleSaveTranslation(inputText, inputLang, translatedText, targetLang)}
+              onClick={() =>
+                handleSaveTranslation(
+                  inputText,
+                  inputLang,
+                  translatedText,
+                  targetLang
+                )
+              }
               disabled={saving || loading || isSaved}
             >
               {saving ? "Saving..." : isSaved ? "Saved" : "Save Translation"}
@@ -373,7 +509,6 @@ export default function Translate() {
               {save_message}
             </div>
           </div>
-
         )}
       </div>
     </>
