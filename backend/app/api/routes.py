@@ -235,6 +235,9 @@ async def update_record(
             updates["input_lang"] = payload.input_lang
         if payload.output_lang is not None:
             updates["output_lang"] = payload.output_lang
+        
+        if updates : 
+            updates["updated_at"] = "now()"
 
         if not updates:
             raise HTTPException(status_code=400, detail="No updates provided")

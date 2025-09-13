@@ -58,6 +58,7 @@ export default function ConversationDetails() {
                     output_text: data.output_text || "",
                     output_lang: data.output_lang || "en",
                     created_at: data.created_at,
+                    updated_at: data.updated_at,
                 };
 
                 setConversation(normalized); // snapshot
@@ -90,6 +91,7 @@ export default function ConversationDetails() {
                         input_text: formData.input_text,
                         output_text: formData.output_text,
                         output_lang: formData.output_lang,
+                        updated_at: new Date().toISOString(),
                     }),
                 }
             );
@@ -231,14 +233,21 @@ export default function ConversationDetails() {
                 {/* Meta details */}
                 <div className="meta-info">
                     <p>
-                        <strong>Date:</strong>{" "}
-                        {new Date(conversation.created_at).toLocaleDateString()}
+                        <strong>Created:</strong>{" "}
+                        {new Date(conversation.created_at).toLocaleString("en-GB", {
+                            dateStyle: "short",
+                            timeStyle: "medium",
+                        })}
                     </p>
                     <p>
-                        <strong>Time:</strong>{" "}
-                        {new Date(conversation.created_at).toLocaleTimeString()}
+                        <strong>Last Updated:</strong>{" "}
+                        {new Date(conversation.updated_at).toLocaleString("en-GB", {
+                            dateStyle: "short",
+                            timeStyle: "medium",
+                        })}
                     </p>
                 </div>
+
 
                 {/* Actions */}
                 <div className="button-group">

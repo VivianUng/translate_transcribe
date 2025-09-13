@@ -12,6 +12,7 @@ export default function SettingsPage() {
   const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingSendEmail, setLoadingSendEmail] = useState(false);
   const [pwRequested, setPwRequested] = useState(false);
   const { languages, error } = useLanguages();
   const [mounted, setMounted] = useState(false);
@@ -107,6 +108,7 @@ export default function SettingsPage() {
           auto_save_conversations: formData.auto_save_conversations,
           auto_save_meetings: formData.auto_save_meetings,
           default_language: formData.default_language,
+          updated_at: new Date().toISOString(),
         });
 
       if (profileError) throw profileError;
@@ -130,6 +132,7 @@ export default function SettingsPage() {
 
 
   const changePassword = async () => {
+    setLoadingSendEmail(true);
     setMessage("");
     if (pwRequested) return; // prevent double click
     setPwRequested(true);
@@ -138,7 +141,7 @@ export default function SettingsPage() {
       redirectTo: `${window.location.origin}/update-password`
     });
 
-    setLoading(false);
+    setLoadingSendEmail(false);
 
     if (error) {
       setMessage(error.message);
@@ -259,8 +262,8 @@ export default function SettingsPage() {
       {/* Account Actions */}
       <div className="account-actions">
         <button className="button changePw-button" onClick={changePassword} 
-        disabled={loading || pwRequested}>
-          {loading ? "Sending Email..." : pwRequested ? "Email Sent" : "Change Password"}
+        disabled={loading || loadingSendEmail || pwRequested}>
+          {loadingSendEmail ? "Sending Email..." : pwRequested ? "Email Sent" : "Change Password"}
         </button>
         <button className="button danger-button" onClick={deleteAccount}>
           Delete Account

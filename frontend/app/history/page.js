@@ -69,27 +69,13 @@ export default function History() {
     });
 
     // sort by created_at descending
-    combined.sort((a, b) => new Date(b.date + " " + b.time) - new Date(a.date + " " + a.time));
+    combined.sort((a, b) => b.createdAt - a.createdAt);
+
 
     return combined;
   }, [history]);
 
-  // // Filter history based on search input and type
-  // const filteredHistory = useMemo(() => {
-  //   return combinedHistory.filter((item) => {
-  //     const matchesSearch =
-  //       item.input.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  //       item.output.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  //       item.type.toLowerCase().includes(searchTerm.toLowerCase());
-
-  //     const matchesType =
-  //       selectedType === "" || item.type === selectedType;
-
-  //     return matchesSearch && matchesType;
-  //   });
-  // }, [combinedHistory, searchTerm, selectedType]);
-
-  // Filter with searchTerm, type, AND date range
+  // Filter with searchTerm, type, and date range
   const filteredHistory = useMemo(() => {
     return combinedHistory.filter((item) => {
       const matchesSearch =
