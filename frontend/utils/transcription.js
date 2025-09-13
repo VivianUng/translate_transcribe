@@ -1,5 +1,3 @@
-import { isoToBCP47 } from "./languageCodeConverter.js";
-
 //////////////////////
 // using python SpeechRecognition + recognise_google 
 // not real-time
@@ -16,14 +14,9 @@ function blobToFile(blob, filename) {
 
 // --- API Call: Transcribe Audio ---
 export async function transcribeAudio(blob, inputLang) {
-  // convert language code format : 
-  const language_BCP = isoToBCP47(inputLang);
-
-  console.log("Language being sent:", language_BCP);
-
   const formData = new FormData();
   formData.append("file", blobToFile(blob, "recording.webm"));
-  formData.append("input_language", language_BCP);
+  formData.append("input_language", inputLang);
 
   const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/transcribe`, {
     method: "POST",

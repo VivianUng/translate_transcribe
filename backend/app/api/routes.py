@@ -1,5 +1,6 @@
 # backend/app/api/routes.py
 
+from ..core.language_codes import LanguageConverter
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request, Form
 from pydantic import BaseModel
 from typing import Optional, Literal
@@ -345,13 +346,7 @@ async def detect_language(req: DetectLangRequest):
         )
 
 
-LANGDETECT_TO_LIBRE = {
-    "zh-cn": "zh-Hans",
-    "zh-tw": "zh-Hant",
-}
 
-def normalize_lang(code: str) -> str:
-    return LANGDETECT_TO_LIBRE.get(code, code)
 
 @router.post("/detect-language2", response_model=DetectLangResponse)
 async def detect_language2(req: DetectLangRequest):
@@ -371,7 +366,7 @@ async def detect_language2(req: DetectLangRequest):
             if detections:
                 best = detections[0]
                 libre_result = {
-                    "lang": normalize_lang(best["language"]),
+                    "lang": best["language"],
                     "confidence": best["confidence"],
                 }
     except Exception:
@@ -383,7 +378,8 @@ async def detect_language2(req: DetectLangRequest):
         if candidates:
             best = candidates[0]
             langdetect_result = {
-                "lang": normalize_lang(best.lang),
+                "lang": LanguageConverter.to_libretranslate(
+                        LanguageConverter.from_langdetect(best.lang)),
                 "confidence": best.prob * 100,
             }
     except Exception:
@@ -492,7 +488,10 @@ async def summarize(req: SummarizeRequest):
         raise HTTPException(status_code=500, detail=f"Failed to summarize text: {str(e)}")
 
 @router.post("/extract-text", response_model=OCRResponse)
-async def extract_text(file: UploadFile = File(...)):
+async def extract_text(
+    file: UploadFile = File(...),
+    input_language: str = Form(...)
+):
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Invalid file type. Please upload an image.")
 
@@ -503,10 +502,11 @@ async def extract_text(file: UploadFile = File(...)):
 
         try:
             image = Image.open(io.BytesIO(contents)).convert("RGB")
+            lang_tess = LanguageConverter.to_tesseract(input_language)
         except UnidentifiedImageError:
             raise HTTPException(status_code=400, detail="Could not process image file")
 
-        extracted_text = pytesseract.image_to_string(image)
+        extracted_text = pytesseract.image_to_string(image, lang=lang_tess)
         return OCRResponse(extracted_text=extracted_text.strip())
 
     except Exception as e:
@@ -515,11 +515,15 @@ async def extract_text(file: UploadFile = File(...)):
     
 
 # # # for testing purpose (after complete recording then transcribe) : 
+## input language code of libretranslate code
 @router.post("/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(...),
     input_language: str = Form(...)
 ):
+    # convert libretranslate code (iso-639) to recognize_google code(bcp-47)
+    input_language_bcp = LanguageConverter.to_bcp47(input_language)
+
     # if language selected was auto-detect (for now default to english)
     recognizer = sr.Recognizer()
     try:
@@ -541,16 +545,16 @@ async def transcribe_audio(
             audio = recognizer.record(source)
 
         # Recognize speech (with specified or default language)
-        text = recognizer.recognize_google(audio, language=input_language)
+        text = recognizer.recognize_google(audio, language=input_language_bcp)
 
         return {
             "transcription": text,
-            "language_used": input_language
+            "language_used": input_language_bcp
         }
     except sr.UnknownValueError:
-        return {"transcription": "", "language_used": input_language}
+        return {"transcription": "", "language_used": input_language_bcp}
     except Exception as e:
-        return {"error": str(e), "language_used": input_language}
+        return {"error": str(e), "language_used": input_language_bcp}
 
 
 # diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization", use_auth_token=os.getenv("HF_TOKEN"))

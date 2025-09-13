@@ -1,9 +1,10 @@
 // utils/fileProcessing.js
 
-export async function extractTextFromImage(file) {
+export async function extractTextFromImage(file, input_language) {
   if (!file) throw new Error("No file provided");
 
   const formData = new FormData();
+  formData.append("input_language", input_language)
   formData.append("file", file);
 
   const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/extract-text`, {

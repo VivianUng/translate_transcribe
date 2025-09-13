@@ -116,7 +116,7 @@ export default function Translate() {
     setLoading(true);
 
     try {
-      const extractedText = await extractTextFromImage(file);
+      const extractedText = await extractTextFromImage(file, imageLang);
       setInputText(extractedText);
       setTranslatedText("");
       setOCRMessage("Text extracted from image.");
