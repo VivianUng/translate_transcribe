@@ -129,7 +129,7 @@ export default function ConversationDetails() {
 
             if (!res.ok) throw new Error("Failed to delete conversation");
 
-            toast.message("Conversation deleted.");
+            toast.success("Conversation deleted.");
             router.push("/history");
         } catch (err) {
             console.error("Error deleting:", err);

@@ -16,7 +16,6 @@ from PIL import Image, UnidentifiedImageError
 import imageio_ffmpeg as ffmpeg
 import io
 import logging
-# import json
 import subprocess
 from supabase import create_client, Client
 import os
