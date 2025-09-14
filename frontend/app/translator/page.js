@@ -108,53 +108,6 @@ export default function Translate() {
     setTranslatedText("");
   }
 
-  // // Handle image upload + preview
-  // async function handleImageUpload(e) {
-  //   clearDisplay();
-  //   const file = e.target.files[0];
-  //   if (!file) return;
-
-  //   setPreviewImage(URL.createObjectURL(file));
-  //   setOCRMessage("Extracting...");
-  //   setLoading(true);
-
-  //   try {
-  //     const extractedText = await extractTextFromImage(file, imageLang);
-  //     setInputText(extractedText);
-  //     setTranslatedText("");
-  //     setOCRMessage("Text extracted from image.");
-  //   } catch (error) {
-  //     setOCRMessage(error.message);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // }
-
-  // // Handle document upload + preview
-  // async function handleDocUpload(e) {
-  //   clearDisplay();
-  //   const file = e.target.files[0];
-  //   if (!file) return;
-
-  //   setOCRMessage("Extracting...");
-  //   setLoading(true);
-
-  //   try {
-  //     const extractedText = await extractTextFromDocument(file, imageLang);
-  //     setInputText(extractedText);
-  //     setTranslatedText("");
-  //     setOCRMessage("Text extracted from document.");
-  //   } catch (error) {
-  //     setOCRMessage(error.message);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // }
-
-
-  // function triggerFileInput() {
-  //   if (fileInputRef.current) fileInputRef.current.click();
-  // }
 
   // Handle image upload + preview
   async function handleImageUpload(file) {
@@ -182,14 +135,26 @@ export default function Translate() {
     clearDisplay();
     if (!file) return;
 
-    // Set preview info for documents
     setPreviewImage(null);
-    setPreviewDoc({
-      name: file.name,
-      type: file.type,
-      size: `${(file.size / 1024).toFixed(1)} KB`,
-      url: file.type === "application/pdf" ? URL.createObjectURL(file) : null,
-    });
+
+    if (file.type === "text/plain") {
+      // TXT: read text content directly
+      const textContent = await file.text();
+      setPreviewDoc({
+        name: file.name,
+        type: file.type,
+        size: `${(file.size / 1024).toFixed(1)} KB`,
+        content: textContent,   // store snippet of txt content
+      });
+    } else {
+      // PDF, DOCX, etc. (no direct inline preview except PDF)
+      setPreviewDoc({
+        name: file.name,
+        type: file.type,
+        size: `${(file.size / 1024).toFixed(1)} KB`,
+        url: file.type === "application/pdf" ? URL.createObjectURL(file) : null,
+      });
+    }
 
     setOCRMessage("Extracting...");
     setLoading(true);
@@ -205,6 +170,7 @@ export default function Translate() {
       setLoading(false);
     }
   }
+
 
   // Wrapper function: decides image vs document
   async function handleFileUpload(e) {
@@ -399,13 +365,11 @@ export default function Translate() {
                 />
               )}
             </div>
-
-            {/* Hidden input */}
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-              onChange={handleFileUpload}
+              onChange={(e) => handleFileUpload(e)}
               style={{ display: "none" }}
             />
 
@@ -413,18 +377,14 @@ export default function Translate() {
             <div>
               <div className="upload-box" onClick={triggerFileInput}>
                 {previewImage ? (
-                  // Image preview
                   <img
                     src={previewImage}
                     alt="Preview"
                     className="image-preview"
                   />
                 ) : previewDoc ? (
-                  // Document preview
                   <div className="doc-preview">
-                    <p className="doc-name">
-                      <strong>{previewDoc.name}</strong>
-                    </p>
+                    <p className="doc-name"><strong>{previewDoc.name}</strong></p>
                     {previewDoc.type === "application/pdf" && previewDoc.url && (
                       <iframe
                         src={previewDoc.url}
@@ -432,15 +392,24 @@ export default function Translate() {
                         className="doc-frame"
                       />
                     )}
+
+                    {previewDoc.type === "text/plain" && previewDoc.content && (
+                      <pre className="txt-preview">
+                        {previewDoc.content.slice(0, 500)}
+                        {previewDoc.content.length > 500 && "..."}
+                      </pre>
+                    )}
+
+                    {previewDoc.type !== "application/pdf" && previewDoc.type !== "text/plain" && (
+                      <p className="upload-text">Preview not available for this file type</p>
+                    )}
                   </div>
                 ) : (
-                  // Default placeholder
                   <span className="upload-text">Click to upload image or document</span>
                 )}
               </div>
 
-
-              {/* Message for OCR / Docs */}
+              {/* Message displayed below the box */}
               <div
                 className="message ocr-message"
                 role="alert"
@@ -449,6 +418,8 @@ export default function Translate() {
                 {ocr_message}
               </div>
             </div>
+
+
           </div>
         </div>
 

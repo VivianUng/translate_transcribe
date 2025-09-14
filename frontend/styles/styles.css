@@ -379,6 +379,19 @@ a {
   min-height: 0;    
 }
 
+.txt-preview {
+  flex-grow: 1;
+  width: 100%;
+  overflow: auto;
+  background: #fff;
+  border-radius: 5px;
+  padding: 0.5rem;
+  text-align: left;
+  font-family: monospace;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+}
+
 
 /* ===========================
       Meeting Page Styles

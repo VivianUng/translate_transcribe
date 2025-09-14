@@ -10,6 +10,7 @@ import httpx
 from datetime import datetime
 import pytesseract
 from pypdf import PdfReader
+import fitz
 import docx
 import speech_recognition as sr
 from langdetect import detect, detect_langs
@@ -539,15 +540,18 @@ async def extract_doc_text(
     try:
         content = ""
         if file.filename.endswith(".pdf"):
-            pdf_reader = PdfReader(file.file)
-            for page in pdf_reader.pages:
-                content += page.extract_text() or ""
+            pdf_document = fitz.open(stream=file.file.read(), filetype="pdf")
+            for page in pdf_document:
+                content += page.get_text("text")
+
         elif file.filename.endswith(".docx"):
             doc = docx.Document(file.file)
             for para in doc.paragraphs:
                 content += para.text + "\n"
+
         elif file.filename.endswith(".txt"):
             content = (await file.read()).decode("utf-8", errors="ignore")
+
         else:
             raise HTTPException(status_code=400, detail="Unsupported document type")
 
