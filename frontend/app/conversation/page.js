@@ -77,6 +77,7 @@ export default function ConversationPage() {
     setTranscription("");
     setTranscriptMessage("");
     setTranslatedText("");
+    setAudioURL(null);
   }
 
   // ---------- Transcription ----------
@@ -291,7 +292,7 @@ export default function ConversationPage() {
         <div className="translation-result" tabIndex={0}>
           {translatedText || "Translation will appear here...."}
           {/* {Added parts} */}
-          {segments.length > 0 && (
+          {/* {segments.length > 0 && (
             <div className="segments">
               {segments.map((seg, i) => (
                 <p key={i}>
@@ -299,7 +300,7 @@ export default function ConversationPage() {
                 </p>
               ))}
             </div>
-          )}
+          )} */}
           {/* {Added parts} */}
         </div>
         <button

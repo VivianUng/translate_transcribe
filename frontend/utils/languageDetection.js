@@ -63,7 +63,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
   }
 
   const minLengthSummary = 3000;
-  if (source = "summarizer"){
+  if (source === "summarizer"){
     if (inputText.length < minLengthSummary){
       return {
       valid: false,
