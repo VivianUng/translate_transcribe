@@ -236,6 +236,7 @@ export default function Translate() {
   async function handleMicInput() {
     clearDisplay();
     if (listening) {
+      setMessage("Processing....");
       stopRecording({
         recordingType: "mic",
         micRecorderRef,
@@ -244,6 +245,7 @@ export default function Translate() {
       });
     } else {
       try {
+        setMessage("Recording....");
         await startMicRecording({
           micRecorderRef,
           audioChunks,
@@ -253,6 +255,7 @@ export default function Translate() {
           setTranscription: () => { },
           inputLang,
         });
+        setMessage("");
       } catch (err) {
         setMessage(err.message || "Transcription failed.");
       }

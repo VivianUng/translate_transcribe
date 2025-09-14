@@ -26,6 +26,9 @@ export default function ConversationPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [save_message, setSaveMessage] = useState("");
   const [isSaved, setIsSaved] = useState(false); // track if conversation is saved
+  const isProcessingTranscription =
+  transcription === "Converting audio to text......";
+
 
   const [loading, setLoading] = useState(false); // for translation
   const [saving, setSaving] = useState(false);   // for saving conversation
@@ -112,36 +115,9 @@ export default function ConversationPage() {
       setListening,
       setRecordingType,
     });
+    // show placeholder while waiting for transcription
+    setTranscription("Converting audio to text......");
   };
-
-  //// for detecting language of audio as well
-  // const handleStop = async () => {
-  //   const blob = await stopRecording({
-  //     recordingType,
-  //     micRecorderRef,
-  //     screenRecorderRef,
-  //     screenStreamRef,
-  //     setListening,
-  //     setRecordingType,
-  //   });
-
-  //   if (blob) {
-  //     try {
-  //       const { transcription, segments, detectedLanguage } =
-  //         await transcribeAudio2(blob, inputLang);
-
-  //       setTranscription(transcription);
-  //       setSegments(segments);
-  //       if (inputLang === "auto") {
-  //         setInputLang(detectedLanguage); // update UI
-  //         setTranscriptMessage(`Detected language: ${detectedLanguage}`);
-  //       }
-  //     } catch (err) {
-  //       setTranscriptMessage(err.message || "Failed to transcribe.");
-  //     }
-  //   }
-  // };
-
 
 
   // ---------- TRANSLATION ----------
@@ -236,6 +212,7 @@ export default function ConversationPage() {
         <button
           onClick={recordingType === "mic" && listening ? handleStop : handleMicStart}
           className="button conversation-button"
+          disabled={(recordingType === "screen" && listening) || isProcessingTranscription} // disable mic if screen recording
         >
           {recordingType === "mic" && listening ? "Stop 🎙️" : "Start 🎙️"}
         </button>
@@ -243,6 +220,7 @@ export default function ConversationPage() {
         <button
           onClick={recordingType === "screen" && listening ? handleStop : handleScreenStart}
           className="button conversation-button"
+          disabled={(recordingType === "mic" && listening) || isProcessingTranscription} // disable screen if mic recording
         >
           {recordingType === "screen" && listening ? "Stop Recording 🔊" : "Capture Internal Audio 🔊"}
         </button>
@@ -300,7 +278,10 @@ export default function ConversationPage() {
         <button
           className="button translate-button"
           onClick={handleTranslate}
-          disabled={loading || !transcription || !transcription.trim()}
+          disabled={loading || !transcription || 
+            !transcription.trim() || 
+            isProcessingTranscription ||
+            transcription === "No speech detected."}
         >
           {loading ? "Translating..." : "Translate"}
         </button>
@@ -318,7 +299,8 @@ export default function ConversationPage() {
           <button
             className="button save-conversation-button"
             onClick={() => handleSaveConversation(transcription, translatedText)}
-            disabled={saving || loading || isSaved}
+            disabled={saving || loading || isSaved ||
+            transcription === "No speech detected."}
           >
             {saving ? "Saving..." : isSaved ? "Saved" : "Save Conversation"}
           </button>
