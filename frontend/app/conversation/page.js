@@ -27,7 +27,7 @@ export default function ConversationPage() {
   const [save_message, setSaveMessage] = useState("");
   const [isSaved, setIsSaved] = useState(false); // track if conversation is saved
   const isProcessingTranscription =
-  transcription === "Converting audio to text......";
+    transcription === "Converting audio to text......";
 
 
   const [loading, setLoading] = useState(false); // for translation
@@ -39,6 +39,7 @@ export default function ConversationPage() {
   const screenRecorderRef = useRef(null);
   const screenStreamRef = useRef(null);
   const audioChunks = useRef([]);
+  const [audioURL, setAudioURL] = useState(null); // for playback/download
 
   const [mounted, setMounted] = useState(false);
 
@@ -87,7 +88,10 @@ export default function ConversationPage() {
       setListening,
       setRecordingType,
       onTranscription: setTranscription,
-      setTranscription,
+      onAudioReady: (blob) => {
+        const url = URL.createObjectURL(blob);
+        setAudioURL(url);
+      },
       inputLang,
     });
   };
@@ -101,7 +105,10 @@ export default function ConversationPage() {
       setListening,
       setRecordingType,
       onTranscription: setTranscription,
-      setTranscription,
+      onAudioReady: (blob) => {
+        const url = URL.createObjectURL(blob);
+        setAudioURL(url);
+      },
       inputLang,
     });
   };
@@ -247,6 +254,26 @@ export default function ConversationPage() {
         >
           {transcription_message}
         </div>
+        {/* --- Audio Playback / Download Container (fixed space) --- */}
+        <div className="audio-container">
+          {audioURL ? (
+            <>
+              <audio controls src={audioURL}></audio>
+              <button className="button download-audio"
+                onClick={() => {
+                  const link = document.createElement("a");
+                  link.href = audioURL;
+                  link.download = "recording.webm";
+                  link.click();
+                }}
+              >
+                Download Recording
+              </button>
+            </>
+          ) : (
+            <div className="audio-placeholder">&nbsp;</div>
+          )}
+        </div>
       </section>
 
       <section className="section translation-section">
@@ -278,8 +305,8 @@ export default function ConversationPage() {
         <button
           className="button translate-button"
           onClick={handleTranslate}
-          disabled={loading || !transcription || 
-            !transcription.trim() || 
+          disabled={loading || !transcription ||
+            !transcription.trim() ||
             isProcessingTranscription ||
             transcription === "No speech detected."}
         >
@@ -300,7 +327,7 @@ export default function ConversationPage() {
             className="button save-conversation-button"
             onClick={() => handleSaveConversation(transcription, translatedText)}
             disabled={saving || loading || isSaved ||
-            transcription === "No speech detected."}
+              transcription === "No speech detected."}
           >
             {saving ? "Saving..." : isSaved ? "Saved" : "Save Conversation"}
           </button>
@@ -315,6 +342,7 @@ export default function ConversationPage() {
         </div>
 
       )}
+
     </div>
   );
 }

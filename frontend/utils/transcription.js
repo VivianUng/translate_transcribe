@@ -62,7 +62,7 @@ export function startMicRecording({
   setListening,
   setRecordingType,
   onTranscription,
-  setTranscription,
+  onAudioReady,
   inputLang,
 }) {
   return navigator.mediaDevices.getUserMedia({ audio: true })
@@ -77,17 +77,18 @@ export function startMicRecording({
       micRecorderRef.current.onstart = () => {
         setListening(true);
         setRecordingType("mic");
-        if (setTranscription) setTranscription("");
+        if (onTranscription) onTranscription(""); // clear transcription
       };
 
       micRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
+        if (onAudioReady) onAudioReady(audioBlob); // pass audio back
         try {
-          const transcription = await transcribeAudio(audioBlob, inputLang);
-          onTranscription(transcription || "No speech detected.");
+          const text = await transcribeAudio(audioBlob, inputLang);
+          if (onTranscription) onTranscription(text || "No speech detected.");
         } catch (err) {
           console.error("Mic transcription error:", err);
-          onTranscription("Transcription failed.");
+          if (onTranscription) onTranscription("Transcription failed.");
         }
         setListening(false);
         setRecordingType(null);
@@ -109,7 +110,7 @@ export function startScreenRecording({
   setListening,
   setRecordingType,
   onTranscription,
-  setTranscription,
+  onAudioReady,
   inputLang,
 }) {
   return navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
@@ -131,17 +132,18 @@ export function startScreenRecording({
       screenRecorderRef.current.onstart = () => {
         setListening(true);
         setRecordingType("screen");
-        if (setTranscription) setTranscription("");
+        if (onTranscription) onTranscription(""); // clear previous transcription
       };
 
       screenRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
+        if (onAudioReady) onAudioReady(audioBlob);
         try {
           const transcription = await transcribeAudio(audioBlob, inputLang);
-          onTranscription(transcription || "No speech detected.");
+          if (onTranscription) onTranscription(transcription || "No speech detected.");
         } catch (err) {
           console.error("Screen transcription error:", err);
-          onTranscription("Transcription failed.");
+          if (onTranscription) onTranscription("Transcription failed.");
         }
         setListening(false);
         setRecordingType(null);
