@@ -234,7 +234,7 @@ export default function ConversationPage() {
               options={languages}
               value={languages.find(opt => opt.value === inputLang)}
               onChange={(opt) => setInputLang(opt.value)}
-              className="flex-1"
+              classNamePrefix="react-select"
             />
           )}
 
@@ -257,7 +257,7 @@ export default function ConversationPage() {
               options={languages.filter(opt => opt.value !== "auto")}
               value={languages.find(opt => opt.value === targetLang)}
               onChange={(opt) => setTargetLang(opt.value)}
-              className="flex-1"
+              classNamePrefix="react-select"
             />
           )}
         </div>

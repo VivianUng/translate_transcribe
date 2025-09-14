@@ -240,9 +240,10 @@ export default function SettingsPage() {
           <label>Default Language</label>
           {mounted && (
             <Select
-              options={languages}
+              options={languages.filter(opt => opt.value !== "auto")}
               value={languages.find((opt) => opt.value === formData.default_language)}
               onChange={(opt) => setFormData({ ...formData, default_language: opt.value })}
+              classNamePrefix="react-select"
             />
           )}
         </div>

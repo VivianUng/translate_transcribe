@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import Select from "react-select";
 import { useRouter } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 
@@ -16,6 +17,19 @@ export default function History() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [sortOrder, setSortOrder] = useState("desc"); // "asc" or "desc"
+
+  const sortOptions = [
+    { value: "desc", label: "📅 Date: Newest First" },
+    { value: "asc", label: "📅 Date: Oldest First" },
+  ];
+
+  const typeOptions = [
+    { value: "", label: "All Types" },
+    { value: "Translation", label: "Translation" },
+    { value: "Conversation", label: "Conversation" },
+    { value: "Summary", label: "Summary" },
+    { value: "Meeting", label: "Meeting" },
+  ];
 
 
   useEffect(() => {
@@ -187,26 +201,21 @@ export default function History() {
           />
 
           <div className="dropdown-group">
-            <select
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
+            <Select
+              options={sortOptions}
+              value={sortOptions.find((opt) => opt.value === sortOrder)}
+              onChange={(selected) => setSortOrder(selected.value)}
+              classNamePrefix="react-select"
               className="sortDropdown"
-            >
-              <option value="desc">Date: Newest First</option>
-              <option value="asc">Date: Oldest First</option>
-            </select>
+            />
 
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
+            <Select
+              options={typeOptions}
+              value={typeOptions.find((opt) => opt.value === selectedType)}
+              onChange={(selected) => setSelectedType(selected.value)}
+              classNamePrefix="react-select"
               className="typeDropdown"
-            >
-              <option value="">All Types</option>
-              <option value="Translation">Translation</option>
-              <option value="Conversation">Conversation</option>
-              <option value="Summary">Summary</option>
-              <option value="Meeting">Meeting</option>
-            </select>
+            />
           </div>
         </div>
 
