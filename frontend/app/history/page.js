@@ -15,6 +15,7 @@ export default function History() {
   const [selectedType, setSelectedType] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [sortOrder, setSortOrder] = useState("desc"); // "asc" or "desc"
 
 
   useEffect(() => {
@@ -75,9 +76,9 @@ export default function History() {
     return combined;
   }, [history]);
 
-  // Filter with searchTerm, type, and date range
+
   const filteredHistory = useMemo(() => {
-    return combinedHistory.filter((item) => {
+    const filtered = combinedHistory.filter((item) => {
       const matchesSearch =
         item.input.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.output.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -87,14 +88,29 @@ export default function History() {
 
       const itemDateStr = item.createdAt.toISOString().split("T")[0]; // "yyyy-mm-dd"
 
-      // Compare against startDate / endDate 
-      const matchesDate =
-        (!startDate || itemDateStr >= startDate) &&
-        (!endDate || itemDateStr <= endDate);
+      let matchesDate = true;
+      if (startDate && !endDate) {
+        // Only start date → match that exact date
+        matchesDate = itemDateStr === startDate;
+      } else if (!startDate && endDate) {
+        // Only end date → match that exact date
+        matchesDate = itemDateStr === endDate;
+      } else if (startDate && endDate) {
+        // Both → match range
+        matchesDate = itemDateStr >= startDate && itemDateStr <= endDate;
+      }
 
       return matchesSearch && matchesType && matchesDate;
     });
-  }, [combinedHistory, searchTerm, selectedType, startDate, endDate]);
+
+    // Sort by date based on sortOrder
+    filtered.sort((a, b) =>
+      sortOrder === "asc" ? a.createdAt - b.createdAt : b.createdAt - a.createdAt
+    );
+
+    return filtered;
+  }, [combinedHistory, searchTerm, selectedType, startDate, endDate, sortOrder]);
+
 
   if (loading) return <p>Loading...</p>;
 
@@ -158,29 +174,43 @@ export default function History() {
   return (
     <div className="page-container">
       <h1 className="page-title">History</h1>
-      {/* Search and Type and Date Filter */}
+      {/* Search, Sort, Type and Date Filter */}
       <div className="filter-container">
-        <input
-          type="text"
-          placeholder="Search history..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="searchInput"
-        />
+        {/* Left section */}
+        <div className="filter-left">
+          <input
+            type="text"
+            placeholder="Search history..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="searchInput"
+          />
 
-        <select
-          value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value)}
-          className="typeDropdown"
-        >
-          <option value="">All Types</option>
-          <option value="Translation">Translation</option>
-          <option value="Conversation">Conversation</option>
-          <option value="Summary">Summary</option>
-          <option value="Meeting">Meeting</option>
-        </select>
+          <div className="dropdown-group">
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="sortDropdown"
+            >
+              <option value="desc">Date: Newest First</option>
+              <option value="asc">Date: Oldest First</option>
+            </select>
 
-        {/* Date Range Inputs */}
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="typeDropdown"
+            >
+              <option value="">All Types</option>
+              <option value="Translation">Translation</option>
+              <option value="Conversation">Conversation</option>
+              <option value="Summary">Summary</option>
+              <option value="Meeting">Meeting</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Right section (Date filters) */}
         <div className="date-filters">
           <div className="date-field">
             <label>Start Date</label>
@@ -203,6 +233,8 @@ export default function History() {
           </div>
         </div>
       </div>
+
+
 
       <div className="history-container">
         {filteredHistory.length > 0 ? (

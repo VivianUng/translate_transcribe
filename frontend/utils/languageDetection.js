@@ -62,6 +62,18 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
     };
   }
 
+  const minLengthSummary = 3000;
+  if (source = "summarizer"){
+    if (inputText.length < minLengthSummary){
+      return {
+      valid: false,
+      detectedLang: null,
+      confidence: 0,
+      message: `Input text is too short. Please enter at least ${minLengthSummary.toLocaleString()} characters.`,
+    };
+    }
+  }
+
   if (!isValidText(inputText)) {
     return {
       valid: false,
