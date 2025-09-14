@@ -1,36 +1,32 @@
 # backend/app/api/routes.py
 
-import tempfile
+
 from ..core.language_codes import LanguageConverter
-from ..core.image_preprocessing import process_image_for_ocr
+# from ..core.image_preprocessing import process_image_for_ocr
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request, Form
 from pydantic import BaseModel
 from typing import Optional, Literal
 import httpx
-from datetime import datetime
 import pytesseract
-from pypdf import PdfReader
 import fitz
 import docx
 import speech_recognition as sr
-from langdetect import detect, detect_langs
+from langdetect import detect_langs
 from PIL import Image, UnidentifiedImageError
 import imageio_ffmpeg as ffmpeg
 import io
 import logging
-import json
+# import json
 import subprocess
 from supabase import create_client, Client
 import os
-from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
-import jwt
-from pyannote.audio import Pipeline
 from transformers import T5ForConditionalGeneration, T5Tokenizer
+# from pyannote.audio import Pipeline
+# import tempfile
 # import whisper
 # import wave
 # import torch
-# import tempfile
 
 load_dotenv()
 
