@@ -58,7 +58,7 @@ export default function Summarizer() {
     }
   }, [prefsLoading, session, prefs]);
 
-    function clearDisplay() {
+  function clearDisplay() {
     setIsSaved(false);
     setSaving(false);
     setLoading(false);
@@ -102,6 +102,7 @@ export default function Summarizer() {
 
     try {
       const { valid, detectedLang, message } = await detectAndValidateLanguage(
+        "summarizer",
         inputLang,
         inputText
       );

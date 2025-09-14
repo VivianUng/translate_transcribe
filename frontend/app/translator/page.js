@@ -210,6 +210,7 @@ export default function Translate() {
 
     try {
       const { valid, detectedLang, message } = await detectAndValidateLanguage(
+        "translator",
         inputLang,
         inputText
       );

@@ -32,7 +32,8 @@ function isValidText(text) {
 
 
 
-export async function detectAndValidateLanguage(inputLang, inputText) {
+// export async function detectAndValidateLanguage(inputLang, inputText) {
+export async function detectAndValidateLanguage(source, inputLang, inputText) {
   if (!inputText.trim()) {
     return {
       valid: false,
@@ -42,21 +43,31 @@ export async function detectAndValidateLanguage(inputLang, inputText) {
     };
   }
 
+  const limits = {
+    translator: 9000,
+    summarizer: 15000,
+    conversation: 25000,
+    meetings: 70000,
+    default: 9000,
+  };
+
+  const maxLength = limits[source] ?? limits.default;
+
+  if (inputText.length > maxLength) {
+    return {
+      valid: false,
+      detectedLang: null,
+      confidence: 0,
+      message: `Input text is too long. Please limit to ${maxLength.toLocaleString()} characters.`,
+    };
+  }
+
   if (!isValidText(inputText)) {
     return {
       valid: false,
       detectedLang: null,
       confidence: 0,
       message: "Please enter valid text with letters or numbers.",
-    };
-  }
-
-  if (inputText.length > 5000) {
-    return {
-      valid: false,
-      detectedLang: null,
-      confidence: 0,
-      message: "Input text is too long. Please limit to 5000 characters.",
     };
   }
 

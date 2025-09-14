@@ -154,6 +154,7 @@ export default function ConversationPage() {
     try {
       // Step 1: Detect + validate language
       const { valid, detectedLang, message } = await detectAndValidateLanguage(
+        "conversation",
         inputLang,
         transcription
       );
