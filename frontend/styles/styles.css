@@ -6,6 +6,8 @@
   --secondary-color: #5a5f9f;
   --tertiary-color: #484c8a;
   --navbar-color: #d7d9e8;
+  --text-color: #4a4a63;
+  --text-color-active: #2c2c54;
 }
 
 body {
@@ -20,6 +22,7 @@ a {
   color: inherit;
 }
 
+/* Toast styles */
 .toast-container {
   top: 4.5rem !important;
   right: 1rem !important;
@@ -40,7 +43,7 @@ a {
 .page-title {
   font-size: 1.8rem;
   margin-bottom: 1rem;
-  color: #2c2c54;
+  color: var(--text-color-active);
   text-align: center;
 }
 
@@ -96,11 +99,6 @@ a {
 
 .placeholder {
   color: gray;
-}
-
-.input-label {
-  margin-bottom: 0.5rem;
-  font-weight: 600;
 }
 
 .page-link-word {
@@ -185,6 +183,11 @@ a {
   color: #999;
 }
 
+.input-label {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
 
 /* === Global react-select styling === */
 .react-select__control {
@@ -242,14 +245,14 @@ a {
   align-items: center;
   gap: 1rem;
   font-weight: bold;
-  color: #4a4a63;
+  color: var(--text-color);
 }
 
 .navbar-links {
   display: flex;
   gap: 2rem;
   font-size: 1.1rem;
-  color: #4a4a63;
+  color: var(--text-color);
   flex-wrap: wrap;
   /* prevents overflow on small screens */
 }
@@ -263,7 +266,7 @@ a {
 .navbar-links a.active {
   text-decoration: underline;
   font-weight: 600;
-  color: #2c2c54;
+  color: var(--text-color-active);
 }
 
 
@@ -332,15 +335,15 @@ a {
 /* --- Audio Container --- */
 .audio-container {
   display: flex;
-  align-items: center;  
+  align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;    
+  gap: 0.5rem;
   min-height: 3rem;
 }
 
 /* --- Audio Element --- */
 .audio-container audio {
-  flex: 1; 
+  flex: 1;
   outline: none;
   border-radius: 0.25rem;
 }
@@ -467,7 +470,7 @@ a {
 }
 
 .meeting-card {
-  background-color: #f7f5fb;
+  background-color: var(--primary-color);
   border-radius: 8px;
   padding: 1rem 1.5rem;
   margin-bottom: 1rem;
@@ -687,4 +690,115 @@ a {
 
 .danger-button:hover {
   background: #c53030;
+}
+
+
+/* ===========================
+          Create Meetings  Styles
+   =========================== */
+
+.create-meeting-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.create-meeting-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+
+.date-time-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+.participants-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.participant-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem; 
+  background-color: #e9f5ff;
+  color: #0366d6;
+  border: 1px solid #cce5ff;
+  border-radius: 9999px; 
+  padding: 0.25rem 0.6rem 0.25rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin: 0.25rem;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.participant-tag:hover {
+  background-color: #dbeeff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.participant-tag button {
+  all: unset;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #555;
+  transition: color 0.2s ease;
+}
+
+.participant-tag button:hover {
+  color: #d32f2f;
+}
+
+.remove-participant {
+  margin-left: 0.5rem;
+  border: none;
+  background: transparent;
+  color: #888;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.remove-participant:hover {
+  color: #333;
+}
+
+.create-meeting-form-actions {
+  text-align: right;
+}
+
+.participant-input {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  width: 100%;
+  margin-bottom: 1.2rem;
+}
+
+.participant-input .input-field {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.add-button {
+  padding: 0 1rem; 
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background-color: #e0e0e0;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;        
+  justify-content: center;
+  height: auto;
+}
+
+.add-button:hover {
+  background-color: #d5d5d5;
 }

@@ -87,7 +87,10 @@ export default function Meetings() {
       <section className="meetings-section">
         <div className='section-header'>
           <h3>Upcoming Meetings</h3>
-          <button className="button create-btn">
+          <button
+            className="button create-btn"
+            onClick={() => router.push("/meeting/create_meeting")}
+          >
             Create New <span aria-hidden="true">+</span>
           </button>
         </div>

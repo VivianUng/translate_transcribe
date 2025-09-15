@@ -20,7 +20,7 @@ export default function ConversationDetails() {
     const { languages } = useLanguages();
     const [error, setError] = useState(null);
 
-    // 🔹 detect changes
+    //  detect changes
     const isChanged = useMemo(() => {
         if (!conversation || !formData) return false;
         return JSON.stringify(formData) !== JSON.stringify(conversation);
@@ -47,7 +47,21 @@ export default function ConversationDetails() {
                     }
                 );
 
-                if (!res.ok) throw new Error("Failed to fetch conversation");
+                if (res.status === 400) {
+                    throw new Error("Invalid request. Please check the conversation ID.");
+                }
+                if (res.status === 401) {
+                    throw new Error("Unauthorized. Please log in again.");
+                }
+                if (res.status === 403) {
+                    throw new Error("You do not have permission to access this conversation.");
+                }
+                if (res.status === 404) {
+                    throw new Error("Conversation not found.");
+                }
+                if (!res.ok) {
+                    throw new Error("Failed to fetch conversation.");
+                }
 
                 const data = await res.json();
 
@@ -170,7 +184,9 @@ export default function ConversationDetails() {
         }
     };
 
+    if (!id) return <p>Invalid conversation link.</p>;
     if (loading) return <p>Loading...</p>;
+    if (error) return <p style={{ color: "red" }}>{error}</p>;
     if (!conversation) return <p>Conversation not found.</p>;
 
     return (

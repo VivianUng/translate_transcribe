@@ -17,7 +17,7 @@ export default function ToastProvider() {
     if (toastParam === "signupSuccess") {
       toast.success("🎉 Successfully Signed Up!");
     } else if (toastParam === "updatePwSuccess") {
-      toast.success("✅ Successfully Updated Password!");
+      toast.success("Successfully Updated Password!");
     } else if (toastParam === "notAuthenticated") {
       toast.error("🚫 Cannot Access this Page!");
     } else if (toastParam === "deleteAccSuccess") {
@@ -38,10 +38,6 @@ export default function ToastProvider() {
           case "SIGNED_OUT":
             toast.success("👋 Successfully Logged Out!");
             localStorage.removeItem("loginToastShown");
-            break;
-
-          case "PASSWORD_RECOVERY":
-            toast("📩 Check your email to reset your password!");
             break;
         }
       }
