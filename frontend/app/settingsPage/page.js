@@ -149,7 +149,7 @@ export default function SettingsPage() {
       return;
     }
 
-    setMessage("✅ Password reset email sent! Check your inbox.");
+    setMessage("📩 Password reset email sent! Check your inbox.");
   };
 
   const deleteAccount = async () => {

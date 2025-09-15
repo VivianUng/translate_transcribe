@@ -3,6 +3,7 @@
 import { Toaster, toast } from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function ToastProvider() {
   const searchParams = useSearchParams();
@@ -12,11 +13,8 @@ export default function ToastProvider() {
   useEffect(() => {
     setMounted(true);
 
-    if (toastParam === "loginSuccess") {
-      toast.success("🎉 Successfully Logged In!");
-    } else if (toastParam === "logoutSuccess") {
-      toast.success("👋 Successfully Logged Out!");
-    } else if (toastParam === "signupSuccess") {
+    // Query param–based toasts
+    if (toastParam === "signupSuccess") {
       toast.success("🎉 Successfully Signed Up!");
     } else if (toastParam === "updatePwSuccess") {
       toast.success("✅ Successfully Updated Password!");
@@ -25,7 +23,33 @@ export default function ToastProvider() {
     } else if (toastParam === "deleteAccSuccess") {
       toast.success("Account Deleted.");
     }
+
+    // Auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event) => {
+        switch (event) {
+          case "SIGNED_IN":
+            if (!toastParam && !localStorage.getItem("loginToastShown")) {
+              toast.success("🎉 Successfully Logged In!");
+              localStorage.setItem("loginToastShown", "true");
+            }
+            break;
+
+          case "SIGNED_OUT":
+            toast.success("👋 Successfully Logged Out!");
+            localStorage.removeItem("loginToastShown");
+            break;
+
+          case "PASSWORD_RECOVERY":
+            toast("📩 Check your email to reset your password!");
+            break;
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, [toastParam]);
+
   return mounted ? (
     <Toaster
       position="top-right"

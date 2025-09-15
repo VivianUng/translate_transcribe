@@ -54,7 +54,7 @@ export default function Login() {
       setErrorMsg(error.message);
     } else {
       setIsLoggedIn(true);
-      router.push("/?toast=loginSuccess");
+      router.push("/");
     }
   }
 
@@ -78,7 +78,7 @@ export default function Login() {
       return;
     }
 
-    setErrorMsg("✅ Password reset email sent! Check your inbox.");
+    setErrorMsg("📩 Password reset email sent! Check your inbox.");
     setResetSent(true); // disable after successful send
 
   }

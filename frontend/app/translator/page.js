@@ -1,8 +1,6 @@
 "use client";
 
 import Select from "react-select";
-import { toast } from "react-hot-toast";
-import { supabase } from '../../lib/supabaseClient';
 import { useState, useRef, useEffect } from "react";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
