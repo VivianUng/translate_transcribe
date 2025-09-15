@@ -58,17 +58,12 @@ const meetingsData = {
 
 export default function Meetings() {
   const router = useRouter();
-  const { LoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
+  const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
   const [mounted, setMounted] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     setMounted(true); // for react-select component
-
-    if (session?.user) {
-      setIsLoggedIn(!!session);
-    }
-  }, [session]);
+  },);
 
   if (loading) return <p>Loading...</p>;
 

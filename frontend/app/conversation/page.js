@@ -11,7 +11,7 @@ import { startMicRecording, startScreenRecording, stopRecording, } from "@/utils
 
 
 export default function ConversationPage() {
-  const { LoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
+  const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_conversations",]);
   const [listening, setListening] = useState(false);
   const [recordingType, setRecordingType] = useState(null); // "mic" or "screen"
@@ -23,7 +23,7 @@ export default function ConversationPage() {
   const [message, setMessage] = useState("");
   const [transcription_message, setTranscriptMessage] = useState("");
   const [autoSave, setAutoSave] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
   const [save_message, setSaveMessage] = useState("");
   const [isSaved, setIsSaved] = useState(false); // track if conversation is saved
   const isProcessingTranscription =
@@ -45,10 +45,7 @@ export default function ConversationPage() {
 
   useEffect(() => {
     setMounted(true); // for react-select component
-    if (session?.user) {
-      setIsLoggedIn(true);
-    }
-  }, [session]);
+  },);
 
   // Whenever input or target language changes, reset isSaved
   useEffect(() => {

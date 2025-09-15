@@ -14,7 +14,7 @@ import { extractTextFromImage } from "@/utils/fileProcessing";
 import { extractTextFromDocument } from "@/utils/fileProcessing";
 
 export default function Translate() {
-  const { LoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
+  const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_translations",]);
   const [inputText, setInputText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
@@ -31,54 +31,17 @@ export default function Translate() {
   const [previewDoc, setPreviewDoc] = useState(null);
   const [autoSave, setAutoSave] = useState(false);
   const [isSaved, setIsSaved] = useState(false); // track if translation is saved
-  const [profileChecked, setProfileChecked] = useState(false);
 
   const micRecorderRef = useRef(null);
   const audioChunks = useRef([]);
   const [listening, setListening] = useState(false);
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const fileInputRef = useRef(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-
-    if (!session?.user || profileChecked) return;
-
-    const ensureProfile = async (user) => {
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error checking profile:", error.message);
-        return;
-      }
-
-      if (!profile) {
-        const { error: insertError } = await supabase.from("profiles").upsert({
-          id: user.id,
-          name: user.user_metadata?.full_name || null,
-          email: user.email,
-        });
-
-        if (insertError) {
-          console.error("Error inserting profile:", insertError.message);
-        } else {
-          toast.success("🎉 Successfully Logged In!");
-        }
-      }
-
-      setProfileChecked(true); // ✅ prevents re-run
-    };
-
-    ensureProfile(session.user);
-    setIsLoggedIn(true);
-
-  }, [session, profileChecked]);
+    setMounted(true); // for react-select component
+  },);
 
   // Whenever input or target language changes, reset isSaved
   useEffect(() => {

@@ -9,10 +9,9 @@ export default function History() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { LoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
+  const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
   const [history, setHistory] = useState({ translations: [], conversations: [], summaries: [] });
   const [loading, setLoading] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [selectedType, setSelectedType] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -34,7 +33,6 @@ export default function History() {
 
   useEffect(() => {
     if (session?.user) {
-      setIsLoggedIn(!!session);
       fetchUserHistory().then((data) => {
         setHistory(data);
         setLoading(false);

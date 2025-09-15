@@ -12,7 +12,7 @@ import { translateText } from "@/utils/translation";
 
 
 export default function Summarizer() {
-  const { LoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
+  const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_summaries",]);
   const [inputText, setInputText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
@@ -31,14 +31,10 @@ export default function Summarizer() {
   const [listening, setListening] = useState(false);
 
   const [mounted, setMounted] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     setMounted(true); // for react-select component
-    if (session?.user) {
-      setIsLoggedIn(true);
-    }
-  }, [session]);
+  },);
 
   // Whenever input or target language changes, reset isSaved
   useEffect(() => {
