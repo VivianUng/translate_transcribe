@@ -1,26 +1,34 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function CreateMeetingPage() {
     const router = useRouter();
-    const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
+    const { loading, session } = useAuthCheck({
+        redirectIfNotAuth: true,
+        returnSession: true,
+    });
 
+    const [meetingName, setMeetingName] = useState("");
+    const [date, setDate] = useState("");
     const [startTime, setStartTime] = useState("");
     const [endTime, setEndTime] = useState("");
-
     const [participants, setParticipants] = useState([]);
     const [emailInput, setEmailInput] = useState("");
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // email check
+    const [formErrors, setFormErrors] = useState({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const isValidEmail = emailRegex.test(emailInput);
 
     const handleStartChange = (e) => {
         const value = e.target.value;
+        setFormErrors((prev) => ({ ...prev, start: "" }));
         setStartTime(value);
-
-        // If new start is after current end → reset end
         if (endTime && value >= endTime) {
             setEndTime("");
         }
@@ -28,16 +36,49 @@ export default function CreateMeetingPage() {
 
     const handleEndChange = (e) => {
         const value = e.target.value;
-        // Only allow if end > start
+        setFormErrors((prev) => ({ ...prev, end: "" }));
         if (!startTime || value > startTime) {
             setEndTime(value);
         }
     };
 
-    const addParticipant = () => {
-        if (emailInput && !participants.includes(emailInput)) {
+    const addParticipant = async () => {
+        const errors = {};
+        if (!emailInput.trim()) {
+            errors.participants = "Please enter an email address.";
+        } else if (!emailRegex.test(emailInput)) {
+            errors.participants = "Please enter a valid email address.";
+        } else if (participants.includes(emailInput)) {
+            errors.participants = "This participant has already been added.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setFormErrors((prev) => ({ ...prev, ...errors }));
+            return;
+        }
+
+        const { data, error } = await supabase.rpc("email_exists", {
+            check_email: emailInput,
+        });
+
+        if (error) {
+            console.error(error);
+            setFormErrors((prev) => ({
+                ...prev,
+                participants: "Error checking email. Please try again.",
+            }));
+            return;
+        }
+
+        if (data) {
             setParticipants([...participants, emailInput]);
             setEmailInput("");
+            setFormErrors((prev) => ({ ...prev, participants: "" }));
+        } else {
+            setFormErrors((prev) => ({
+                ...prev,
+                participants: "This email is not registered.",
+            }));
         }
     };
 
@@ -45,6 +86,62 @@ export default function CreateMeetingPage() {
         setParticipants(participants.filter((p) => p !== email));
     };
 
+    const handleCreateMeeting = async () => {
+        const errors = {};
+
+        if (!meetingName.trim()) errors.name = "Meeting name is required.";
+        if (!date) errors.date = "Date is required.";
+        if (!startTime) errors.start = "Start time is required.";
+        if (!endTime) errors.end = "End time is required.";
+        if (participants.length === 0)
+            errors.participants = "At least one participant is required.";
+
+        setFormErrors(errors);
+
+        if (Object.keys(errors).length > 0) return;
+
+        try {
+            setIsSubmitting(true);
+
+            const { data: meeting, error: meetingError } = await supabase
+                .from("meetings")
+                .insert({
+                    name: meetingName,
+                    date,
+                    start_time: startTime,
+                    end_time: endTime,
+                    host_id: session.user.id,
+                })
+                .select()
+                .single();
+
+            if (meetingError) throw meetingError;
+
+            const { data: profiles, error: profilesError } = await await supabase.rpc('get_profiles_for_emails', {
+                emails: participants
+            });
+
+            if (profilesError) throw profilesError;
+
+            const participantRows = profiles.map((p) => ({
+                meeting_id: meeting.id,
+                participant_id: p.id,
+            }));
+
+            const { error: participantError } = await supabase
+                .from("meeting_participants")
+                .insert(participantRows);
+
+            if (participantError) throw participantError;
+
+
+            router.push("/meeting?toast=createMeetingSuccess");
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     if (loading) return <p>Loading...</p>;
 
@@ -52,50 +149,68 @@ export default function CreateMeetingPage() {
         <div className="page-container">
             {/* Back Button */}
             <button className="back-button" onClick={() => router.push("/meeting")}>
-                ← Back to Meetings
+                <ArrowLeft size={20} />
             </button>
             <h1 className="page-title">Create a New Meeting</h1>
 
-            <form className="section">
+            <div className="section">
                 {/* Meeting Details */}
                 <h3 className="input-label">Meeting Name</h3>
                 <input
-                    className="input-field"
+                    className={`input-field ${formErrors.name ? "input-error" : ""}`}
                     type="text"
+                    value={meetingName}
+                    onChange={(e) => {
+                        setMeetingName(e.target.value);
+                        setFormErrors((prev) => ({ ...prev, name: "" }));
+                    }}
                     placeholder="Enter meeting name"
                 />
+                {formErrors.name && <p className="error-message">{formErrors.name}</p>}
                 <hr className="divider" />
 
                 {/* Date & Time */}
                 <div className="date-time-grid">
-                    <div >
+                    <div>
                         <h3 className="input-label">Date</h3>
                         <input
-                            className="input-field"
+                            className={`input-field ${formErrors.date ? "input-error" : ""}`}
                             type="date"
-                            min={new Date().toISOString().split("T")[0]} // today or later
+                            min={new Date().toISOString().split("T")[0]}
+                            value={date}
+                            onChange={(e) => {
+                                setDate(e.target.value);
+                                setFormErrors((prev) => ({ ...prev, date: "" }));
+                            }}
                         />
+                        {formErrors.date && (
+                            <p className="error-message">{formErrors.date}</p>
+                        )}
                     </div>
 
                     <div>
                         <h3 className="input-label">Start Time</h3>
                         <input
-                            className="input-field"
+                            className={`input-field ${formErrors.start ? "input-error" : ""}`}
                             type="time"
                             value={startTime}
                             onChange={handleStartChange}
                         />
+                        {formErrors.start && (
+                            <p className="error-message">{formErrors.start}</p>
+                        )}
                     </div>
 
-                    <div >
+                    <div>
                         <h3 className="input-label">End Time</h3>
                         <input
-                            className="input-field"
+                            className={`input-field ${formErrors.end ? "input-error" : ""}`}
                             type="time"
                             value={endTime}
                             min={startTime || undefined}
                             onChange={handleEndChange}
                         />
+                        {formErrors.end && <p className="error-message">{formErrors.end}</p>}
                     </div>
                 </div>
                 <hr className="divider" />
@@ -104,21 +219,33 @@ export default function CreateMeetingPage() {
                 <h3 className="input-label">Participants</h3>
                 <div className="participant-input">
                     <input
-                        className="input-field"
-                        type="email"
+                        className={`input-field ${formErrors.participants ? "input-error" : ""}`}
+                        type="text"
                         value={emailInput}
-                        onChange={(e) => setEmailInput(e.target.value)}
+                        onChange={(e) => {
+                            setEmailInput(e.target.value);
+                            setFormErrors((prev) => ({ ...prev, participants: "" }));
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                addParticipant();
+                            }
+                        }}
                         placeholder="Add participant email"
                     />
                     <button
                         type="button"
                         className="add-button"
                         onClick={addParticipant}
-                        disabled={!isValidEmail}
+                        disabled={!emailInput || !isValidEmail}
                     >
                         Add
                     </button>
                 </div>
+                {formErrors.participants && (
+                    <p className="error-message">{formErrors.participants}</p>
+                )}
 
                 {participants.length > 0 && (
                     <div className="participants-list">
@@ -139,12 +266,15 @@ export default function CreateMeetingPage() {
                 <hr className="divider" />
 
                 {/* Submit */}
-                <button type="submit" className="button primary">
-                    Create Meeting
+                <button
+                    type="button"
+                    className="button"
+                    onClick={handleCreateMeeting}
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? "Creating..." : "Create Meeting"}
                 </button>
-            </form>
+            </div>
         </div>
-
     );
-};
-
+}

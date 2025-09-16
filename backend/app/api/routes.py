@@ -281,7 +281,60 @@ async def delete_record(record_type: str, record_id: str, current_user=Depends(g
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error deleting {record_type}: {e}")
-    
+
+@router.get("/meetings")
+async def get_user_meetings(
+    current_user=Depends(get_current_user)
+):
+    """
+    Get all meetings where the current user is either the host or a participant.
+    """
+    try:
+        # 1. Meetings where user is host
+        host_result = (
+            supabase.table("meetings")
+            .select("*")
+            .eq("host_id", current_user.id)
+            .execute()
+        )
+        host_meetings = host_result.data or []
+
+        # 2. Meetings where user is participant
+        participant_links = (
+            supabase.table("meeting_participants")
+            .select("meeting_id")
+            .eq("participant_id", current_user.id)
+            .execute()
+        )
+        participant_links_data = participant_links.data or []
+
+        # Fetch full meeting info for participant meetings
+        participant_meetings = []
+        for link in participant_links_data:
+            meeting_result = (
+                supabase.table("meetings")
+                .select("*")
+                .eq("id", link["meeting_id"])
+                .single()
+                .execute()
+            )
+            if meeting_result.data:
+                participant_meetings.append(meeting_result.data)
+
+        # 3. Combine host + participant meetings and remove duplicates
+        all_meetings_dict = {m["id"]: m for m in host_meetings + participant_meetings}
+        all_meetings = list(all_meetings_dict.values())
+
+        # sort by date + start_time
+        all_meetings.sort(key=lambda m: (m["date"], m["start_time"]))
+
+        return all_meetings
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error fetching meetings: {e}")
+
+
+
 @router.post("/delete-account")
 async def delete_account(current_user=Depends(get_current_user)):
     """

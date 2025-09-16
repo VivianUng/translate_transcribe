@@ -2,8 +2,8 @@
          Global Styles
    =========================== */
 :root {
-  --primary-color: #f7f5fb;
-  --secondary-color: #5a5f9f;
+  --primary-color: #f7f5fb; /*section color*/
+  --secondary-color: #5a5f9f; /*button color*/
   --tertiary-color: #484c8a;
   --navbar-color: #d7d9e8;
   --text-color: #4a4a63;
@@ -800,4 +800,8 @@ a {
 
 .add-button:hover {
   background-color: #d5d5d5;
+}
+
+.input-error {
+  border: 1px solid #dc2626; /* red border */
 }

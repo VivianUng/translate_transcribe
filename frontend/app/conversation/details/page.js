@@ -1,5 +1,6 @@
 "use client";
 import Select from "react-select";
+import { ArrowLeft } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import toast from 'react-hot-toast';
 import { useSearchParams, useRouter } from "next/navigation";
@@ -193,7 +194,7 @@ export default function ConversationDetails() {
         <div className="page-container">
             {/* Back Button */}
             <button className="back-button" onClick={() => router.push("/history")}>
-                ← Back to History
+                <ArrowLeft size={20} />
             </button>
             <h1 className="page-title">Conversation Details</h1>
 

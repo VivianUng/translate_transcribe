@@ -22,6 +22,8 @@ export default function ToastProvider() {
       toast.error("🚫 Cannot Access this Page!");
     } else if (toastParam === "deleteAccSuccess") {
       toast.success("Account Deleted.");
+    } else if (toastParam === "createMeetingSuccess") {
+      toast.success("Successfully Created New Meeting.");
     }
 
     // Auth state listener
