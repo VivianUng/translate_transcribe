@@ -191,6 +191,10 @@ export default function ConversationDetails() {
 
     return (
         <div className="page-container">
+            {/* Back Button */}
+            <button className="back-button" onClick={() => router.push("/history")}>
+                ← Back to History
+            </button>
             <h1 className="page-title">Conversation Details</h1>
 
             <div className="conversation-details">

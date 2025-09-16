@@ -224,6 +224,7 @@ export default function History() {
             <input
               type="date"
               value={startDate}
+              max={new Date().toISOString().split("T")[0]}  // today's date
               onChange={(e) => setStartDate(e.target.value)}
             />
           </div>
@@ -235,6 +236,7 @@ export default function History() {
             <input
               type="date"
               value={endDate}
+              max={new Date().toISOString().split("T")[0]}  // today's date
               onChange={(e) => setEndDate(e.target.value)}
             />
           </div>
