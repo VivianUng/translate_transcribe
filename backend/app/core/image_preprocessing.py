@@ -1,107 +1,71 @@
-import cv2
+from PIL import Image, ImageOps, ImageFilter
 import numpy as np
-from PIL import Image
-import tempfile
+import cv2
+import io
+from typing import Dict, Tuple
 
-IMAGE_SIZE = 1800
+# def process_image_for_ocr(contents: bytes) -> Image.Image:
+#     """
+#     Preprocess an image (from raw bytes) for optimal OCR with pytesseract.
+#     Focused on clean, printed text images with possible minor noise.
+#     Returns a PIL.Image.
+#     """
+#     # Load with PIL
+#     im = Image.open(io.BytesIO(contents))
 
-def process_image_for_ocr(file_path):
-    temp_filename = set_image_dpi(file_path)
-    im_new = enhance_and_clean(temp_filename)
-    return im_new
+#     # 1. Convert to grayscale
+#     im = ImageOps.grayscale(im)
 
-def set_image_dpi(file_path):
-    im = Image.open(file_path)
+#     # 2. Convert PIL → OpenCV for better thresholding/denoising
+#     img_cv = np.array(im)
 
-    # Ensure no alpha channel (convert RGBA → RGB)
-    if im.mode == "RGBA":
-        im = im.convert("RGB")
+#     # 3. Adaptive thresholding (better than global for varied backgrounds)
+#     img_cv = cv2.adaptiveThreshold(
+#         img_cv, 255,
+#         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+#         cv2.THRESH_BINARY,
+#         blockSize=31,  # size of pixel neighborhood
+#         C=15           # constant subtracted from mean
+#     )
 
-    length_x, width_y = im.size
-    factor = max(1, int(IMAGE_SIZE / length_x))
-    size = factor * length_x, factor * width_y
-    im_resized = im.resize(size, Image.Resampling.LANCZOS)
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
-    temp_filename = temp_file.name
-    im_resized.save(temp_filename, dpi=(300, 300))
-    return temp_filename
+#     # 4. Median blur (remove small noise, keep edges sharp)
+#     img_cv = cv2.medianBlur(img_cv, 3)
 
-def enhance_and_clean(file_name):
-    # Read in grayscale
-    img = cv2.imread(file_name, cv2.IMREAD_GRAYSCALE)
+#     # 5. Resize if text is too small (upscale by 2x if width < 1000px)
+#     if img_cv.shape[1] < 1000:
+#         img_cv = cv2.resize(img_cv, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
 
-    # Step 1: Contrast enhancement using CLAHE
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-    img = clahe.apply(img)
+#     # Convert back to PIL
+#     im_processed = Image.fromarray(img_cv)
 
-    # Step 2: Gaussian blur to reduce tiny noise
-    blurred = cv2.GaussianBlur(img, (3,3), 0)
+#     return im_processed
 
-    # Step 3: Adaptive threshold
-    thresh = cv2.adaptiveThreshold(
-        blurred,
-        255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY,
-        31,
-        2
+
+def process_image_for_ocr(contents: bytes) -> Image.Image:
+    """Full preprocessing pipeline. Accepts raw bytes and returns a PIL.Image ready for pytesseract."""
+    im = Image.open(io.BytesIO(contents))   # Start with raw bytes
+
+    gray_image = convert_to_grayscale(im)
+    resized_image = resize_image(gray_image)
+    thresholded_image = thresholding(resized_image)
+
+    return thresholded_image  # PIL.Image, valid for pytesseract
+
+
+def convert_to_grayscale(im: Image.Image) -> Image.Image:
+    """Convert image to grayscale."""
+    return ImageOps.grayscale(im)
+
+
+def resize_image(gray_image: Image.Image) -> Image.Image:
+    """Resize the grayscale image by scale factor."""
+    scale_factor = 2
+    return gray_image.resize(
+        (gray_image.width * scale_factor, gray_image.height * scale_factor),
+        resample=Image.LANCZOS
     )
 
-    # Step 4: Morphological closing (fills small holes in text)
-    kernel = np.ones((2, 2), np.uint8)
-    morph = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
 
-    # Step 5: Optional sharpening to strengthen edges
-    kernel_sharp = np.array([[0, -1, 0],
-                             [-1, 5,-1],
-                             [0, -1, 0]])
-    sharpened = cv2.filter2D(morph, -1, kernel_sharp)
-
-    return sharpened
-
-
-
-# import tempfile
-
-# import cv2
-# import numpy as np
-# from PIL import Image
-
-# IMAGE_SIZE = 1800
-# BINARY_THREHOLD = 180
-
-# def process_image_for_ocr(file_path):
-#     # TODO : Implement using opencv
-#     temp_filename = set_image_dpi(file_path)
-#     im_new = remove_noise_and_smooth(temp_filename)
-#     return im_new
-
-# def set_image_dpi(file_path):
-#     im = Image.open(file_path)
-#     length_x, width_y = im.size
-#     factor = max(1, int(IMAGE_SIZE / length_x))
-#     size = factor * length_x, factor * width_y
-#     # size = (1800, 1800)
-#     im_resized = im.resize(size, Image.Resampling.LANCZOS)
-#     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
-#     temp_filename = temp_file.name
-#     im_resized.save(temp_filename, dpi=(300, 300))
-#     return temp_filename
-
-# def image_smoothening(img):
-#     ret1, th1 = cv2.threshold(img, BINARY_THREHOLD, 255, cv2.THRESH_BINARY)
-#     ret2, th2 = cv2.threshold(th1, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-#     blur = cv2.GaussianBlur(th2, (1, 1), 0)
-#     ret3, th3 = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-#     return th3
-
-# def remove_noise_and_smooth(file_name):
-#     img = cv2.imread(file_name, 0)
-#     filtered = cv2.adaptiveThreshold(img.astype(np.uint8), 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 41,
-#                                      3)
-#     kernel = np.ones((1, 1), np.uint8)
-#     opening = cv2.morphologyEx(filtered, cv2.MORPH_OPEN, kernel)
-#     closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
-#     img = image_smoothening(img)
-#     or_image = cv2.bitwise_or(img, closing)
-#     return or_image
+def thresholding(resized_image: Image.Image) -> Image.Image:
+    """Apply edge detection filter."""
+    return resized_image.filter(ImageFilter.FIND_EDGES)

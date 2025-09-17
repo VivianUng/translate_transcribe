@@ -2,7 +2,7 @@
 
 
 from ..core.language_codes import LanguageConverter
-# from ..core.image_preprocessing import process_image_for_ocr
+from ..core.image_preprocessing import process_image_for_ocr
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request, Form
 from pydantic import BaseModel
 from typing import Optional, Literal, List
@@ -22,7 +22,7 @@ import os
 from dotenv import load_dotenv
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 # from pyannote.audio import Pipeline
-# import tempfile
+import tempfile
 # import whisper
 # import wave
 # import torch
@@ -601,37 +601,26 @@ async def extract_text(
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Invalid file type. Please upload an image.")
 
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty file uploaded")
+
     try:
-        contents = await file.read()
-        if not contents:
-            raise HTTPException(status_code=400, detail="Empty file uploaded")
+        lang_tess = LanguageConverter.to_tesseract(input_language)
 
-        try:
-            ############################ Preprocessing Section ########################################
-            # # Save upload temporarily
-            # with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-            #     tmp.write(contents)
-            #     tmp_path = tmp.name
+        # -------------------- First Attempt: No preprocessing --------------------
+        img_raw = Image.open(io.BytesIO(contents)).convert("RGB")
+        extracted_text = pytesseract.image_to_string(img_raw, lang=lang_tess).strip()
 
-            # # Preprocess the image
-            # processed = process_image_for_ocr(tmp_path)
+        # -------------------- Fallback: Preprocess if nothing found --------------------
+        if not extracted_text:
+            processed_img = process_image_for_ocr(contents)
+            extracted_text = pytesseract.image_to_string(processed_img, lang=lang_tess).strip()
 
-            # # Convert OpenCV image back to PIL for pytesseract
-            # processed_pil = Image.fromarray(processed)
-            ############################################################################################
-            processed_pil = Image.open(io.BytesIO(contents)).convert("RGB")
-            ############################ Preprocessing Section #########################################
+    except UnidentifiedImageError:
+        raise HTTPException(status_code=400, detail="Could not process image file")
 
-            lang_tess = LanguageConverter.to_tesseract(input_language)
-        except UnidentifiedImageError:
-            raise HTTPException(status_code=400, detail="Could not process image file")
-
-        extracted_text = pytesseract.image_to_string(processed_pil, lang=lang_tess)
-        return OCRResponse(extracted_text=extracted_text.strip())
-
-    except Exception as e:
-        logger.exception("OCR failed")
-        raise HTTPException(status_code=500, detail=f"Text extraction failed: {str(e)}")
+    return OCRResponse(extracted_text=extracted_text)
 
 @router.post("/extract-doc-text")
 async def extract_doc_text(

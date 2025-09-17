@@ -44,11 +44,6 @@ export default function Meetings() {
         return;
       }
 
-      if (!Array.isArray(data)) {
-        console.warn("Expected an array from /meetings, got:", data);
-        return;
-      }
-
       // 3. Filter meetings into ongoing, upcoming, and past
       const now = new Date();
       const ongoing = [];
@@ -118,7 +113,9 @@ export default function Meetings() {
             <div key={meeting.id} className="meeting-card">
               <div className="meeting-info">
                 <div className="meeting-name" title={meeting.name}>{meeting.name}</div>
-                <div className="meeting-host">Host: {meeting.host_name || meeting.host_id}</div>
+                <div className="meeting-host">
+                  {meeting.isHost ? "You are the host" : `Host: ${meeting.host_name || meeting.host_id}`}
+                </div>
                 <div className="meeting-time">
                   {meeting.formattedDate} {meeting.formattedStartTime} - {meeting.formattedEndTime}
                 </div>
