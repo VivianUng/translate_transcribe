@@ -103,36 +103,31 @@ export default function CreateMeetingPage() {
         try {
             setIsSubmitting(true);
 
-            const { data: meeting, error: meetingError } = await supabase
-                .from("meetings")
-                .insert({
-                    name: meetingName,
+            const token = session?.access_token;
+            if (!token) {
+                alert("You must be logged in to create a meeting.");
+                return;
+            }
+
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/create-meeting`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    meeting_name: meetingName,
                     date,
                     start_time: startTime,
                     end_time: endTime,
-                    host_id: session.user.id,
+                    participants, // array of emails
                 })
-                .select()
-                .single();
-
-            if (meetingError) throw meetingError;
-
-            const { data: profiles, error: profilesError } = await await supabase.rpc('get_profiles_for_emails', {
-                emails: participants
             });
 
-            if (profilesError) throw profilesError;
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.meeting || "Failed to create meeting.");
 
-            const participantRows = profiles.map((p) => ({
-                meeting_id: meeting.id,
-                participant_id: p.id,
-            }));
-
-            const { error: participantError } = await supabase
-                .from("meeting_participants")
-                .insert(participantRows);
-
-            if (participantError) throw participantError;
+            console.log("Created meeting:", result.meeting);
 
 
             router.push("/meeting?toast=createMeetingSuccess");

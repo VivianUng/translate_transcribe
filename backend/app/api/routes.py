@@ -5,7 +5,7 @@ from ..core.language_codes import LanguageConverter
 # from ..core.image_preprocessing import process_image_for_ocr
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request, Form
 from pydantic import BaseModel
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 import httpx
 import pytesseract
 import fitz
@@ -80,6 +80,13 @@ class GenericSavePayload(BaseModel):
     input_lang: str
     output_lang: str
     type: Literal["translation", "summary", "conversation"]
+
+class CreateMeetingPayload(BaseModel):
+    meeting_name: str
+    date: str
+    start_time: str
+    end_time: str
+    participants: List[str]  # list of participant emails
 
 class OCRResponse(BaseModel) :
     extracted_text: str
@@ -281,6 +288,44 @@ async def delete_record(record_type: str, record_id: str, current_user=Depends(g
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error deleting {record_type}: {e}")
+
+@router.post("/create-meeting")
+async def create_meeting(payload: CreateMeetingPayload, current_user=Depends(get_current_user)):
+    """
+    Create a new meeting with participants for the authenticated user
+    """
+    try:
+        # 1. Insert meeting
+        meeting_result = supabase.table("meetings").insert({
+            "name": payload.meeting_name,
+            "date": payload.date,
+            "start_time": payload.start_time,
+            "end_time": payload.end_time,
+            "host_id": current_user.id
+        }).execute()
+
+        # Check for errors
+        if not meeting_result.data:
+            raise HTTPException(status_code=400, detail=meeting_result["error"]["message"])
+
+        meeting = meeting_result.data[0]  # first inserted row
+
+        # 2. Get participant profiles using RPC
+        profiles_result = supabase.rpc("get_profiles_for_emails", {"emails": payload.participants}).execute()
+        if not profiles_result.data:
+            raise HTTPException(status_code=400, detail=profiles_result["error"]["message"])
+
+        participant_rows = [{"meeting_id": meeting["id"], "participant_id": p["id"]} for p in profiles_result.data]
+
+        # 3. Insert participants into meeting_participants
+        participant_result = supabase.table("meeting_participants").insert(participant_rows).execute()
+        if not participant_result.data:
+            raise HTTPException(status_code=400, detail=participant_result["error"]["message"])
+
+        return {"message": "Meeting created successfully!", "meeting": meeting, "participants": participant_rows}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/meetings")
 async def get_user_meetings(
