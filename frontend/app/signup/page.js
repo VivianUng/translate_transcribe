@@ -77,29 +77,36 @@ export default function Signup() {
     //   return;
     // }
 
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: name } },
+    const { data: emailExists, error: errorEmailExist } = await supabase.rpc("email_exists", {
+      check_email: email,
     });
 
-    setLoading(false);
-
-    if (error) {
-      setErrorMsg(error.message);
+    if (errorEmailExist) {
+      setErrorMsg(errorEmailExist);
+      setLoading(false);
       return;
-    }
-
-    // Supabase "duplicate email" case: no error, but user is null
-    if (!data.user) {
+    } else if (emailExists) {
       setErrorMsg('This email is already registered. Please log in instead.');
+      setLoading(false);
       return;
-    }
+    } else { // continue with creation of account if no existing account
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name } },
+      });
 
-    // Success
-    setIsLoggedIn(true);
-    router.push('/login?toast=signupSuccess');
+      setLoading(false);
+
+      if (error) {
+        setErrorMsg(error.message);
+        return;
+      }
+
+      // Success
+      setIsLoggedIn(true);
+      router.push('/login?toast=signupSuccess');
+    }
   }
 
 
@@ -131,7 +138,7 @@ export default function Signup() {
           type="email"
           placeholder="Enter your email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => { setEmail(e.target.value); setErrorMsg(""); }}
           required
           className="login-input"
         />
@@ -143,7 +150,7 @@ export default function Signup() {
           type="password"
           placeholder="Enter your password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => { setPassword(e.target.value); setErrorMsg(""); }}
           required
           className="login-input"
         />
