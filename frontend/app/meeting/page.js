@@ -3,63 +3,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 
-// dummy data
-// const meetingsData = {
-//   ongoing: [
-//     {
-//       id: 1,
-//       name: 'Meeting Name',
-//       host: 'Host Name',
-//       time: '10:00am, June 12',
-//     },
-//   ],
-//   upcoming: [
-//     {
-//       id: 2,
-//       name: 'Meeting Name',
-//       host: 'You are the host',
-//       time: '09:00am, June 21',
-//       isHost: true,
-//     },
-//     {
-//       id: 3,
-//       name: 'Meeting Name',
-//       host: 'Host Name',
-//       time: '09:00am, June 21',
-//     },
-//     {
-//       id: 4,
-//       name: 'Meeting Name',
-//       host: 'Host Name',
-//       time: '09:00am, June 21',
-//     },
-//     {
-//       id: 5,
-//       name: 'Meeting Name',
-//       host: 'Host Name',
-//       time: '09:00am, June 21',
-//     },
-//     {
-//       id: 6,
-//       name: 'Meeting Name',
-//       host: 'Host Name',
-//       time: '09:00am, June 21',
-//     },
-//   ],
-//   past: [
-//     {
-//       id: 5,
-//       name: 'Meeting Name',
-//       host: 'Host Name',
-//       time: '09:00am, June 21',
-//     },
-//   ],
-// };
-
 export default function Meetings() {
   const router = useRouter();
   const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
-  const [mounted, setMounted] = useState(false);
   const [meetings, setMeetings] = useState({ ongoing: [], upcoming: [], past: [] });
   const [fetching, setFetching] = useState(true);
 
@@ -152,70 +98,53 @@ export default function Meetings() {
     }
   };
 
+  const MeetingSection = ({ title, meetingsList, showStartButton = false }) => {
+    return (
+      <section className="meetings-section">
+        <div className={title === "Upcoming Meetings" ? "section-header" : ""}>
+          <h3>{title}</h3>
+          {title === "Upcoming Meetings" && (
+            <button
+              className="button create-btn"
+              onClick={() => router.push("/meeting/create_meeting")}
+            >
+              Create New <span aria-hidden="true">+</span>
+            </button>
+          )}
+        </div>
 
-  if (loading) return <p>Loading...</p>;
+        {meetingsList.length > 0 ? (
+          meetingsList.map((meeting) => (
+            <div key={meeting.id} className="meeting-card">
+              <div className="meeting-info">
+                <div className="meeting-name" title={meeting.name}>{meeting.name}</div>
+                <div className="meeting-host">Host: {meeting.host_name || meeting.host_id}</div>
+                <div className="meeting-time">
+                  {meeting.formattedDate} {meeting.formattedStartTime} - {meeting.formattedEndTime}
+                </div>
+              </div>
+              {showStartButton && meeting.isHost && (
+                <button className="button start-btn meeting-button">Start Meeting</button>
+              )}
+            </div>
+          ))
+        ) : (
+          <p>No {title.toLowerCase()}.</p>
+        )}
+      </section>
+    );
+  };
+
+  if (fetching) return <p>Loading...</p>;
 
   return (
     <div className="page-container">
       <h1 className="page-title">Meetings</h1>
 
-      {/* Ongoing Meetings */}
-      <section className="meetings-section">
-        <h3>Ongoing Meetings</h3>
-        {meetings.ongoing.map((meeting) => (
-          <div key={meeting.id} className="meeting-card">
-            <div className="meeting-name">{meeting.name}</div>
-            <div className="meeting-host">Host: {meeting.host_name || meeting.host_id}</div>
-            <div className="meeting-time">
-              {meeting.formattedDate} {meeting.formattedStartTime} - {meeting.formattedEndTime}
-            </div>
-          </div>
-        ))}
-      </section>
+      <MeetingSection title="Ongoing Meetings" meetingsList={meetings.ongoing} />
+      <MeetingSection title="Upcoming Meetings" meetingsList={meetings.upcoming} showStartButton />
+      <MeetingSection title="Past Meetings" meetingsList={meetings.past} />
 
-      {/* Upcoming Meetings */}
-      <section className="meetings-section">
-        <div className='section-header'>
-          <h3>Upcoming Meetings</h3>
-          <button
-            className="button create-btn"
-            onClick={() => router.push("/meeting/create_meeting")}
-          >
-            Create New <span aria-hidden="true">+</span>
-          </button>
-        </div>
-
-        {meetings.upcoming.map((meeting) => (
-          <div key={meeting.id} className="meeting-card">
-            <div>
-              <div className="meeting-name">{meeting.name}</div>
-              <div className="meeting-host">Host: {meeting.host_name || meeting.host_id}</div>
-              <div className="meeting-time">
-                {meeting.formattedDate} {meeting.formattedStartTime} - {meeting.formattedEndTime}
-              </div>
-
-            </div>
-            {meeting.isHost && (
-              <button className="button start-btn">Start Meeting</button>
-            )}
-          </div>
-        ))}
-      </section>
-
-      {/* Past Meetings */}
-      <section className="meetings-section">
-        <h3>Past Meetings</h3>
-        {meetings.past.map((meeting) => (
-          <div key={meeting.id} className="meeting-card">
-            <div className="meeting-name">{meeting.name}</div>
-            <div className="meeting-host">Host: {meeting.host_name || meeting.host_id}</div>
-            <div className="meeting-time">
-              {meeting.formattedDate} {meeting.formattedStartTime} - {meeting.formattedEndTime}
-            </div>
-
-          </div>
-        ))}
-      </section>
     </div>
   );
 };
