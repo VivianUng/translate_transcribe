@@ -8,25 +8,24 @@ import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { translateText } from "@/utils/translation";
 import { startMicRecording, stopRecording } from "@/utils/transcription";
-import { extractTextFromImage } from "@/utils/fileProcessing";
-import { extractTextFromDocument } from "@/utils/fileProcessing";
+import { extractTextFromImage, extractTextFromDocument, extractTextFromAudio } from "@/utils/fileProcessing";
 
 export default function Translate() {
   const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_translations",]);
   const [inputText, setInputText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
-  const [imageLang, setImageLang] = useState("auto");
+  const [fileLang, setFileLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("en");
   const [translatedText, setTranslatedText] = useState("");
   const [message, setMessage] = useState("");
-  const [ocr_message, setOCRMessage] = useState("");
+  const [file_upload_message, setFileUploadMessage] = useState("");
   const [save_message, setSaveMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [saving, setSaving] = useState(false);
   const { languages, error } = useLanguages();
-  const [previewImage, setPreviewImage] = useState(null);
-  const [previewDoc, setPreviewDoc] = useState(null);
+  const [previewFile, setPreviewFile] = useState(null);
   const [autoSave, setAutoSave] = useState(false);
   const [isSaved, setIsSaved] = useState(false); // track if translation is saved
 
@@ -62,110 +61,102 @@ export default function Translate() {
   function clearDisplay() {
     setIsSaved(false);
     setSaving(false);
-    setLoading(false);
+    setTranslating(false);
+    setProcessing(false);
     setMessage("");
     setSaveMessage("");
     setInputText("");
     setTranslatedText("");
+    setPreviewFile(null);
   }
 
-
-  // Handle image upload + preview
-  async function handleImageUpload(file) {
-    clearDisplay();
-    if (!file) return;
-
-    setPreviewImage(URL.createObjectURL(file));
-    setOCRMessage("Extracting...");
-    setLoading(true);
-
-    try {
-      const extractedText = await extractTextFromImage(file, imageLang);
-      setInputText(extractedText);
-      setTranslatedText("");
-      setOCRMessage("Text extracted from image.");
-    } catch (error) {
-      setOCRMessage(error.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // Handle document upload + preview
-  async function handleDocUpload(file) {
-    clearDisplay();
-    if (!file) return;
-
-    setPreviewImage(null);
-
-    if (file.type === "text/plain") {
-      // TXT: read text content directly
-      const textContent = await file.text();
-      setPreviewDoc({
-        name: file.name,
-        type: file.type,
-        size: `${(file.size / 1024).toFixed(1)} KB`,
-        content: textContent,   // store snippet of txt content
-      });
-    } else {
-      // PDF, DOCX, etc. (no direct inline preview except PDF)
-      setPreviewDoc({
-        name: file.name,
-        type: file.type,
-        size: `${(file.size / 1024).toFixed(1)} KB`,
-        url: file.type === "application/pdf" ? URL.createObjectURL(file) : null,
-      });
-    }
-
-    setOCRMessage("Extracting...");
-    setLoading(true);
-
-    try {
-      const extractedText = await extractTextFromDocument(file, imageLang);
-      setInputText(extractedText);
-      setTranslatedText("");
-      setOCRMessage("Text extracted from document.");
-    } catch (error) {
-      setOCRMessage(error.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-
-  // Wrapper function: decides image vs document
   async function handleFileUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
 
+    clearDisplay();
+    setProcessing(true);
+    setFileUploadMessage("Extracting...");
+
+    // Build previewFile consistently
+    let preview = {
+      name: file.name,
+      type: file.type,
+      url: null,
+      content: null,
+    };
+
+    // Handle special cases for preview
     if (file.type.startsWith("image/")) {
-      await handleImageUpload(file);
-    } else if (
-      file.type === "application/pdf" ||
-      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-      file.type === "text/plain"
-    ) {
-      await handleDocUpload(file);
-    } else {
-      setOCRMessage("Unsupported file type. Please upload an image, PDF, DOCX, or TXT.");
+      preview.url = URL.createObjectURL(file);
+    } else if (file.type === "text/plain") {
+      preview.content = await file.text();
+    } else if (file.type === "application/pdf") {
+      preview.url = URL.createObjectURL(file);
+    } else if (file.type.startsWith("audio/")) {
+      preview.url = URL.createObjectURL(file);
+    }
+
+    setPreviewFile(preview);
+
+    try {
+      let extractedText = "";
+
+      if (file.type.startsWith("image/")) {
+        extractedText = await extractTextFromImage(file, fileLang);
+        setFileUploadMessage("Text extracted from image.");
+      } else if (
+        file.type === "application/pdf" ||
+        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        file.type === "text/plain"
+      ) {
+        extractedText = await extractTextFromDocument(file, fileLang);
+        setFileUploadMessage("Text extracted from document.");
+      } else if (file.type.startsWith("audio/")) {
+        extractedText = await extractTextFromAudio(file, fileLang);
+        setFileUploadMessage("Text extracted from audio.");
+      } else {
+        setFileUploadMessage("Unsupported file type. Please upload an image, audio file, PDF, DOCX, or TXT.");
+        setProcessing(false);
+        return;
+      }
+
+      setInputText(extractedText);
+      setTranslatedText("");
+    } catch (error) {
+      setFileUploadMessage(error.message);
+    } finally {
+      setProcessing(false);
     }
   }
 
   // Trigger file input
-  function triggerFileInput() {
-    if (fileInputRef.current) {
-      fileInputRef.current.setAttribute(
-        "accept",
-        "image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-      );
-      fileInputRef.current.click();
+  function triggerFileInput(type = "all") {
+    if (!fileInputRef.current) return;
+
+    let acceptTypes = "";
+
+    if (type === "image") {
+      acceptTypes = "image/*";
+    } else if (type === "document") {
+      acceptTypes =
+        "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain";
+    } else if (type === "audio") {
+      acceptTypes = "audio/*";
+    } else {
+      // default: allow all
+      acceptTypes =
+        "image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,audio/*";
     }
+
+    fileInputRef.current.setAttribute("accept", acceptTypes);
+    fileInputRef.current.click();
   }
 
   async function handleTranslate() {
-    setLoading(true);
+    setTranslating(true);
     setMessage("");
-    setOCRMessage("");
+    setFileUploadMessage("");
     setSaveMessage("");
     setTranslatedText("");
 
@@ -190,7 +181,7 @@ export default function Translate() {
     } catch (error) {
       setMessage(error.message || "Unexpected error occurred.");
     } finally {
-      setLoading(false);
+      setTranslating(false);
     }
   }
 
@@ -324,8 +315,8 @@ export default function Translate() {
               {mounted && (
                 <Select
                   options={languages}
-                  value={languages.find((opt) => opt.value === imageLang)}
-                  onChange={(opt) => setImageLang(opt.value)}
+                  value={languages.find((opt) => opt.value === fileLang)}
+                  onChange={(opt) => setFileLang(opt.value)}
                   classNamePrefix="react-select"
                 />
               )}
@@ -333,54 +324,82 @@ export default function Translate() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-              onChange={(e) => handleFileUpload(e)}
+              onChange={handleFileUpload}
               style={{ display: "none" }}
             />
 
             {/* Custom upload box */}
             <div>
-              <div className="upload-box" onClick={triggerFileInput}>
-                {previewImage ? (
-                  <img
-                    src={previewImage}
-                    alt="Preview"
-                    className="image-preview"
-                  />
-                ) : previewDoc ? (
-                  <div className="doc-preview">
-                    <p className="doc-name"><strong>{previewDoc.name}</strong></p>
-                    {previewDoc.type === "application/pdf" && previewDoc.url && (
-                      <iframe
-                        src={previewDoc.url}
-                        title="PDF Preview"
-                        className="doc-frame"
-                      />
+              <div className="upload-box" onClick={() => {
+                clearDisplay();
+                triggerFileInput();
+              }}>
+                {previewFile ? (
+                  <div className="file-preview">
+                    <p className="file-name"><strong>{previewFile.name}</strong></p>
+
+                    {/* Image */}
+                    {previewFile.type.startsWith("image/") && previewFile.url && (
+                      <img src={previewFile.url} alt="Preview" className="file-content image" />
                     )}
 
-                    {previewDoc.type === "text/plain" && previewDoc.content && (
-                      <pre className="txt-preview">
-                        {previewDoc.content.slice(0, 500)}
-                        {previewDoc.content.length > 500 && "..."}
-                      </pre>
+                    {/* PDF */}
+                    {previewFile.type === "application/pdf" && previewFile.url && (
+                      <iframe src={previewFile.url} title="PDF Preview" className="file-content pdf" />
                     )}
 
-                    {previewDoc.type !== "application/pdf" && previewDoc.type !== "text/plain" && (
-                      <p className="upload-text">Preview not available for this file type</p>
+                    {/* TXT */}
+                    {previewFile.type === "text/plain" && previewFile.content && (
+                      <pre className="file-content text">{previewFile.content}</pre>
                     )}
+
+                    {/* Audio */}
+                    {previewFile.type.startsWith("audio/") && previewFile.url && (
+                      <audio controls src={previewFile.url} className="file-content audio">
+                        Your browser does not support the audio element.
+                      </audio>
+                    )}
+
+                    {/* DOCX explicitly no preview */}
+                    {previewFile.type ===
+                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" && (
+                        <p className="file-content unsupported">Preview not available for DOCX files</p>
+                      )}
+
+                    {/* Fallback */}
+                    {!(
+                      previewFile.type.startsWith("image/") ||
+                      previewFile.type === "application/pdf" ||
+                      previewFile.type === "text/plain" ||
+                      previewFile.type.startsWith("audio/") ||
+                      previewFile.type ===
+                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    ) && <p className="file-content unsupported">Preview not available for this file type</p>}
+
+                    {/* Change File Button */}
+                    <button
+                      className="change-file-btn"
+                      onClick={(e) => {
+                        e.stopPropagation(); // prevent triggering the box click
+                        clearDisplay();
+                        triggerFileInput();
+                      }}
+                    >
+                      Change File
+                    </button>
                   </div>
                 ) : (
-                  <span className="upload-text">Click to upload image or document</span>
+                  <span className="upload-text">Click to upload image, audio or document</span>
                 )}
               </div>
 
               {/* Message displayed below the box */}
               <div
-                className="message ocr-message"
+                className="message"
                 role="alert"
                 aria-live="assertive"
               >
-                {ocr_message}
+                {file_upload_message}
               </div>
             </div>
 
@@ -392,9 +411,9 @@ export default function Translate() {
         <button
           className="button translate-button"
           onClick={handleTranslate}
-          disabled={loading || !inputText || !inputText.trim()}
+          disabled={translating || !inputText || !inputText.trim() || processing}
         >
-          {loading ? "Translating..." : "Translate"}
+          {translating ? "Translating..." : "Translate"}
         </button>
 
         {/* Translation Output */}
@@ -432,7 +451,7 @@ export default function Translate() {
                   targetLang
                 )
               }
-              disabled={saving || loading || isSaved}
+              disabled={saving || processing || isSaved}
             >
               {saving ? "Saving..." : isSaved ? "Saved" : "Save Translation"}
             </button>

@@ -16,6 +16,46 @@ LANGDETECT_EXCEPTIONS = {
     "no": "nb",   # langdetect sometimes outputs "no"
 }
 
+# Special mappings for PaddleOCR (custom set of names)
+# Reference: https://github.com/PaddlePaddle/PaddleOCR/blob/release/2.7/doc/doc_en/multi_languages_en.md
+PADDLE_EXCEPTIONS = {
+    "en": "en",           # English
+    "ar": "arabic",       # Arabic
+    "bg": "cyrillic",     # Bulgarian (falls under cyrillic model)
+    "zh-Hans": "ch",      # Simplified Chinese
+    "zh-Hant": "chinese_cht", # Traditional Chinese
+    "hr": "latin",        # Croatian (latin-based)
+    "cs": "latin",        # Czech
+    "da": "latin",        # Danish
+    "nl": "latin",        # Dutch
+    "fi": "latin",        # Finnish
+    "fr": "french",       # French
+    "de": "german",       # German
+    "el": "greek",        # Greek
+    "he": "hebrew",       # Hebrew
+    "hi": "hindi",        # Hindi
+    "hu": "latin",        # Hungarian
+    "id": "latin",        # Indonesian
+    "it": "italian",      # Italian
+    "ja": "japan",        # Japanese
+    "ko": "korean",       # Korean
+    "ms": "latin",        # Malay
+    "fa": "persian",      # Persian
+    "pl": "latin",        # Polish
+    "pt": "portuguese",   # Portuguese
+    "ro": "latin",        # Romanian
+    "ru": "cyrillic",     # Russian
+    "sr": "cyrillic",     # Serbian (latin also exists but OCR works better in cyrillic model)
+    "es": "spanish",      # Spanish
+    "sv": "latin",        # Swedish
+    "tl": "latin",        # Filipino/Tagalog (latin)
+    "tr": "turkish",      # Turkish
+    "uk": "cyrillic",     # Ukrainian
+    "ur": "urdu",         # Urdu
+    "vi": "latin",        # Vietnamese
+    # Add other LibreTranslate-supported codes mapped to closest OCR set
+}
+
 
 class LanguageConverter:
     @staticmethod
@@ -74,3 +114,16 @@ class LanguageConverter:
         if code in LANGDETECT_EXCEPTIONS:
             return LANGDETECT_EXCEPTIONS[code]
         return LanguageConverter.normalize_bcp47(code)
+    
+    @staticmethod
+    def to_paddleocr(code: str) -> str | None:
+        """
+        Convert to a PaddleOCR-compatible language code.
+        Uses predefined mapping (PADDLE_EXCEPTIONS).
+        """
+        bcp = LanguageConverter.normalize_bcp47(code)
+        if bcp in PADDLE_EXCEPTIONS:
+            return PADDLE_EXCEPTIONS[bcp]
+        # default fallback: try using base language only
+        lang = langcodes.get(bcp)
+        return PADDLE_EXCEPTIONS.get(lang.language)

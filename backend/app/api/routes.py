@@ -8,6 +8,8 @@ from pydantic import BaseModel
 from typing import Optional, Literal, List
 import httpx
 import pytesseract
+from paddleocr import PaddleOCR
+import numpy as np
 import fitz
 import docx
 import speech_recognition as sr
@@ -593,6 +595,7 @@ async def summarize(req: SummarizeRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to summarize text: {str(e)}")
 
+## First version : only using pytesseract, fallback is to preprocess the image and try pytesseract again
 @router.post("/extract-text", response_model=OCRResponse)
 async def extract_text(
     file: UploadFile = File(...),
@@ -621,6 +624,65 @@ async def extract_text(
         raise HTTPException(status_code=400, detail="Could not process image file")
 
     return OCRResponse(extracted_text=extracted_text)
+
+
+###################################### ocr with paddleOCR##############
+# ## Keep a cache of PaddleOCR instances per language
+# ocr_paddle_instances = {}
+
+# def get_paddle_ocr(lang_code: str):
+#     """
+#     Return (and cache) a PaddleOCR instance for a given language.
+#     """
+#     if lang_code not in ocr_paddle_instances:
+#         ocr_paddle_instances[lang_code] = PaddleOCR(use_angle_cls=True, lang=lang_code)
+#     return ocr_paddle_instances[lang_code]
+
+
+# @router.post("/extract-text", response_model=OCRResponse)
+# async def extract_text(
+#     file: UploadFile = File(...),
+#     input_language: str = Form(...)
+# ):
+#     if not file.content_type.startswith("image/"):
+#         raise HTTPException(status_code=400, detail="Invalid file type. Please upload an image.")
+
+#     contents = await file.read()
+#     if not contents:
+#         raise HTTPException(status_code=400, detail="Empty file uploaded")
+
+#     try:
+#         # -------------------- First Attempt: Tesseract --------------------
+#         lang_tess = LanguageConverter.to_tesseract(input_language)
+#         img_raw = Image.open(io.BytesIO(contents)).convert("RGB")
+#         extracted_text = pytesseract.image_to_string(img_raw, lang=lang_tess).strip()
+
+#         # -------------------- Fallback: PaddleOCR if nothing found --------------------
+#         # still not working properly.
+#         if not extracted_text:
+#             lang_paddle = LanguageConverter.to_paddleocr(input_language)
+#             ocr_paddle = get_paddle_ocr(lang_paddle)
+#             results = ocr_paddle.ocr(np.array(img_raw))
+#             extracted_text_list = []
+#             for res in results:
+#                 for line in res:
+#                     if len(line) >= 2:
+#                         value = line[1]
+#                         if isinstance(value, tuple) and len(value) >= 2:
+#                             text, confidence = value
+#                         else:
+#                             text = value if isinstance(value, str) else ""
+#                             confidence = None
+#                         if text.strip():
+#                             extracted_text_list.append(text.strip())
+
+#             extracted_text = "\n".join(extracted_text_list).strip()
+
+#     except UnidentifiedImageError:
+#         raise HTTPException(status_code=400, detail="Could not process image file")
+
+#     return OCRResponse(extracted_text=extracted_text)
+#################################################################################################3
 
 @router.post("/extract-doc-text")
 async def extract_doc_text(
