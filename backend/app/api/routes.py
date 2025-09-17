@@ -328,55 +328,63 @@ async def create_meeting(payload: CreateMeetingPayload, current_user=Depends(get
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/meetings")
-async def get_user_meetings(
-    current_user=Depends(get_current_user)
-):
-    """
-    Get all meetings where the current user is either the host or a participant.
-    """
+async def get_user_meetings(current_user=Depends(get_current_user)):
     try:
         # 1. Meetings where user is host
-        host_result = (
-            supabase.table("meetings")
-            .select("*")
-            .eq("host_id", current_user.id)
-            .execute()
-        )
+        host_result = supabase.table("meetings").select("*").eq("host_id", current_user.id).execute()
+        if not host_result:
+            print("Error fetching host meetings")
         host_meetings = host_result.data or []
 
         # 2. Meetings where user is participant
-        participant_links = (
-            supabase.table("meeting_participants")
-            .select("meeting_id")
-            .eq("participant_id", current_user.id)
+        participant_links = supabase.table("meeting_participants")\
+            .select("meeting_id")\
+            .eq("participant_id", current_user.id)\
             .execute()
-        )
+        if not participant_links:
+            print("Error fetching participant links")
         participant_links_data = participant_links.data or []
 
-        # Fetch full meeting info for participant meetings
+        participant_meeting_ids = [link["meeting_id"] for link in participant_links_data]
         participant_meetings = []
-        for link in participant_links_data:
-            meeting_result = (
-                supabase.table("meetings")
-                .select("*")
-                .eq("id", link["meeting_id"])
-                .single()
+        if participant_meeting_ids:
+            participant_result = supabase.table("meetings")\
+                .select("*")\
+                .in_("id", participant_meeting_ids)\
                 .execute()
-            )
-            if meeting_result.data:
-                participant_meetings.append(meeting_result.data)
+            if not participant_result:
+                print("Error fetching participant meetings")
+            participant_meetings = participant_result.data or []
 
-        # 3. Combine host + participant meetings and remove duplicates
+        # 3. Combine meetings, remove duplicates
         all_meetings_dict = {m["id"]: m for m in host_meetings + participant_meetings}
         all_meetings = list(all_meetings_dict.values())
 
-        # sort by date + start_time
+        # 4. Fetch host names via RPC
+        host_map = {}
+        if all_meetings:
+            host_ids = list({m["host_id"] for m in all_meetings})
+            if host_ids:
+                profiles_result = supabase.rpc("get_host_names", {"host_ids": host_ids}).execute()
+                if not profiles_result:
+                    print("RPC fetch error")
+                profiles = profiles_result.data or []
+                host_map = {p["host_id"]: p["name"] for p in profiles}
+
+        # 5. Attach host_name to each meeting
+        for m in all_meetings:
+            m["host_name"] = host_map.get(m["host_id"], "Unknown")
+
+        # 6. Sort meetings
         all_meetings.sort(key=lambda m: (m["date"], m["start_time"]))
 
         return all_meetings
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error fetching meetings: {e}")
+        print("Error fetching meetings:", e)
+        return []
+
+
 
 
 

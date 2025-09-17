@@ -63,6 +63,7 @@ export default function Meetings() {
   const [meetings, setMeetings] = useState({ ongoing: [], upcoming: [], past: [] });
   const [fetching, setFetching] = useState(true);
 
+
   useEffect(() => {
     if (!loading && session) {
       fetchUserMeetings();
@@ -72,44 +73,77 @@ export default function Meetings() {
   const fetchUserMeetings = async () => {
     try {
       setFetching(true);
-      // get Supabase JWT token
+
+      // 1. Get Supabase JWT token
       const token = session?.access_token;
       if (!token) {
         alert("You must be logged in to view meetings.");
         return;
       }
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+
+      // 2. Fetch meetings from backend
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
       const data = await res.json();
 
-      // Filter meetings for this user
+      if (!res.ok) {
+        console.error("Failed to fetch meetings:", data);
+        alert(data.detail || "Failed to fetch meetings.");
+        return;
+      }
+
+      if (!Array.isArray(data)) {
+        console.warn("Expected an array from /meetings, got:", data);
+        return;
+      }
+
+      // 3. Filter meetings into ongoing, upcoming, and past
       const now = new Date();
       const ongoing = [];
       const upcoming = [];
       const past = [];
 
       data.forEach((meeting) => {
-        const meetingTime = new Date(`${meeting.date}T${meeting.start_time}`);
+        // Split date
+        const [year, month, day] = meeting.date.split("-").map(Number);
+
+        // Split start and end time (ignore timezone offset for local display)
+        const [startHour, startMinute, startSecond] = meeting.start_time.split(":").map(Number);
+        const [endHour, endMinute, endSecond] = meeting.end_time.split(":").map(Number);
+
+        // Construct Date objects (month is 0-indexed)
+        const meetingStart = new Date(year, month - 1, day, startHour, startMinute, startSecond || 0);
+        const meetingEnd = new Date(year, month - 1, day, endHour, endMinute, endSecond || 0);
+
         const isHost = meeting.host_id === session.user.id;
 
         const meetingData = {
           ...meeting,
           isHost,
+          hostName: meeting.host_name || "Unknown",
+          formattedDate: meetingStart.toLocaleDateString(undefined, {
+            weekday: "short",
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          }),
+          formattedStartTime: meetingStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          formattedEndTime: meetingEnd.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         };
 
-        if (meetingTime < now) past.push(meetingData);
-        else if (meetingTime.toDateString() === now.toDateString()) ongoing.push(meetingData);
+        if (meetingStart < new Date()) past.push(meetingData);
+        else if (meetingStart.toDateString() === new Date().toDateString()) ongoing.push(meetingData);
         else upcoming.push(meetingData);
       });
 
+
+      // 4. Update state
       setMeetings({ ongoing, upcoming, past });
     } catch (err) {
       console.error("Failed to fetch meetings:", err);
@@ -117,6 +151,7 @@ export default function Meetings() {
       setFetching(false);
     }
   };
+
 
   if (loading) return <p>Loading...</p>;
 
@@ -130,8 +165,10 @@ export default function Meetings() {
         {meetings.ongoing.map((meeting) => (
           <div key={meeting.id} className="meeting-card">
             <div className="meeting-name">{meeting.name}</div>
-            <div className="meeting-host">Host ID: {meeting.host_id}</div>
-            <div className="meeting-time">{meeting.date} {meeting.start_time} - {meeting.end_time}</div>
+            <div className="meeting-host">Host: {meeting.host_name || meeting.host_id}</div>
+            <div className="meeting-time">
+              {meeting.formattedDate} {meeting.formattedStartTime} - {meeting.formattedEndTime}
+            </div>
           </div>
         ))}
       </section>
@@ -152,8 +189,10 @@ export default function Meetings() {
           <div key={meeting.id} className="meeting-card">
             <div>
               <div className="meeting-name">{meeting.name}</div>
-              <div className="meeting-host">Host ID: {meeting.host_id}</div>
-              <div className="meeting-time">{meeting.date} {meeting.start_time} - {meeting.end_time}</div>
+              <div className="meeting-host">Host: {meeting.host_name || meeting.host_id}</div>
+              <div className="meeting-time">
+                {meeting.formattedDate} {meeting.formattedStartTime} - {meeting.formattedEndTime}
+              </div>
 
             </div>
             {meeting.isHost && (
@@ -169,8 +208,10 @@ export default function Meetings() {
         {meetings.past.map((meeting) => (
           <div key={meeting.id} className="meeting-card">
             <div className="meeting-name">{meeting.name}</div>
-            <div className="meeting-host">Host ID: {meeting.host_id}</div>
-            <div className="meeting-time">{meeting.date} {meeting.start_time} - {meeting.end_time}</div>
+            <div className="meeting-host">Host: {meeting.host_name || meeting.host_id}</div>
+            <div className="meeting-time">
+              {meeting.formattedDate} {meeting.formattedStartTime} - {meeting.formattedEndTime}
+            </div>
 
           </div>
         ))}
