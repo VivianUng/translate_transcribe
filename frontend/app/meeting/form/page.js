@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
+import { toast } from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import { supabase } from "@/lib/supabaseClient";
@@ -30,6 +31,8 @@ export default function MeetingFormPage() {
     // Store initial meeting state to detect changes
     const [initialMeeting, setInitialMeeting] = useState(null);
 
+    const [error, setError] = useState(null);
+
     // Fetch existing meeting data if in update mode
     useEffect(() => {
         if (mode === "update" && meetingId && session) {
@@ -40,10 +43,32 @@ export default function MeetingFormPage() {
                         headers: { Authorization: `Bearer ${token}` },
                     });
 
+                    if (res.status === 400) {
+                        throw new Error("Invalid request. Please check the meeting ID.");
+                    }
+                    if (res.status === 401) {
+                        throw new Error("Unauthorized. Please log in again.");
+                    }
+                    if (res.status === 403) {
+                        throw new Error("You do not have permission to access this meeting.");
+                    }
+                    if (res.status === 404) {
+                        throw new Error("Meeting not found.");
+                    }
+                    if (!res.ok) {
+                        throw new Error("Failed to fetch meeting.");
+                    }
+
                     const result = await res.json();
-                    if (!res.ok) throw new Error(result.detail || "Failed to fetch meeting.");
 
                     const m = result.meeting;
+
+                    // Check if logged-in user is the host
+                    if (m.host_id !== session.user.id) {
+                        router.push("/meeting?toast=notAuthenticated");
+                        return;
+                    }
+
                     const formatTime = (timeStr) => {
                         if (!timeStr) return "";
                         if (timeStr.includes("T")) return timeStr.split("T")[1].slice(0, 5);
@@ -65,7 +90,7 @@ export default function MeetingFormPage() {
                     setFormErrors({});
                 } catch (err) {
                     console.error(err);
-                    alert("Failed to load meeting data.");
+                    setError(err.message || "Failed to load meeting data.");
                 }
             };
 
@@ -197,7 +222,19 @@ export default function MeetingFormPage() {
             const result = await res.json();
             if (!res.ok) throw new Error(result.detail || `Failed to ${mode} meeting.`);
 
-            router.push(`/meeting?toast=${mode === "create" ? "createMeetingSuccess" : "updateMeetingSuccess"}`);
+            if (mode === "create") {
+                router.push(`/meeting?toast=createMeetingSuccess`);
+            } else if (mode === "update") {
+                toast.success("Meeting updated successfully!");
+                // Reset initialMeeting to the updated values
+                setInitialMeeting({
+                    name: meetingName || "",
+                    date: date || "",
+                    startTime: startTime || "",
+                    endTime: endTime || "",
+                    participants: finalParticipants || [],
+                });
+            }
         } catch (err) {
             console.error(err);
             alert(err.message || "Something went wrong.");
@@ -207,6 +244,7 @@ export default function MeetingFormPage() {
     };
 
     if (loading) return <p>Loading...</p>;
+    if (error) return <p style={{ color: "red" }}>{error}</p>;
 
     return (
         <div className="page-container">

@@ -165,23 +165,9 @@ export default function History() {
   }
 
   const viewDetails = (row) => {
-    switch (row.type) {
-      case "Meeting":
-        router.push(`/meeting/details?id=${row.id}`);
-        break;
-      case "Conversation":
-        router.push(`/conversation/details?id=${row.id}`);
-        break;
-      case "Translation":
-        router.push(`/translation/details?id=${row.id}`);
-        break;
-      case "Summary":
-        router.push(`/summary/details?id=${row.id}`);
-        break;
-      default:
-        console.warn("Unknown type:", row.type);
-    }
-  };
+    const type = row.type.toLowerCase();
+    router.push(`/records/${type}/${row.id}`);
+};
 
   const handleStartDateChange = (e) => {
     const value = e.target.value; // YYYY-MM-DD

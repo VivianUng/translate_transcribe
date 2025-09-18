@@ -28,6 +28,8 @@ export default function ToastProvider() {
       toast.success("Successfully Updated Meeting.");
     } else if (toastParam === "deleteMeetingSuccess") {
       toast.success("Successfully Deleted Meeting.");
+    } else if (toastParam === "notFound") {
+      toast.success("Record Not Found.");
     }
     
 

@@ -115,7 +115,6 @@ export default function Meetings() {
             <button
               className="button create-btn"
               onClick={() => router.push("/meeting/form?mode=create")}
-              // onClick={() => router.push("/meeting/create_meeting")}
             >
               Create New <span aria-hidden="true">+</span>
             </button>

@@ -1,0 +1,345 @@
+"use client";
+import { useState, useEffect, useMemo } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Select from "react-select";
+import toast from "react-hot-toast";
+import { ArrowLeft } from "lucide-react";
+import useAuthCheck from "@/hooks/useAuthCheck";
+import { useLanguages } from "@/contexts/LanguagesContext";
+import { summarizeText } from "@/utils/summarization";
+import { translateText } from "@/utils/translation";
+
+export default function RecordDetailsPage() {
+    const { type, id } = useParams(); // dynamic route parameters
+    const router = useRouter();
+    const { session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
+    const { languages } = useLanguages();
+
+    const [mounted, setMounted] = useState(false);
+    const [record, setRecord] = useState(null);
+    const [formData, setFormData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [processing, setProcessing] = useState(false);
+    const [error, setError] = useState(null);
+
+    // Map frontend type → backend endpoint
+    const endpointMap = {
+        conversation: "conversations",
+        translation: "translations",
+        summary: "summaries",
+        meeting: "meetings",
+    };
+
+    // Safe lookup
+    const getEndpoint = (type) => endpointMap[type] || `${type}s`;
+
+    const isChanged = useMemo(() => {
+        if (!record || !formData) return false;
+        return JSON.stringify(formData) !== JSON.stringify(record);
+    }, [record, formData]);
+
+    // Fetch record by ID
+    useEffect(() => {
+        setMounted(true);
+        if (!id || !session?.access_token) return;
+
+        async function fetchRecord() {
+            try {
+                const res = await fetch(
+                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/records/${getEndpoint(type)}/${id}`,
+                    {
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${session.access_token}`,
+                        },
+                    }
+                );
+
+                if (!res.ok) {
+                    let errorMsg = "Failed to fetch record";
+
+                    try {
+                        const errData = await res.json();
+
+                        // If backend sends message/code, interpret it
+                        if (errData?.message?.includes("0 rows")) {
+                            errorMsg = "This record does not exist.";
+                        } else if (errData?.code === "PGRST116") {
+                            errorMsg = "No data found for this record.";
+                        } else if (errData?.detail) {
+                            errorMsg = errData.detail;
+                        } else if (errData?.message) {
+                            errorMsg = errData.message;
+                        }
+                    } catch {
+                        // fallback to HTTP status
+                        if (res.status === 401) errorMsg = "You are not authorized.";
+                        else if (res.status === 403)
+                            errorMsg = "You do not have access to this record.";
+                        else if (res.status === 404) errorMsg = "Record does not exist.";
+                        else if (res.status >= 500)
+                            errorMsg = "Server error. Please try again later.";
+                    }
+
+                    throw new Error(errorMsg);
+                }
+
+                const data = await res.json();
+                const normalized = {
+                    id: data.id,
+                    input_text: data.input_text || "",
+                    input_lang: data.input_lang || "en",
+                    output_text: data.output_text || "",
+                    output_lang: data.output_lang || "en",
+                    created_at: data.created_at,
+                    updated_at: data.updated_at,
+                };
+                setRecord(normalized);
+                setFormData(normalized);
+            } catch (err) {
+                // final fallback user-friendly message
+                let msg = err.message || "Error fetching record";
+                if (
+                    msg.includes("Cannot coerce") ||
+                    msg.includes("PGRST") ||
+                    msg.includes("rows")
+                ) {
+                    msg = "Record not found.";
+                }
+                setError(msg);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchRecord();
+    }, [id, session, type]);
+
+
+
+    // Update record
+    const handleUpdate = async () => {
+        if (!id || !formData) return;
+        if (!formData.input_text) return toast.error("Input field cannot be empty.");
+        setSaving(true);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/records/${getEndpoint(type)}/${id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${session?.access_token}`,
+                },
+                body: JSON.stringify({
+                    input_text: formData.input_text,
+                    output_text: formData.output_text,
+                    output_lang: formData.output_lang,
+                    updated_at: new Date().toISOString(),
+                }),
+            });
+            if (!res.ok) throw new Error("Failed to update record");
+
+            const updated = await res.json();
+            setRecord(updated);
+            setFormData(updated);
+            toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} updated successfully!`);
+        } catch (err) {
+            console.error("Error updating:", err);
+            toast.error("Update failed.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Delete record
+    const handleDelete = async () => {
+        if (!id) return;
+        if (!confirm(`Are you sure you want to delete this ${type}?`)) return;
+
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/records/${getEndpoint(type)}/${id}`, {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${session?.access_token}`,
+                },
+            });
+            if (!res.ok) throw new Error("Failed to delete record");
+            toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted.`);
+            router.push("/history");
+        } catch (err) {
+            console.error("Error deleting:", err);
+            toast.error("Delete failed.");
+        }
+    };
+
+    // Extra action: retranslate or resummarize
+    const handleExtraAction = async () => {
+        if (!formData) return;
+        setProcessing(true);
+
+        try {
+            let result = "";
+
+            if (type === "summary") {
+                // Step 1: ensure input is in English
+                let enInput = formData.input_text;
+                if (formData.input_lang !== "en") {
+                    enInput = await translateText(formData.input_text, formData.input_lang, "en");
+                }
+
+                // Step 2: summarize in English
+                const summarized = await summarizeText(enInput, "en");
+
+                // Step 3: if target is not English, translate back
+                if (formData.output_lang !== "en") {
+                    result = await translateText(summarized, "en", formData.output_lang);
+                } else {
+                    result = summarized;
+                }
+            }
+            else if (type === "conversation" || type === "translation") {
+                result = await translateText(
+                    formData.input_text,
+                    formData.input_lang,
+                    formData.output_lang
+                );
+            }
+
+            setFormData((prev) => ({ ...prev, output_text: result }));
+        } catch (err) {
+            console.error("Error processing action:", err);
+            toast.error("Action failed.");
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+
+    if (!id || !type) return <p>Invalid link</p>;
+    if (loading) return <p>Loading...</p>;
+    if (error) return <p style={{ color: "red" }}>{error}</p>;
+    if (!record) return <p>Record not found</p>;
+
+    return (
+        <div className="page-container">
+            <button className="back-button" onClick={() => router.push("/history")}>
+                <ArrowLeft size={20} />
+            </button>
+            <h1 className="page-title">
+                {type.charAt(0).toUpperCase() + type.slice(1)} Details
+            </h1>
+
+            <div className="record-details">
+                {/* Input */}
+                <section className="section">
+                    <div className="section-header">
+                        <span>Input</span>
+
+                        {/* Display input language (readonly dropdown style) */}
+                        {mounted && (
+                            <Select
+                                options={languages.filter((opt) => opt.value !== "auto")}
+                                value={languages.find((opt) => opt.value === formData.input_lang)}
+                                isDisabled={true} // readonly
+                                classNamePrefix="react-select"
+                                className="flex-1"
+                            />
+                        )}
+                    </div>
+                    <textarea
+                        className="input-text-area"
+                        value={formData.input_text}
+                        onChange={(e) =>
+                            setFormData({ ...formData, input_text: e.target.value })
+                        }
+                        rows={8}
+                    />
+                </section>
+
+                {/* Output */}
+                <section className="section">
+                    <div className="section-header">
+                        <span>Output</span>
+
+                        {mounted &&
+                            (type === "conversation" ||
+                                type === "translation" ||
+                                type === "summary") && (
+                                <Select
+                                    options={languages.filter((opt) => opt.value !== "auto")}
+                                    value={languages.find(
+                                        (opt) => opt.value === formData.output_lang
+                                    )}
+                                    onChange={(opt) =>
+                                        setFormData({ ...formData, output_lang: opt.value })
+                                    }
+                                    classNamePrefix="react-select"
+                                    className="flex-1"
+                                />
+                            )}
+
+                        {/* Extra action button */}
+                        {(type === "summary" ||
+                            type === "conversation" ||
+                            type === "translation") && (
+                                <button
+                                    onClick={handleExtraAction}
+                                    disabled={processing || !isChanged}
+                                    className="button secondary"
+                                >
+                                    {processing
+                                        ? "Processing..."
+                                        : type === "summary"
+                                            ? "Resummarize"
+                                            : "Retranslate"}
+                                </button>
+                            )}
+                    </div>
+
+                    <textarea
+                        className="input-text-area"
+                        value={formData.output_text}
+                        onChange={(e) =>
+                            setFormData({ ...formData, output_text: e.target.value })
+                        }
+                        rows={8}
+                    />
+                </section>
+
+                {/* Meta info */}
+                <div className="meta-info">
+                    <p>
+                        <strong>Created:</strong>{" "}
+                        {new Date(record.created_at).toLocaleString("en-GB", {
+                            dateStyle: "short",
+                            timeStyle: "medium",
+                        })}
+                    </p>
+                    <p>
+                        <strong>Last Updated:</strong>{" "}
+                        {new Date(record.updated_at).toLocaleString("en-GB", {
+                            dateStyle: "short",
+                            timeStyle: "medium",
+                        })}
+                    </p>
+                </div>
+
+                {/* Actions */}
+                <div className="button-group">
+                    <button
+                        onClick={handleUpdate}
+                        disabled={saving || !isChanged}
+                        className="button save"
+                    >
+                        {saving ? "Saving..." : "Save Changes"}
+                    </button>
+                    <button onClick={handleDelete} className="button delete">
+                        Delete {type}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+}
