@@ -183,6 +183,25 @@ export default function History() {
     }
   };
 
+  const handleStartDateChange = (e) => {
+    const value = e.target.value; // YYYY-MM-DD
+    setStartDate(value);
+
+    // If endDate exists and is before new startDate, clear endDate
+    if (endDate && new Date(endDate) < new Date(value)) {
+      setEndDate("");
+    }
+  };
+
+  const handleEndDateChange = (e) => {
+    const value = e.target.value;
+
+    // Only allow if startDate exists and endDate is >= startDate
+    if (!startDate || new Date(value) >= new Date(startDate)) {
+      setEndDate(value);
+    }
+  };
+
   return (
     <div className="page-container">
       <h1 className="page-title">History</h1>
@@ -225,7 +244,7 @@ export default function History() {
               type="date"
               value={startDate}
               max={new Date().toISOString().split("T")[0]}  // today's date
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={handleStartDateChange}
             />
           </div>
 
@@ -237,7 +256,7 @@ export default function History() {
               type="date"
               value={endDate}
               max={new Date().toISOString().split("T")[0]}  // today's date
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={handleEndDateChange}
             />
           </div>
         </div>

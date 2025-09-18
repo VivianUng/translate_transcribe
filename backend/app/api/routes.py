@@ -3,6 +3,7 @@
 
 from ..core.language_codes import LanguageConverter
 from ..core.image_preprocessing import process_image_for_ocr
+from ..core.audio_preprocessing import preprocess_audio
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request, Form
 from pydantic import BaseModel
 from typing import Optional, Literal, List
@@ -89,6 +90,13 @@ class CreateMeetingPayload(BaseModel):
     start_time: str
     end_time: str
     participants: List[str]  # list of participant emails
+
+class UpdateMeetingPayload(BaseModel):
+    meeting_name: str
+    date: str
+    start_time: str
+    end_time: str
+    participants: List[str]
 
 class OCRResponse(BaseModel) :
     extracted_text: str
@@ -203,7 +211,7 @@ def get_table(record_type: str):
     return table
 
 # GET record
-@router.get("/{record_type}/{record_id}")
+@router.get("/records/{record_type}/{record_id}")
 async def get_record(record_type: str, record_id: str, current_user=Depends(get_current_user)):
     try:
         table = get_table(record_type)
@@ -226,7 +234,7 @@ async def get_record(record_type: str, record_id: str, current_user=Depends(get_
 
 
 # UPDATE record
-@router.put("/{record_type}/{record_id}")
+@router.put("/records/{record_type}/{record_id}")
 async def update_record(
     record_type: str,
     record_id: str,
@@ -270,7 +278,7 @@ async def update_record(
 
 
 # DELETE record
-@router.delete("/{record_type}/{record_id}")
+@router.delete("/records/{record_type}/{record_id}")
 async def delete_record(record_type: str, record_id: str, current_user=Depends(get_current_user)):
     try:
         table = get_table(record_type)
@@ -325,6 +333,123 @@ async def create_meeting(payload: CreateMeetingPayload, current_user=Depends(get
             raise HTTPException(status_code=400, detail=participant_result["error"]["message"])
 
         return {"message": "Meeting created successfully!", "meeting": meeting, "participants": participant_rows}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/meetings/{meeting_id}")
+async def get_meeting(meeting_id: str, current_user=Depends(get_current_user)):
+    """
+    Fetch a single meeting and its participants by meeting ID.
+    """
+    try:
+        # Fetch the meeting
+        meeting_res = supabase.table("meetings").select("*").eq("id", meeting_id).execute()
+        if not meeting_res.data:
+            raise HTTPException(status_code=404, detail="Meeting not found")
+        meeting = meeting_res.data[0]
+
+        # Fetch participant emails
+        participant_res = (
+            supabase.table("meeting_participants")
+            .select("participant_id")
+            .eq("meeting_id", meeting_id)
+            .execute()
+        )
+        participant_ids = [p["participant_id"] for p in participant_res.data]
+
+        profiles_res = supabase.rpc("get_profiles_for_ids", {"ids": participant_ids}).execute()
+        participants = [p["email"] for p in profiles_res.data]
+
+        # Add host email
+        host_res = supabase.table("profiles").select("email,name").eq("id", meeting["host_id"]).single().execute()
+        host_email = host_res.data["email"] if host_res.data else "Unknown"
+        meeting["host_email"] = host_email
+
+        return {"meeting": meeting, "participants": participants}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/meetings/{meeting_id}")
+async def update_meeting(
+    meeting_id: str,
+    payload: UpdateMeetingPayload,
+    current_user=Depends(get_current_user)
+):
+    """
+    Update an existing meeting. Only the host can update.
+    """
+    try:
+        # 1. Fetch the existing meeting
+        meeting_res = supabase.table("meetings").select("*").eq("id", meeting_id).execute()
+        if not meeting_res.data:
+            raise HTTPException(status_code=404, detail="Meeting not found")
+        meeting = meeting_res.data[0]
+
+        # 2. Check if the current user is the host
+        if meeting["host_id"] != current_user.id:
+            raise HTTPException(status_code=403, detail="Only the host can update the meeting")
+
+        # 3. Update meeting info
+        update_res = supabase.table("meetings").update({
+            "name": payload.meeting_name,
+            "date": payload.date,
+            "start_time": payload.start_time,
+            "end_time": payload.end_time
+        }).eq("id", meeting_id).execute()
+
+        if not update_res.data:
+            raise HTTPException(status_code=400, detail=update_res["error"]["message"])
+
+        updated_meeting = update_res.data[0]
+
+        # 4. Update participants: delete old, insert new
+        supabase.table("meeting_participants").delete().eq("meeting_id", meeting_id).execute()
+
+        # Fetch participant profiles using RPC
+        profiles_res = supabase.rpc("get_profiles_for_emails", {"emails": payload.participants}).execute()
+        if not profiles_res.data:
+            raise HTTPException(status_code=400, detail=profiles_res["error"]["message"])
+
+        participant_rows = [{"meeting_id": meeting_id, "participant_id": p["id"]} for p in profiles_res.data]
+
+        participant_insert_res = supabase.table("meeting_participants").insert(participant_rows).execute()
+        if not participant_insert_res.data:
+            raise HTTPException(status_code=400, detail=participant_insert_res["error"]["message"])
+
+        return {"message": "Meeting updated successfully!", "meeting": updated_meeting, "participants": participant_rows}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/meetings/{meeting_id}")
+async def delete_meeting(meeting_id: str, current_user=Depends(get_current_user)):
+    """
+    Delete a meeting. Only the host can delete.
+    """
+    try:
+        # Fetch meeting
+        meeting_res = supabase.table("meetings").select("*").eq("id", meeting_id).execute()
+        if not meeting_res.data:
+            raise HTTPException(status_code=404, detail="Meeting not found")
+
+        meeting = meeting_res.data[0]
+
+        # Verify host
+        if meeting["host_id"] != current_user.id:
+            raise HTTPException(status_code=403, detail="Only the host can delete the meeting")
+
+        # Delete participants first
+        supabase.table("meeting_participants").delete().eq("meeting_id", meeting_id).execute()
+
+        # Delete the meeting
+        delete_res = supabase.table("meetings").delete().eq("id", meeting_id).execute()
+        if not delete_res.data:
+            raise HTTPException(status_code=400, detail="Failed to delete meeting")
+
+        return {"message": "Meeting deleted successfully!"}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -717,7 +842,8 @@ async def extract_doc_text(
 
 
 
-# # # for testing purpose (after complete recording then transcribe) : 
+# # # after complete recording then transcribe 
+## file is webm audio file
 ## input language code of libretranslate code
 @router.post("/transcribe")
 async def transcribe_audio(
@@ -742,8 +868,12 @@ async def transcribe_audio(
         )
         wav_data, _ = process.communicate(input=input_data)
 
-        # Transcribe
+        
         audio_file = io.BytesIO(wav_data)
+        # --- Preprocess audio ---
+        # audio_file = preprocess_audio(input_data)
+
+        # Transcribe
         with sr.AudioFile(audio_file) as source:
             audio = recognizer.record(source)
 

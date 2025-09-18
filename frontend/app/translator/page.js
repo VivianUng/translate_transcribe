@@ -65,6 +65,7 @@ export default function Translate() {
     setProcessing(false);
     setMessage("");
     setSaveMessage("");
+    setFileUploadMessage("");
     setInputText("");
     setTranslatedText("");
     setPreviewFile(null);

@@ -38,7 +38,7 @@ export default function ConversationDetails() {
                 if (!token) return;
 
                 const res = await fetch(
-                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/conversations/${id}`,
+                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/records/conversations/${id}`,
                     {
                         method: "GET",
                         headers: {
@@ -95,7 +95,7 @@ export default function ConversationDetails() {
         setSaving(true);
         try {
             const res = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/conversations/${id}`,
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/records/conversations/${id}`,
                 {
                     method: "PUT",
                     headers: {
@@ -132,7 +132,7 @@ export default function ConversationDetails() {
 
         try {
             const res = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/conversations/${id}`,
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/records/conversations/${id}`,
                 {
                     method: "DELETE",
                     headers: {

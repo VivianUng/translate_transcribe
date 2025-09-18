@@ -508,7 +508,8 @@ a {
   margin: 0rem;
 }
 
-.start-btn {
+.start-btn,
+.update-btn {
   font-size: 1rem;
   margin: 0rem;
   white-space: nowrap;

@@ -63,11 +63,13 @@ export default function Meetings() {
         const meetingEnd = new Date(year, month - 1, day, endHour, endMinute, endSecond || 0);
 
         const isHost = meeting.host_id === session.user.id;
-
+        const now = new Date();
         const meetingData = {
           ...meeting,
           isHost,
           hostName: meeting.host_name || "Unknown",
+          meetingStart,
+          meetingEnd,
           formattedDate: meetingStart.toLocaleDateString(undefined, {
             weekday: "short",
             year: "numeric",
@@ -78,10 +80,21 @@ export default function Meetings() {
           formattedEndTime: meetingEnd.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         };
 
-        if (meetingStart < new Date()) past.push(meetingData);
-        else if (meetingStart.toDateString() === new Date().toDateString()) ongoing.push(meetingData);
-        else upcoming.push(meetingData);
+        if (meetingEnd < now) {
+          // Meeting ended in the past
+          past.push(meetingData);
+        } else if (meetingStart <= now && now <= meetingEnd) {
+          // Meeting is currently ongoing
+          ongoing.push(meetingData);
+        } else {
+          // Meeting is in the future
+          upcoming.push(meetingData);
+        }
       });
+
+      ongoing.sort((a, b) => b.meetingStart - a.meetingStart);  // most recent first
+      upcoming.sort((a, b) => a.meetingStart - b.meetingStart); // soonest first
+      past.sort((a, b) => b.meetingEnd - a.meetingEnd);         // most recent past first
 
 
       // 4. Update state
@@ -93,7 +106,7 @@ export default function Meetings() {
     }
   };
 
-  const MeetingSection = ({ title, meetingsList, showStartButton = false }) => {
+  const MeetingSection = ({ title, meetingsList, showButtons = false }) => {
     return (
       <section className="meetings-section">
         <div className={title === "Upcoming Meetings" ? "section-header" : ""}>
@@ -101,7 +114,8 @@ export default function Meetings() {
           {title === "Upcoming Meetings" && (
             <button
               className="button create-btn"
-              onClick={() => router.push("/meeting/create_meeting")}
+              onClick={() => router.push("/meeting/form?mode=create")}
+              // onClick={() => router.push("/meeting/create_meeting")}
             >
               Create New <span aria-hidden="true">+</span>
             </button>
@@ -120,8 +134,18 @@ export default function Meetings() {
                   {meeting.formattedDate} {meeting.formattedStartTime} - {meeting.formattedEndTime}
                 </div>
               </div>
-              {showStartButton && meeting.isHost && (
-                <button className="button start-btn meeting-button">Start Meeting</button>
+              {showButtons && meeting.isHost && (
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    className="button update-btn meeting-button"
+                    onClick={() => router.push(`/meeting/form?mode=update&id=${meeting.id}`)}
+                  >
+                    Update
+                  </button>
+                  <button className="button start-btn meeting-button">
+                    Start Meeting
+                  </button>
+                </div>
               )}
             </div>
           ))
@@ -139,7 +163,7 @@ export default function Meetings() {
       <h1 className="page-title">Meetings</h1>
 
       <MeetingSection title="Ongoing Meetings" meetingsList={meetings.ongoing} />
-      <MeetingSection title="Upcoming Meetings" meetingsList={meetings.upcoming} showStartButton />
+      <MeetingSection title="Upcoming Meetings" meetingsList={meetings.upcoming} showButtons />
       <MeetingSection title="Past Meetings" meetingsList={meetings.past} />
 
     </div>

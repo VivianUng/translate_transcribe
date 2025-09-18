@@ -1,16 +1,18 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function CreateMeetingPage() {
+export default function MeetingFormPage() {
     const router = useRouter();
-    const { loading, session } = useAuthCheck({
-        redirectIfNotAuth: true,
-        returnSession: true,
-    });
+    const searchParams = useSearchParams();
+
+    const mode = searchParams.get("mode") || "create"; // "create" or "update"
+    const meetingId = searchParams.get("id"); // undefined if creating
+
+    const { loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
 
     const [meetingName, setMeetingName] = useState("");
     const [date, setDate] = useState("");
@@ -25,48 +27,115 @@ export default function CreateMeetingPage() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const isValidEmail = emailRegex.test(emailInput);
 
+    // Store initial meeting state to detect changes
+    const [initialMeeting, setInitialMeeting] = useState(null);
+
+    // Fetch existing meeting data if in update mode
+    useEffect(() => {
+        if (mode === "update" && meetingId && session) {
+            const fetchMeeting = async () => {
+                try {
+                    const token = session.access_token;
+                    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+
+                    const result = await res.json();
+                    if (!res.ok) throw new Error(result.detail || "Failed to fetch meeting.");
+
+                    const m = result.meeting;
+                    const formatTime = (timeStr) => {
+                        if (!timeStr) return "";
+                        if (timeStr.includes("T")) return timeStr.split("T")[1].slice(0, 5);
+                        return timeStr.slice(0, 5);
+                    };
+
+                    setMeetingName(m.name || "");
+                    setDate(m.date || "");
+                    setStartTime(formatTime(m.start_time));
+                    setEndTime(formatTime(m.end_time));
+                    setParticipants(result.participants || []);
+                    setInitialMeeting({
+                        name: m.name || "",
+                        date: m.date || "",
+                        startTime: formatTime(m.start_time),
+                        endTime: formatTime(m.end_time),
+                        participants: result.participants || [],
+                    });
+                    setFormErrors({});
+                } catch (err) {
+                    console.error(err);
+                    alert("Failed to load meeting data.");
+                }
+            };
+
+            fetchMeeting();
+        }
+    }, [mode, meetingId, session]);
+
+    // Determine if form has changes
+    const isChanged =
+        mode === "create"
+            ? true
+            : !initialMeeting ||
+            meetingName !== initialMeeting.name ||
+            date !== initialMeeting.date ||
+            startTime !== initialMeeting.startTime ||
+            endTime !== initialMeeting.endTime ||
+            participants.join(",") !== initialMeeting.participants.join(",");
+
+    // Delete handler
+    const handleDelete = async () => {
+        if (!confirm("Are you sure you want to delete this meeting? This cannot be undone.")) return;
+
+        try {
+            const token = session.access_token;
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.detail || "Failed to delete meeting.");
+
+            router.push("/meeting?toast=deleteMeetingSuccess");
+        } catch (err) {
+            console.error(err);
+            alert(err.message || "Failed to delete meeting.");
+        }
+    };
+
+
+    // Time input handlers
     const handleStartChange = (e) => {
         const value = e.target.value;
         setFormErrors((prev) => ({ ...prev, start: "" }));
         setStartTime(value);
-        if (endTime && value >= endTime) {
-            setEndTime("");
-        }
+        if (endTime && value >= endTime) setEndTime("");
     };
 
     const handleEndChange = (e) => {
         const value = e.target.value;
         setFormErrors((prev) => ({ ...prev, end: "" }));
-        if (!startTime || value > startTime) {
-            setEndTime(value);
-        }
+        if (!startTime || value > startTime) setEndTime(value);
     };
 
+    // Participant handlers
     const addParticipant = async () => {
         const errors = {};
-        if (!emailInput.trim()) {
-            errors.participants = "Please enter an email address.";
-        } else if (!emailRegex.test(emailInput)) {
-            errors.participants = "Please enter a valid email address.";
-        } else if (participants.includes(emailInput)) {
-            errors.participants = "This participant has already been added.";
-        }
+        if (!emailInput.trim()) errors.participants = "Please enter an email address.";
+        else if (!emailRegex.test(emailInput)) errors.participants = "Please enter a valid email address.";
+        else if (participants.includes(emailInput)) errors.participants = "This participant has already been added.";
 
         if (Object.keys(errors).length > 0) {
             setFormErrors((prev) => ({ ...prev, ...errors }));
             return;
         }
 
-        const { data, error } = await supabase.rpc("email_exists", {
-            check_email: emailInput,
-        });
-
+        const { data, error } = await supabase.rpc("email_exists", { check_email: emailInput });
         if (error) {
             console.error(error);
-            setFormErrors((prev) => ({
-                ...prev,
-                participants: "Error checking email. Please try again.",
-            }));
+            setFormErrors((prev) => ({ ...prev, participants: "Error checking email. Please try again." }));
             return;
         }
 
@@ -75,10 +144,7 @@ export default function CreateMeetingPage() {
             setEmailInput("");
             setFormErrors((prev) => ({ ...prev, participants: "" }));
         } else {
-            setFormErrors((prev) => ({
-                ...prev,
-                participants: "This email is not registered.",
-            }));
+            setFormErrors((prev) => ({ ...prev, participants: "This email is not registered." }));
         }
     };
 
@@ -86,56 +152,55 @@ export default function CreateMeetingPage() {
         setParticipants(participants.filter((p) => p !== email));
     };
 
-    const handleCreateMeeting = async () => {
+    // Submit handler (create or update)
+    const handleSubmit = async () => {
         const errors = {};
-
         if (!meetingName.trim()) errors.name = "Meeting name is required.";
         if (!date) errors.date = "Date is required.";
         if (!startTime) errors.start = "Start time is required.";
         if (!endTime) errors.end = "End time is required.";
-
         setFormErrors(errors);
-
         if (Object.keys(errors).length > 0) return;
 
         try {
             setIsSubmitting(true);
-
             const token = session?.access_token;
             if (!token) {
-                alert("You must be logged in to create a meeting.");
+                alert("You must be logged in.");
                 return;
             }
 
             const hostEmail = session?.user?.email;
-            const finalParticipants = participants.includes(hostEmail)
-                ? participants
-                : [...participants, hostEmail];
+            const finalParticipants = participants.includes(hostEmail) ? participants : [...participants, hostEmail];
 
-            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/create-meeting`, {
-                method: "POST",
+            const url =
+                mode === "create"
+                    ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/create-meeting`
+                    : `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}`;
+            const method = mode === "create" ? "POST" : "PUT";
+
+            const res = await fetch(url, {
+                method,
                 headers: {
                     "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`,
+                    Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
                     meeting_name: meetingName,
                     date,
                     start_time: startTime,
                     end_time: endTime,
-                    participants: finalParticipants, // array of emails
-                })
+                    participants: finalParticipants,
+                }),
             });
 
             const result = await res.json();
-            if (!res.ok) throw new Error(result.meeting || "Failed to create meeting.");
+            if (!res.ok) throw new Error(result.detail || `Failed to ${mode} meeting.`);
 
-            console.log("Created meeting:", result.meeting);
-
-
-            router.push("/meeting?toast=createMeetingSuccess");
+            router.push(`/meeting?toast=${mode === "create" ? "createMeetingSuccess" : "updateMeetingSuccess"}`);
         } catch (err) {
             console.error(err);
+            alert(err.message || "Something went wrong.");
         } finally {
             setIsSubmitting(false);
         }
@@ -145,14 +210,13 @@ export default function CreateMeetingPage() {
 
     return (
         <div className="page-container">
-            {/* Back Button */}
             <button className="back-button" onClick={() => router.push("/meeting")}>
                 <ArrowLeft size={20} />
             </button>
-            <h1 className="page-title">Create a New Meeting</h1>
+            <h1 className="page-title">{mode === "create" ? "Create Meeting" : "Update Meeting"}</h1>
 
             <div className="section">
-                {/* Meeting Details */}
+                {/* Meeting Name */}
                 <h3 className="input-label">Meeting Name</h3>
                 <input
                     className={`input-field ${formErrors.name ? "input-error" : ""}`}
@@ -162,7 +226,6 @@ export default function CreateMeetingPage() {
                         setMeetingName(e.target.value);
                         setFormErrors((prev) => ({ ...prev, name: "" }));
                     }}
-                    placeholder="Enter meeting name"
                 />
                 {formErrors.name && <p className="error-message">{formErrors.name}</p>}
                 <hr className="divider" />
@@ -181,9 +244,7 @@ export default function CreateMeetingPage() {
                                 setFormErrors((prev) => ({ ...prev, date: "" }));
                             }}
                         />
-                        {formErrors.date && (
-                            <p className="error-message">{formErrors.date}</p>
-                        )}
+                        {formErrors.date && <p className="error-message">{formErrors.date}</p>}
                     </div>
 
                     <div>
@@ -194,9 +255,7 @@ export default function CreateMeetingPage() {
                             value={startTime}
                             onChange={handleStartChange}
                         />
-                        {formErrors.start && (
-                            <p className="error-message">{formErrors.start}</p>
-                        )}
+                        {formErrors.start && <p className="error-message">{formErrors.start}</p>}
                     </div>
 
                     <div>
@@ -204,8 +263,8 @@ export default function CreateMeetingPage() {
                         <input
                             className={`input-field ${formErrors.end ? "input-error" : ""}`}
                             type="time"
-                            value={endTime}
                             min={startTime || undefined}
+                            value={endTime}
                             onChange={handleEndChange}
                         />
                         {formErrors.end && <p className="error-message">{formErrors.end}</p>}
@@ -232,29 +291,18 @@ export default function CreateMeetingPage() {
                         }}
                         placeholder="Add participant email"
                     />
-                    <button
-                        type="button"
-                        className="add-button"
-                        onClick={addParticipant}
-                        disabled={!emailInput || !isValidEmail}
-                    >
+                    <button type="button" className="add-button" onClick={addParticipant} disabled={!emailInput || !isValidEmail}>
                         Add
                     </button>
                 </div>
-                {formErrors.participants && (
-                    <p className="error-message">{formErrors.participants}</p>
-                )}
+                {formErrors.participants && <p className="error-message">{formErrors.participants}</p>}
 
                 {participants.length > 0 && (
                     <div className="participants-list">
                         {participants.map((p) => (
                             <span key={p} className="participant-tag">
                                 {p}
-                                <button
-                                    type="button"
-                                    className="remove-participant"
-                                    onClick={() => removeParticipant(p)}
-                                >
+                                <button type="button" className="remove-participant" onClick={() => removeParticipant(p)}>
                                     ×
                                 </button>
                             </span>
@@ -263,15 +311,27 @@ export default function CreateMeetingPage() {
                 )}
                 <hr className="divider" />
 
-                {/* Submit */}
+                {/* Submit Button */}
                 <button
                     type="button"
                     className="button"
-                    onClick={handleCreateMeeting}
-                    disabled={isSubmitting}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting || !isChanged}
                 >
-                    {isSubmitting ? "Creating..." : "Create Meeting"}
+                    {isSubmitting ? (mode === "create" ? "Creating..." : "Updating...") : mode === "create" ? "Create Meeting" : "Update Meeting"}
                 </button>
+
+                {/* Delete Button - only in update mode */}
+                {mode === "update" && (
+                    <button
+                        type="button"
+                        className="button"
+                        onClick={handleDelete}
+                        disabled={isSubmitting}
+                    >
+                        Delete Meeting
+                    </button>
+                )}
             </div>
         </div>
     );

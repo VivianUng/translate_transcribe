@@ -24,7 +24,12 @@ export default function ToastProvider() {
       toast.success("Account Deleted.");
     } else if (toastParam === "createMeetingSuccess") {
       toast.success("Successfully Created New Meeting.");
+    } else if (toastParam === "updateMeetingSuccess") {
+      toast.success("Successfully Updated Meeting.");
+    } else if (toastParam === "deleteMeetingSuccess") {
+      toast.success("Successfully Deleted Meeting.");
     }
+    
 
     // Auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
