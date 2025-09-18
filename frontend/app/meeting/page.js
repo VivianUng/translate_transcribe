@@ -141,7 +141,9 @@ export default function Meetings() {
                   >
                     Update
                   </button>
-                  <button className="button start-btn meeting-button">
+                  <button
+                    className="button start-btn meeting-button"
+                    onClick={() => router.push(`/meeting/ongoing_meeting`)}>
                     Start Meeting
                   </button>
                 </div>
