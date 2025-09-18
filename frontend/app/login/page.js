@@ -5,6 +5,7 @@ import { supabase } from "../../lib/supabaseClient";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from 'next/navigation';
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
@@ -108,17 +110,28 @@ export default function Login() {
           required
           className="input-field login-input"
         />
-        <label className="input-label" htmlFor="password">Password</label>
-        <br />
-        <input
-          id="password"
-          type="password"
-          placeholder="Enter your password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          className="input-field login-input"
-        />
+
+        <div className="password-container" style={{ position: "relative" }}>
+          <label className="input-label" htmlFor="password">Password</label>
+          <br />
+          <input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="input-field login-input"
+          />
+
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="toggle-visibility"
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
         {/* Forgot password link */}
         <div className="page-link-word forgot-password">
           <span

@@ -334,6 +334,16 @@ a {
   text-align: center;
 }
 
+.toggle-visibility {
+  position: absolute;
+  right: 10px;
+  top: 57%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
 
 /* ==========================
    Conversation Page Styles
