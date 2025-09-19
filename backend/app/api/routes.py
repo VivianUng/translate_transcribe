@@ -98,6 +98,9 @@ class UpdateMeetingPayload(BaseModel):
     end_time: str
     participants: List[str]
 
+class StatusUpdatePayload(BaseModel):
+    status: str
+
 class OCRResponse(BaseModel) :
     extracted_text: str
 
@@ -366,6 +369,17 @@ async def get_meeting(meeting_id: str, current_user=Depends(get_current_user)):
         host_email = host_res.data["email"] if host_res.data else "Unknown"
         meeting["host_email"] = host_email
 
+        host_id = meeting["host_id"]
+
+        profiles_result = supabase.rpc("get_host_names", {"host_ids": [host_id]}).execute()
+        if not profiles_result:
+            print("RPC fetch error")
+
+        profiles = profiles_result.data or []
+        host_map = {p["host_id"]: p["name"] for p in profiles}
+
+        meeting["host_name"] = host_map.get(host_id, "Unknown")
+
         return {"meeting": meeting, "participants": participants}
 
     except Exception as e:
@@ -420,6 +434,47 @@ async def update_meeting(
             raise HTTPException(status_code=400, detail=participant_insert_res["error"]["message"])
 
         return {"message": "Meeting updated successfully!", "meeting": updated_meeting, "participants": participant_rows}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.put("/meetings/{meeting_id}/status")
+async def update_meeting_status(
+    meeting_id: str,
+    payload: StatusUpdatePayload,
+    current_user=Depends(get_current_user)
+):
+    """
+    Update the status of a meeting (e.g., 'ongoing', 'past').
+    Only the host can update.
+    """
+    try:
+        status = payload.status
+        # 1. Fetch the existing meeting
+        meeting_res = supabase.table("meetings").select("*").eq("id", meeting_id).execute()
+        if not meeting_res.data:
+            raise HTTPException(status_code=404, detail="Meeting not found")
+        meeting = meeting_res.data[0]
+
+        # 2. Check if the current user is the host
+        if meeting["host_id"] != current_user.id:
+            raise HTTPException(status_code=403, detail="Only the host can update the meeting")
+
+        # 3. Update only the status column
+        update_res = (
+            supabase.table("meetings")
+            .update({"status": status})
+            .eq("id", meeting_id)
+            .execute()
+        )
+
+        if not update_res.data:
+            raise HTTPException(status_code=400, detail="Failed to update meeting status")
+
+        return {
+            "message": f"Meeting status updated to '{status}' successfully!",
+            "meeting": update_res.data[0],
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

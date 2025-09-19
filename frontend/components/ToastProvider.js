@@ -29,7 +29,9 @@ export default function ToastProvider() {
     } else if (toastParam === "deleteMeetingSuccess") {
       toast.success("Successfully Deleted Meeting.");
     } else if (toastParam === "notFound") {
-      toast.success("Record Not Found.");
+      toast.error("Record Not Found.");
+    } else if (toastParam === "meetingEnd") {
+      toast.promise("Meeting Ended.");
     }
     
 

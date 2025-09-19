@@ -518,8 +518,9 @@ a {
   margin: 0rem;
 }
 
-.start-btn,
-.update-btn {
+.meeting-button {
+  margin-left: 1rem;
+  flex-shrink: 0;
   font-size: 1rem;
   margin: 0rem;
   white-space: nowrap;
@@ -569,10 +570,7 @@ a {
   white-space: nowrap;
 }
 
-.meeting-button {
-  margin-left: 1rem;
-  flex-shrink: 0;
-}
+
 
 /* ===========================
       Meeting Ongoing Styles
@@ -582,6 +580,18 @@ a {
   display: flex;
   gap: 1rem;
   height: calc(100vh - 250px);
+}
+
+.meeting-details-row {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 1rem;
+}
+
+.meeting-details-row h2,
+.meeting-details-row p {
+  margin: 0; /* remove default spacing */
 }
 
 /* Left column (transcription + translation stacked) */

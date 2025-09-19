@@ -80,16 +80,26 @@ export default function Meetings() {
           formattedEndTime: meetingEnd.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         };
 
-        if (meetingEnd < now) {
-          // Meeting ended in the past
+        const status = meeting.status?.toLowerCase();
+
+        if (status === "past") {
           past.push(meetingData);
-        } else if (meetingStart <= now && now <= meetingEnd) {
-          // Meeting is currently ongoing
+        } else if (status === "ongoing") {
           ongoing.push(meetingData);
-        } else {
-          // Meeting is in the future
+        } else if (status === "upcoming") {
           upcoming.push(meetingData);
         }
+
+        // if (meetingEnd < now) {
+        //   // Meeting ended in the past
+        //   past.push(meetingData);
+        // } else if (meetingStart <= now && now <= meetingEnd) {
+        //   // Meeting is currently ongoing
+        //   ongoing.push(meetingData);
+        // } else {
+        //   // Meeting is in the future
+        //   upcoming.push(meetingData);
+        // }
       });
 
       ongoing.sort((a, b) => b.meetingStart - a.meetingStart);  // most recent first
@@ -105,6 +115,40 @@ export default function Meetings() {
       setFetching(false);
     }
   };
+
+  const handleStartMeeting = async (meetingId) => {
+    try {
+      // Get Supabase JWT token
+      const token = session?.access_token;
+      if (!token) {
+        alert("You must be logged in to view meetings.");
+        return;
+      }
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/status`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: "ongoing" }),
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error("Failed to update meeting status:", errorData.detail || errorData);
+        return;
+      }
+
+      // Redirect only after successful status update
+      router.push(`/meeting/details?role=host&id=${meetingId}`);
+    } catch (err) {
+      console.error("Error starting meeting:", err);
+    }
+  };
+
 
   const MeetingSection = ({ title, meetingsList, showButtons = false }) => {
     return (
@@ -143,10 +187,20 @@ export default function Meetings() {
                   </button>
                   <button
                     className="button start-btn meeting-button"
-                    onClick={() => router.push(`/meeting/details`)}>
+                    onClick={() => handleStartMeeting(meeting.id)}>
                     Start Meeting
                   </button>
                 </div>
+              )}
+
+              {/* Participant "Join Meeting" button only for ongoing meetings */}
+              {title === "Ongoing Meetings" && !meeting.isHost && (
+                <button
+                  className="button join-btn meeting-button"
+                  onClick={() => router.push(`/meeting/details?role=participant&id=${meeting.id}`)}
+                >
+                  Join Meeting
+                </button>
               )}
             </div>
           ))

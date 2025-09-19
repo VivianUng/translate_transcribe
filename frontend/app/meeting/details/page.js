@@ -8,10 +8,21 @@ import { useLanguages } from "@/contexts/LanguagesContext";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import StickyScrollBox from "@/components/StickyScrollBox";
 
-export default function MeetingPage({ role = "participant" }) {
-    const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
+export default function MeetingPage() {
+    const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { languages } = useLanguages();
+    const [fetching, setFetching] = useState(true);
+
+    const role = searchParams.get("role") || "participant"; // "host" or "participant"
+    const meetingId = searchParams.get("id");
+
+    const [meetingName, setMeetingName] = useState("");
+    const [meetingHost, setMeetingHost] = useState("");
+    const [date, setDate] = useState("");
+    const [startTime, setStartTime] = useState("");
+    const [endTime, setEndTime] = useState("");
 
     // State for live data 
     // // change to fetching transcription and englishSummary from supabase
@@ -31,6 +42,12 @@ export default function MeetingPage({ role = "participant" }) {
         setMounted(true); // for react-select component
     },);
 
+    useEffect(() => {
+        if (!loading && session) {
+            fetchMeetingInfo();
+        }
+    }, [loading, session]);
+
     // Example: simulate updates (replace with websocket listener)
     useEffect(() => {
         const interval = setInterval(() => {
@@ -41,9 +58,95 @@ export default function MeetingPage({ role = "participant" }) {
         return () => clearInterval(interval);
     }, []);
 
-    function handleEndMeeting() {
-        alert("Meeting ended (TODO: call backend).");
+
+    const fetchMeetingInfo = async () => {
+        try {
+            setFetching(true);
+
+            // 1. Get Supabase JWT token
+            const token = session?.access_token;
+            if (!token) {
+                alert("You must be logged in to view meetings.");
+                return;
+            }
+
+            // 2. Fetch meeting info from backend
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}`, {
+                method: "GET",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                console.error("Failed to fetch meeting info:", data);
+                alert(data.detail || "Failed to fetch meeting info.");
+                return;
+            }
+
+            const m = data.meeting;
+
+            const formatTime = (timeStr) => {
+                if (!timeStr) return "";
+                if (timeStr.includes("T")) return timeStr.split("T")[1].slice(0, 5);
+                return timeStr.slice(0, 5);
+            };
+
+            setMeetingName(m.name || "");
+            setMeetingHost(m.host_name || "");
+            setDate(m.date || "");
+            setStartTime(formatTime(m.start_time));
+            setEndTime(formatTime(m.end_time));
+
+        } catch (err) {
+            console.error("Failed to fetch meeting info:", err);
+        } finally {
+            setFetching(false);
+        }
+    };
+
+    async function handleEndMeeting() {
+        try {
+            if (role === "host") {
+                // 1. Get Supabase JWT token
+                const token = session?.access_token;
+                if (!token) {
+                    alert("You must be logged in to end meetings.");
+                    return;
+                }
+
+                // 2. Update meeting status → "past"
+                const res = await fetch(
+                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/status`,
+                    {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ status: "past" }),
+                    }
+                );
+
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    console.error("Failed to update meeting status:", errorData.detail || errorData);
+                    alert("Failed to end meeting.");
+                    return;
+                }
+
+                const data = await res.json();
+
+                // 3. Redirect and show confirmation
+                router.push("/meeting?toast=meetingEnd"); // back to meetings page
+            }
+
+        } catch (err) {
+            console.error("Error ending meeting:", err);
+            alert("An error occurred while ending the meeting.");
+        }
     }
+
 
     function handleSaveSummary() {
         alert("Summary saved! (TODO: implement API call)");
@@ -57,12 +160,22 @@ export default function MeetingPage({ role = "participant" }) {
         link.click();
     }
 
+    if (fetching) return <p>Loading...</p>;
+
     return (
         <div className="page-container">
             <button className="back-button" onClick={() => router.push("/meeting")}>
                 <ArrowLeft size={20} />
             </button>
             <h1 className="page-title">Ongoing Meeting</h1>
+            {/* Meeting Details */}
+            <div className="meeting-details-row">
+                <h2 className="meeting-name">{meetingName}</h2>
+                <p className="meeting-host">Host: {meetingHost}</p>
+                <p className="meeting-date-time">
+                    {date} | {startTime} - {endTime}
+                </p>
+            </div>
 
             <div className="ongoing-meeting-layout">
                 {/* Left column */}
@@ -121,7 +234,7 @@ export default function MeetingPage({ role = "participant" }) {
                         />
 
                         {/* Actions */}
-                        <div className="actions-row">
+                        {/* <div className="actions-row">
                             <button
                                 className="button"
                                 onClick={handleSaveSummary}
@@ -136,8 +249,7 @@ export default function MeetingPage({ role = "participant" }) {
                             >
                                 Download
                             </button>
-
-                        </div>
+                        </div> */}
                     </div>
                 </div>
             </div>
