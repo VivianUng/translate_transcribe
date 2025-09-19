@@ -143,7 +143,7 @@ export default function Meetings() {
                   </button>
                   <button
                     className="button start-btn meeting-button"
-                    onClick={() => router.push(`/meeting/ongoing_meeting`)}>
+                    onClick={() => router.push(`/meeting/details`)}>
                     Start Meeting
                   </button>
                 </div>

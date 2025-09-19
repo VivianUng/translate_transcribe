@@ -1,15 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import Select from "react-select";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import useAuthCheck from "@/hooks/useAuthCheck";
+import StickyScrollBox from "@/components/StickyScrollBox";
 
 export default function MeetingPage({ role = "participant" }) {
     const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
+    const router = useRouter();
     const { languages } = useLanguages();
 
-    // State for live data
+    // State for live data 
+    // // change to fetching transcription and englishSummary from supabase
     const [transcription, setTranscription] = useState("");
     const [translation, setTranslation] = useState("");
     const [summary, setSummary] = useState("");
@@ -54,6 +59,9 @@ export default function MeetingPage({ role = "participant" }) {
 
     return (
         <div className="page-container">
+            <button className="back-button" onClick={() => router.push("/meeting")}>
+                <ArrowLeft size={20} />
+            </button>
             <h1 className="page-title">Ongoing Meeting</h1>
 
             <div className="ongoing-meeting-layout">
@@ -67,11 +75,10 @@ export default function MeetingPage({ role = "participant" }) {
                                 <span className="recording-indicator">🔴 Recording</span>
                             )}
                         </div>
-                        <div className="scrollable-box">
-                            <pre className="section-content">
-                                {transcription || "Waiting for transcription..."}
-                            </pre>
-                        </div>
+                        <StickyScrollBox
+                            content={transcription}
+                            placeholder="Waiting for transcription..."
+                        />
                     </div>
 
                     {/* Translation */}
@@ -87,11 +94,10 @@ export default function MeetingPage({ role = "participant" }) {
                                 />
                             )}
                         </div>
-                        <div className="scrollable-box">
-                            <pre className="section-content">
-                                {translation || "Waiting for translation..."}
-                            </pre>
-                        </div>
+                        <StickyScrollBox
+                            content={translation}
+                            placeholder="Waiting for translation..."
+                        />
                     </div>
                 </div>
 
@@ -109,11 +115,10 @@ export default function MeetingPage({ role = "participant" }) {
                                 />
                             )}
                         </div>
-                        <div className="scrollable-box">
-                            <pre className="section-content">
-                                {summary || "Summary will appear here..."}
-                            </pre>
-                        </div>
+                        <StickyScrollBox
+                            content={summary}
+                            placeholder="Summary will appear here..."
+                        />
 
                         {/* Actions */}
                         <div className="actions-row">
