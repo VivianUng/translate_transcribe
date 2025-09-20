@@ -478,6 +478,47 @@ async def update_meeting_status(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@router.get("/meetings/{meeting_id}/status")
+async def get_meeting_status(
+    meeting_id: str,
+    current_user=Depends(get_current_user)
+):
+    """
+    Get the current status of a meeting (e.g., 'upcoming', 'ongoing', 'past').
+    Both host and participants can check.
+    """
+    try:
+        # 1. Fetch the meeting
+        meeting_res = supabase.table("meetings").select("id, status").eq("id", meeting_id).execute()
+        if not meeting_res.data:
+            raise HTTPException(status_code=404, detail="Meeting not found")
+
+        meeting = meeting_res.data[0]
+
+        # 2. Return only meeting id + status
+        return {
+            "meeting_id": meeting["id"],
+            "status": meeting["status"]
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/meetings/{meeting_id}/role")
+async def get_meeting_role(meeting_id: str, current_user=Depends(get_current_user)):
+    # Fetch meeting
+    meeting_res = supabase.table("meetings").select("id, host_id").eq("id", meeting_id).execute()
+    if not meeting_res.data:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    meeting = meeting_res.data[0]
+
+    # Determine role
+    if meeting["host_id"] == current_user.id:
+        return {"role": "host"}
+    else:
+        return {"role": "participant"}
 
 @router.delete("/meetings/{meeting_id}")
 async def delete_meeting(meeting_id: str, current_user=Depends(get_current_user)):

@@ -143,14 +143,14 @@ export default function Meetings() {
       }
 
       // Redirect only after successful status update
-      router.push(`/meeting/details?role=host&id=${meetingId}`);
+      router.push(`/meeting/details?id=${meetingId}`);
     } catch (err) {
       console.error("Error starting meeting:", err);
     }
   };
 
 
-  const MeetingSection = ({ title, meetingsList, showButtons = false }) => {
+  const MeetingSection = ({ title, meetingsList }) => {
     return (
       <section className="meetings-section">
         <div className={title === "Upcoming Meetings" ? "section-header" : ""}>
@@ -177,7 +177,7 @@ export default function Meetings() {
                   {meeting.formattedDate} {meeting.formattedStartTime} - {meeting.formattedEndTime}
                 </div>
               </div>
-              {showButtons && meeting.isHost && (
+              {title === "Upcoming Meetings" && meeting.isHost && (
                 <div style={{ display: "flex", gap: "8px" }}>
                   <button
                     className="button update-btn meeting-button"
@@ -193,15 +193,30 @@ export default function Meetings() {
                 </div>
               )}
 
-              {/* Participant "Join Meeting" button only for ongoing meetings */}
-              {title === "Ongoing Meetings" && !meeting.isHost && (
+              {/* "Join Meeting" button only for ongoing meetings */}
+              {title === "Ongoing Meetings" && (
                 <button
                   className="button join-btn meeting-button"
-                  onClick={() => router.push(`/meeting/details?role=participant&id=${meeting.id}`)}
+                  onClick={() => router.push(`/meeting/details?id=${meeting.id}`)}
                 >
                   Join Meeting
                 </button>
               )}
+
+              {/* === Past Meetings buttons === */}
+              {title === "Past Meetings" && (
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    className="button view-btn meeting-button"
+                    onClick={() =>
+                      router.push(`/meeting/details?id=${meeting.id}`)
+                    }
+                  >
+                    View
+                  </button>
+                </div>
+              )}
+
             </div>
           ))
         ) : (
@@ -218,7 +233,7 @@ export default function Meetings() {
       <h1 className="page-title">Meetings</h1>
 
       <MeetingSection title="Ongoing Meetings" meetingsList={meetings.ongoing} />
-      <MeetingSection title="Upcoming Meetings" meetingsList={meetings.upcoming} showButtons />
+      <MeetingSection title="Upcoming Meetings" meetingsList={meetings.upcoming} />
       <MeetingSection title="Past Meetings" meetingsList={meetings.past} />
 
     </div>

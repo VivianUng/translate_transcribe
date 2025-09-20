@@ -8,14 +8,18 @@ import { useLanguages } from "@/contexts/LanguagesContext";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import StickyScrollBox from "@/components/StickyScrollBox";
 
-export default function MeetingPage() {
+export default function MeetingDetailsPage() {
     const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
+    const token = session?.access_token;
+
     const router = useRouter();
     const searchParams = useSearchParams();
     const { languages } = useLanguages();
+    const [loadingPage, setLoadingPage] = useState(true);
     const [fetching, setFetching] = useState(true);
 
-    const role = searchParams.get("role") || "participant"; // "host" or "participant"
+    const [role, setRole] = useState(null); // "host" or "participant"
+    const [status, setStatus] = useState(null); // "upcoming" or "ongoing" or "past"
     const meetingId = searchParams.get("id");
 
     const [meetingName, setMeetingName] = useState("");
@@ -35,7 +39,7 @@ export default function MeetingPage() {
     const [summaryLang, setSummaryLang] = useState("en");
 
     // Recording indicator (host only)
-    const [recording, setRecording] = useState(role === "host");
+    const [recording, setRecording] = useState(false);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -44,27 +48,86 @@ export default function MeetingPage() {
 
     useEffect(() => {
         if (!loading && session) {
-            fetchMeetingInfo();
+            Promise.all([fetchRole(), fetchStatus(), fetchMeetingInfo()])
+                .finally(() => setLoadingPage(false));
         }
     }, [loading, session]);
 
-    // Example: simulate updates (replace with websocket listener)
     useEffect(() => {
-        const interval = setInterval(() => {
-            setTranscription(prev => prev + "\nSomeone said something new...");
-            setTranslation(prev => prev + "\n[Translated line]");
-            setSummary(prev => prev + "\n[Summary line]");
-        }, 5000);
-        return () => clearInterval(interval);
-    }, []);
+        if (role === "host" && status === "ongoing") {
+            setRecording(true);
+        } else {
+            setRecording(false);
+        }
+    }, [role, status]);
+
+    // // Example: simulate updates (replace with websocket listener)
+    // useEffect(() => {
+    //     const interval = setInterval(() => {
+    //         setTranscription(prev => prev + "\nSomeone said something new...");
+    //         setTranslation(prev => prev + "\n[Translated line]");
+    //         setSummary(prev => prev + "\n[Summary line]");
+    //     }, 5000);
+    //     return () => clearInterval(interval);
+    // }, []);
+
+    const fetchRole = async () => {
+        try {
+            if (!token) {
+                alert("You must be logged in to end meetings.");
+                return;
+            }
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/role`,
+                {
+                    method: "GET",
+                    headers: { Authorization: `Bearer ${token}` },
+                }
+            );
+
+            if (!res.ok) throw new Error("Failed to fetch role");
+
+            const data = await res.json();
+            setRole(data.role); // "host" or "participant"
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const fetchStatus = async () => {
+        try {
+            setFetching(true);
+            if (!token) {
+                alert("You must be logged in to check meeting status.");
+                return;
+            }
+
+            // 2. Call backend to get status
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/status`,
+                {
+                    method: "GET",
+                    headers: { Authorization: `Bearer ${token}` },
+                }
+            );
+
+            if (!res.ok) throw new Error("Failed to fetch status");
+
+            // 3. Parse response
+            const data = await res.json();
+            setStatus(data.status); // "ongoing", "upcoming", "past"
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setFetching(false);
+        }
+    };
 
 
     const fetchMeetingInfo = async () => {
         try {
             setFetching(true);
 
-            // 1. Get Supabase JWT token
-            const token = session?.access_token;
             if (!token) {
                 alert("You must be logged in to view meetings.");
                 return;
@@ -105,11 +168,17 @@ export default function MeetingPage() {
         }
     };
 
+    // --- update page title ---
+    const getPageTitle = () => {
+        if (status === "ongoing") return "Ongoing Meeting";
+        if (status === "past") return "Past Meeting";
+        if (status === "upcoming") return "Upcoming Meeting";
+        return "Meeting";
+    };
+
     async function handleEndMeeting() {
         try {
             if (role === "host") {
-                // 1. Get Supabase JWT token
-                const token = session?.access_token;
                 if (!token) {
                     alert("You must be logged in to end meetings.");
                     return;
@@ -147,27 +216,45 @@ export default function MeetingPage() {
         }
     }
 
+    async function handleDeleteMeeting() {
+        try {
+            if (role !== "host") return;
+            if (!confirm("Are you sure you want to delete this meeting?")) return;
 
-    function handleSaveSummary() {
-        alert("Summary saved! (TODO: implement API call)");
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}`,
+                {
+                    method: "DELETE",
+                    headers: { Authorization: `Bearer ${token}` },
+                }
+            );
+
+            if (!res.ok) {
+                const errData = await res.json();
+                console.error("Failed to delete meeting:", errData);
+                alert("Failed to delete meeting.");
+                return;
+            }
+
+            router.push("/meeting?toast=deleteMeetingSuccess");
+        } catch (err) {
+            console.error("Error deleting meeting:", err);
+            alert("An error occurred while deleting the meeting.");
+        }
     }
 
-    function handleDownloadSummary() {
-        const blob = new Blob([summary], { type: "text/plain" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "meeting-summary.txt";
-        link.click();
+    async function handleUpdateMeeting() {
+        alert("Logic for updating meeting")
     }
 
-    if (fetching) return <p>Loading...</p>;
+    if (loadingPage) return <p>Loading...</p>;
 
     return (
         <div className="page-container">
             <button className="back-button" onClick={() => router.push("/meeting")}>
                 <ArrowLeft size={20} />
             </button>
-            <h1 className="page-title">Ongoing Meeting</h1>
+            <h1 className="page-title">{getPageTitle()}</h1>
             {/* Meeting Details */}
             <div className="meeting-details-row">
                 <h2 className="meeting-name">{meetingName}</h2>
@@ -232,35 +319,36 @@ export default function MeetingPage() {
                             content={summary}
                             placeholder="Summary will appear here..."
                         />
-
-                        {/* Actions */}
-                        {/* <div className="actions-row">
-                            <button
-                                className="button"
-                                onClick={handleSaveSummary}
-                                disabled={!summary}
-                            >
-                                Save Summary
-                            </button>
-                            <button
-                                className="button secondary"
-                                onClick={handleDownloadSummary}
-                                disabled={!summary}
-                            >
-                                Download
-                            </button>
-                        </div> */}
                     </div>
                 </div>
             </div>
-            {role === "host" && (
-                <button
-                    className="button danger"
-                    onClick={handleEndMeeting}
-                >
-                    End Meeting
-                </button>
-            )}
+            <div className="meeting-actions">
+                {status === "ongoing" && role === "host" && (
+                    <button className="button danger" onClick={handleEndMeeting}>
+                        End Meeting
+                    </button>
+                )}
+
+                {status === "past" && role === "host" && (
+                    <div style={{ display: "flex", gap: "8px" }}>
+                        <button
+                            className="button update-btn"
+                            onClick={handleUpdateMeeting}
+                        >
+                            Edit
+                        </button>
+                        <button
+                            className="button danger"
+                            onClick={handleDeleteMeeting}
+                        >
+                            Delete
+                        </button>
+                    </div>
+                )}
+                {/* any buttons for participants of ongoing / past meetings
+                    Ongoing : Save meeting once it ends
+                    Past : Save meeting */}
+            </div>
         </div>
     );
 }
