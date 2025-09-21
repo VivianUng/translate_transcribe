@@ -2,6 +2,7 @@
 
 import Select from "react-select";
 import { useState, useRef, useEffect } from "react";
+import { toast } from "react-hot-toast";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import { translateText } from "@/utils/translation";
 import useAuthCheck from "@/hooks/useAuthCheck";
@@ -24,7 +25,6 @@ export default function ConversationPage() {
   const [transcription_message, setTranscriptMessage] = useState("");
   const [autoSave, setAutoSave] = useState(false);
 
-  const [save_message, setSaveMessage] = useState("");
   const [isSaved, setIsSaved] = useState(false); // track if conversation is saved
   const isProcessingTranscription =
     transcription === "Converting audio to text......";
@@ -51,7 +51,6 @@ export default function ConversationPage() {
   useEffect(() => {
     setIsSaved(false);
     setMessage("");
-    setSaveMessage("");
   }, [transcription, targetLang]);
 
   const prefsAppliedRef = useRef(false);
@@ -70,7 +69,6 @@ export default function ConversationPage() {
     setSaving(false);
     setLoading(false);
     setMessage("");
-    setSaveMessage("");
     setTranscription("");
     setTranscriptMessage("");
     setTranslatedText("");
@@ -167,7 +165,6 @@ export default function ConversationPage() {
     if (!isLoggedIn || !transcription) return;
 
     setSaving(true);
-    setSaveMessage("");
 
     try {
       // get Supabase JWT token
@@ -198,10 +195,10 @@ export default function ConversationPage() {
       const result = await res.json();
       if (!res.ok) throw new Error(result.detail || "Failed to save conversation");
 
-      setSaveMessage("Conversation saved successfully ✅");
+      toast.success("Conversation saved successfully");
       setIsSaved(true); // disable button after successful save
     } catch (err) {
-      setSaveMessage(err.message || "Failed to save conversation ❌");
+      toast.error(err.message || "Failed to save conversation");
     } finally {
       setSaving(false);
     }
@@ -329,18 +326,8 @@ export default function ConversationPage() {
           >
             {saving ? "Saving..." : isSaved ? "Saved" : "Save Conversation"}
           </button>
-
-          <div
-            className="message save-message"
-            role="alert"
-            aria-live="assertive"
-          >
-            {save_message}
-          </div>
         </div>
-
       )}
-
     </div>
   );
 }

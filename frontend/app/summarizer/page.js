@@ -2,6 +2,7 @@
 
 import Select from "react-select";
 import { useState, useRef, useEffect } from "react";
+import { toast } from "react-hot-toast";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
@@ -20,7 +21,6 @@ export default function Summarizer() {
   const [targetLang, setTargetLang] = useState("en");
   const [summarizedText, setSummarizedText] = useState("");
   const [message, setMessage] = useState("");
-  const [save_message, setSaveMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const { languages, error } = useLanguages();
   const [autoSave, setAutoSave] = useState(false);
@@ -41,7 +41,6 @@ export default function Summarizer() {
   useEffect(() => {
     setIsSaved(false);
     setMessage("");
-    setSaveMessage("");
   }, [inputText, targetLang]);
 
   const prefsAppliedRef = useRef(false);
@@ -60,7 +59,6 @@ export default function Summarizer() {
     setSaving(false);
     setLoading(false);
     setMessage("");
-    setSaveMessage("");
     setInputText("");
     setSummarizedText("");
   }
@@ -94,7 +92,6 @@ export default function Summarizer() {
   async function handleSummarize() {
     setLoading(true);
     setMessage("");
-    setSaveMessage("");
     setSummarizedText("");
 
     try {
@@ -104,6 +101,7 @@ export default function Summarizer() {
         inputText
       );
       setMessage(message);
+      setInputText(filteredText);
 
       if (!valid) return;
 
@@ -144,7 +142,6 @@ export default function Summarizer() {
 
     setSaving(true);
     setMessage("");
-    setSaveMessage("");
 
     try {
       const token = session?.access_token;
@@ -171,10 +168,10 @@ export default function Summarizer() {
       const result = await res.json();
       if (!res.ok) throw new Error(result.detail || "Failed to save summary");
 
-      setSaveMessage("Summary saved Successfully");
+      toast.success("Summary saved Successfully");
       setIsSaved(true); // disable button after successful save
     } catch (err) {
-      setSaveMessage(err.message || "Failed to save summary.");
+      toast.error(err.message || "Failed to save summary.");
     } finally {
       setSaving(false);
     }
@@ -258,16 +255,7 @@ export default function Summarizer() {
           >
             {saving ? "Saving..." : isSaved ? "Saved" : "Save Summary"}
           </button>
-
-          <div
-            className="message save-message"
-            role="alert"
-            aria-live="assertive"
-          >
-            {save_message}
-          </div>
         </div>
-
       )}
     </div>
   );

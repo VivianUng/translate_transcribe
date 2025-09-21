@@ -2,6 +2,7 @@
 
 import Select from "react-select";
 import { useState, useRef, useEffect } from "react";
+import { toast } from "react-hot-toast";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import useAuthCheck from "@/hooks/useAuthCheck";
@@ -21,7 +22,6 @@ export default function Translate() {
   const [translatedText, setTranslatedText] = useState("");
   const [message, setMessage] = useState("");
   const [file_upload_message, setFileUploadMessage] = useState("");
-  const [save_message, setSaveMessage] = useState("");
   const [translating, setTranslating] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -45,7 +45,6 @@ export default function Translate() {
   useEffect(() => {
     setIsSaved(false);
     setMessage("");
-    setSaveMessage("");
   }, [inputText, targetLang]);
 
   const prefsAppliedRef = useRef(false);
@@ -65,7 +64,6 @@ export default function Translate() {
     setTranslating(false);
     setProcessing(false);
     setMessage("");
-    setSaveMessage("");
     setFileUploadMessage("");
     setInputText("");
     setTranslatedText("");
@@ -159,7 +157,6 @@ export default function Translate() {
     setTranslating(true);
     setMessage("");
     setFileUploadMessage("");
-    setSaveMessage("");
     setTranslatedText("");
 
     try {
@@ -169,6 +166,7 @@ export default function Translate() {
         inputText
       );
       setMessage(message);
+      setInputText(filteredText);
 
       if (!valid) return;
 
@@ -228,7 +226,6 @@ export default function Translate() {
 
     setSaving(true);
     setMessage("");
-    setSaveMessage("");
 
     try {
       const token = session?.access_token;
@@ -255,10 +252,10 @@ export default function Translate() {
       const result = await res.json();
       if (!res.ok) throw new Error(result.detail || "Failed to save translation");
 
-      setSaveMessage("Translation saved successfully");
+      toast.success("Translation saved successfully");
       setIsSaved(true); // disable button after successful save
     } catch (err) {
-      setSaveMessage(err.message || "Failed to save translation.");
+      toast.error(err.message || "Failed to save translation.");
     } finally {
       setSaving(false);
     }
@@ -458,14 +455,6 @@ export default function Translate() {
             >
               {saving ? "Saving..." : isSaved ? "Saved" : "Save Translation"}
             </button>
-
-            <div
-              className="message save-message"
-              role="alert"
-              aria-live="assertive"
-            >
-              {save_message}
-            </div>
           </div>
         )}
       </div>

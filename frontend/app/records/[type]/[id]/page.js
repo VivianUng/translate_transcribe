@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { ArrowLeft } from "lucide-react";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import { useLanguages } from "@/contexts/LanguagesContext";
+import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { summarizeText } from "@/utils/summarization";
 import { translateText } from "@/utils/translation";
 
@@ -157,10 +158,16 @@ export default function RecordDetailsPage() {
             let result = "";
 
             if (type === "summary") {
+                const { valid, detectedLang, filteredText, message } = await detectAndValidateLanguage(
+                    "summarizer",
+                    formData.input_lang,
+                    formData.input_text
+                );
+                setFormData((prev) => ({ ...prev, input_text: filteredText }));
                 // Step 1: ensure input is in English
-                let enInput = formData.input_text;
+                let enInput = filteredText;
                 if (formData.input_lang !== "en") {
-                    enInput = await translateText(formData.input_text, formData.input_lang, "en");
+                    enInput = await translateText(filteredText, formData.input_lang, "en");
                 }
 
                 // Step 2: summarize in English
@@ -174,8 +181,16 @@ export default function RecordDetailsPage() {
                 }
             }
             else if (type === "conversation" || type === "translation") {
+                const { valid, detectedLang, filteredText, message } = await detectAndValidateLanguage(
+                    "translator",
+                    formData.input_lang,
+                    formData.input_text
+                );
+
+                setFormData((prev) => ({ ...prev, input_text: filteredText }));
+
                 result = await translateText(
-                    formData.input_text,
+                    filteredText,
                     formData.input_lang,
                     formData.output_lang
                 );
