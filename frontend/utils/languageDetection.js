@@ -47,9 +47,13 @@ function filterValidText(inputText) {
 
   let filteredText = filteredChars.join("");
 
-  // Check if more than 50% of characters were removed
-  const removedChars = inputText.length - filteredText.replace(/\s/g, "").length;
-  if (removedChars / inputText.replace(/\s/g, "").length > 0.5) {
+  // Count non-space characters
+  const originalChars = [...inputText].filter(c => !/\s/.test(c)).length;
+  const remainingChars = [...filteredText].filter(c => !/\s/.test(c)).length;
+  const removedChars = originalChars - remainingChars;
+
+  // Reject if more than 50% removed
+  if (removedChars / originalChars > 0.5) {
     return { valid: false, filteredText };
   }
 

@@ -111,9 +111,9 @@ export default function Summarizer() {
 
       setFinalInputText(filteredText);
 
-      let enInput = finalInputText;
+      let enInput = filteredText;
       if (detectedLang != "en") {
-        enInput = await translateText(finalInputText, detectedLang, "en");
+        enInput = await translateText(filteredText, detectedLang, "en");
       }
       const summarized = await summarizeText(enInput, targetLang);
 
@@ -124,7 +124,7 @@ export default function Summarizer() {
       setSummarizedText(finalSummary);
 
       if (session?.user && autoSave) {
-        await handleSaveSummary(finalInputText, finalSummary);
+        await handleSaveSummary(filteredText, finalSummary);
       }
 
 

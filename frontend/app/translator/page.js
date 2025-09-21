@@ -175,10 +175,10 @@ export default function Translate() {
       setInputLang(detectedLang);
       setFinalInputText(filteredText);
 
-      const translated = await translateText(finalInputText, detectedLang, targetLang);
+      const translated = await translateText(filteredText, detectedLang, targetLang);
       setTranslatedText(translated);
       if (session?.user && autoSave) { // if user is logged in and has auto-save on
-        await handleSaveTranslation(finalInputText, detectedLang, translated, targetLang);
+        await handleSaveTranslation(filteredText, detectedLang, translated, targetLang);
       }
 
     } catch (error) {
