@@ -14,6 +14,7 @@ export default function Translate() {
   const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_translations",]);
   const [inputText, setInputText] = useState("");
+  const [finalInputText, setFinalInputText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
   const [fileLang, setFileLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("en");
@@ -162,7 +163,7 @@ export default function Translate() {
     setTranslatedText("");
 
     try {
-      const { valid, detectedLang, message } = await detectAndValidateLanguage(
+      const { valid, detectedLang, filteredText, message } = await detectAndValidateLanguage(
         "translator",
         inputLang,
         inputText
@@ -172,11 +173,12 @@ export default function Translate() {
       if (!valid) return;
 
       setInputLang(detectedLang);
+      setFinalInputText(filteredText);
 
-      const translated = await translateText(inputText, detectedLang, targetLang);
+      const translated = await translateText(finalInputText, detectedLang, targetLang);
       setTranslatedText(translated);
       if (session?.user && autoSave) { // if user is logged in and has auto-save on
-        await handleSaveTranslation(inputText, detectedLang, translated, targetLang);
+        await handleSaveTranslation(finalInputText, detectedLang, translated, targetLang);
       }
 
     } catch (error) {
@@ -217,7 +219,7 @@ export default function Translate() {
 
 
   async function handleSaveTranslation(
-    input_text = inputText,
+    input_text = finalInputText,
     input_lang = inputLang,
     output_text = translatedText,
     output_lang = targetLang
@@ -446,7 +448,7 @@ export default function Translate() {
               className="button save-translation-button"
               onClick={() =>
                 handleSaveTranslation(
-                  inputText,
+                  finalInputText,
                   inputLang,
                   translatedText,
                   targetLang

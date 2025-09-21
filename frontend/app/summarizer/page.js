@@ -15,6 +15,7 @@ export default function Summarizer() {
   const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_summaries",]);
   const [inputText, setInputText] = useState("");
+  const [finalInputText, setFinalInputText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("en");
   const [summarizedText, setSummarizedText] = useState("");
@@ -97,7 +98,7 @@ export default function Summarizer() {
     setSummarizedText("");
 
     try {
-      const { valid, detectedLang, message } = await detectAndValidateLanguage(
+      const { valid, detectedLang, filteredText, message } = await detectAndValidateLanguage(
         "summarizer",
         inputLang,
         inputText
@@ -108,9 +109,11 @@ export default function Summarizer() {
 
       setInputLang(detectedLang);
 
-      let enInput = inputText;
+      setFinalInputText(filteredText);
+
+      let enInput = finalInputText;
       if (detectedLang != "en") {
-        enInput = await translateText(inputText, detectedLang, "en");
+        enInput = await translateText(finalInputText, detectedLang, "en");
       }
       const summarized = await summarizeText(enInput, targetLang);
 
@@ -121,7 +124,7 @@ export default function Summarizer() {
       setSummarizedText(finalSummary);
 
       if (session?.user && autoSave) {
-        await handleSaveSummary(inputText, finalSummary);
+        await handleSaveSummary(finalInputText, finalSummary);
       }
 
 
@@ -133,7 +136,7 @@ export default function Summarizer() {
   }
 
   async function handleSaveSummary(
-    input_text = inputText,
+    input_text = finalInputText,
     output_text = summarizedText
   ) {
 
@@ -250,7 +253,7 @@ export default function Summarizer() {
         <div>
           <button
             className="button save-summary-button"
-            onClick={() => handleSaveSummary(inputText, summarizedText)}
+            onClick={() => handleSaveSummary(finalInputText, summarizedText)}
             disabled={saving || loading || isSaved}
           >
             {saving ? "Saving..." : isSaved ? "Saved" : "Save Summary"}

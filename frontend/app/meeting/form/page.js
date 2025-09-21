@@ -10,7 +10,7 @@ export default function MeetingFormPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    const mode = searchParams.get("mode") || "create"; // "create" or "update"
+    const mode = searchParams.get("mode"); // "create" or "update"
     const meetingId = searchParams.get("id"); // undefined if creating
 
     const { loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
@@ -33,6 +33,13 @@ export default function MeetingFormPage() {
 
     // Fetch existing meeting data if in update mode
     useEffect(() => {
+
+        if (!mode || (mode !== "create" && mode !== "update") || (mode === "update" && !meetingId)) {
+            // meetingId missing → redirect immediately
+            router.push("/meeting?toast=pageNotFound");
+            return;
+        }
+
         if (mode === "update" && meetingId && session) {
             const fetchMeeting = async () => {
                 try {
@@ -49,7 +56,7 @@ export default function MeetingFormPage() {
 
                     const m = result.meeting;
 
-                    if (!m){
+                    if (!m) {
                         router.push("/meeting?toast=notFound");
                         return;
                     }

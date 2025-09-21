@@ -1,43 +1,68 @@
-function isValidText(text) {
-  // An empty or whitespace-only string is not considered valid.
-  if (!text || !text.trim()) {
-    return false;
+function filterValidText(inputText) {
+  if (!inputText || !inputText.trim()) {
+    return { valid: false, filteredText: null };
   }
 
-  // Check if the string contains at least one letter.
-  // The \p{L} Unicode  match letters from any language.
-  const hasLetter = [...text].some(char => /\p{L}/u.test(char));
+  // Must contain at least one letter
+  const hasLetter = [...inputText].some(char => /\p{L}/u.test(char));
   if (!hasLetter) {
-    return false;
+    return { valid: false, filteredText: null };
   }
 
-  // Check for sequences of special characters (not exceeding 3).
-  const text_merge = text.replace(/\s/g, "");
-  let specialCharCount = 0;
+  let filteredChars = [];
+  let specialSequence = [];
 
-  // Iterate through the string to count consecutive non-alphanumeric characters.
-  for (const char of text_merge) {
-    if (!char.match(/\p{L}|\p{N}/u)) {
-      specialCharCount++;
-      if (specialCharCount > 2) {
-        return false;
+  for (const char of inputText) {
+    if (/\p{L}|\p{N}/u.test(char)) {
+      // Flush special sequence
+      if (specialSequence.length > 0) {
+        const nonSpaceCount = specialSequence.filter(c => !/\s/.test(c)).length;
+        if (nonSpaceCount < 3) {
+          filteredChars.push(...specialSequence);
+        } else {
+          // Replace removed chunk with a single space
+          filteredChars.push(" ");
+        }
+        specialSequence = [];
       }
+      filteredChars.push(char);
+    } else if (/\s/.test(char)) {
+      // Count spaces in the sequence but ignore for consecutive check
+      specialSequence.push(char);
     } else {
-      specialCharCount = 0;
+      // Special character
+      specialSequence.push(char);
     }
   }
 
-  return true;
+  // Flush at the end
+  if (specialSequence.length > 0) {
+    const nonSpaceCount = specialSequence.filter(c => !/\s/.test(c)).length;
+    if (nonSpaceCount < 3) {
+      filteredChars.push(...specialSequence);
+    } else {
+      filteredChars.push(" "); // replace removed chunk with single space
+    }
+  }
+
+  let filteredText = filteredChars.join("");
+
+  // Check if more than 50% of characters were removed
+  const removedChars = inputText.length - filteredText.replace(/\s/g, "").length;
+  if (removedChars / inputText.replace(/\s/g, "").length > 0.5) {
+    return { valid: false, filteredText };
+  }
+
+  return { valid: true, filteredText };
 }
 
 
-
-// export async function detectAndValidateLanguage(inputLang, inputText) {
 export async function detectAndValidateLanguage(source, inputLang, inputText) {
   if (!inputText.trim()) {
     return {
       valid: false,
       detectedLang: null,
+      filteredText: null,
       confidence: 0,
       message: "Please enter text or upload an image first.",
     };
@@ -57,31 +82,39 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
     return {
       valid: false,
       detectedLang: null,
+      filteredText: null,
       confidence: 0,
       message: `Input text is too long. Please limit to ${maxLength.toLocaleString()} characters.`,
     };
   }
 
   const minLengthSummary = 3000;
-  if (source === "summarizer"){
-    if (inputText.length < minLengthSummary){
+  if (source === "summarizer") {
+    if (inputText.length < minLengthSummary) {
       return {
-      valid: false,
-      detectedLang: null,
-      confidence: 0,
-      message: `Input text is too short. Please enter at least ${minLengthSummary.toLocaleString()} characters.`,
-    };
+        valid: false,
+        detectedLang: null,
+        filteredText: null,
+        confidence: 0,
+        message: `Input text is too short. Please enter at least ${minLengthSummary.toLocaleString()} characters.`,
+      };
     }
   }
 
-  if (!isValidText(inputText)) {
+  const filterRes = filterValidText(inputText);
+
+  if (!filterRes.valid) {
     return {
       valid: false,
       detectedLang: null,
+      filteredText: null,
       confidence: 0,
       message: "Please enter valid text with letters or numbers.",
     };
   }
+
+  // Use the filtered text as input
+  const filteredText = filterRes.filteredText;
 
   let detectedLang = inputLang;
 
@@ -92,7 +125,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: inputText }),
+        body: JSON.stringify({ text: filteredText }),
       }
     );
 
@@ -107,6 +140,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
       return {
         valid: false,
         detectedLang,
+        filteredText,
         confidence: detectData.confidence,
         message: `Input is not valid text\nDetected language: ${detectedLang} (confidence: ${detectData.confidence})`,
       };
@@ -115,6 +149,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
     return {
       valid: true,
       detectedLang,
+      filteredText,
       confidence: detectData.confidence,
       message: `Detected language: ${detectedLang} (confidence: ${detectData.confidence})`,
     };
@@ -124,6 +159,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
   return {
     valid: true,
     detectedLang: inputLang,
+    filteredText,
     confidence: 100,
     message: `Source language: ${inputLang}`,
   };

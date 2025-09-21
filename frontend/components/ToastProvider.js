@@ -38,11 +38,14 @@ export default function ToastProvider() {
           case "deleteMeetingSuccess":
             toast.success("Successfully Deleted Meeting.");
             break;
+          case "meetingEnd":
+            toast.success("Meeting Ended.");
+            break;
           case "notFound":
             toast.error("Record Not Found.");
             break;
-          case "meetingEnd":
-            toast.success("Meeting Ended.");
+          case "pageNotFound":
+            toast.error("Page Not Found")
             break;
         }
       } catch (err) {
