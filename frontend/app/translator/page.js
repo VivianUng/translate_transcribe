@@ -30,6 +30,9 @@ export default function Translate() {
   const [autoSave, setAutoSave] = useState(false);
   const [isSaved, setIsSaved] = useState(false); // track if translation is saved
 
+  const [lastTranslatedInput, setLastTranslatedInput] = useState("");
+  const [lastTranslatedLang, setLastTranslatedLang] = useState("");
+
   const micRecorderRef = useRef(null);
   const audioChunks = useRef([]);
   const [listening, setListening] = useState(false);
@@ -175,6 +178,8 @@ export default function Translate() {
 
       const translated = await translateText(filteredText, detectedLang, targetLang);
       setTranslatedText(translated);
+      setLastTranslatedInput(filteredText);
+      setLastTranslatedLang(targetLang);
       if (session?.user && autoSave) { // if user is logged in and has auto-save on
         await handleSaveTranslation(filteredText, detectedLang, translated, targetLang);
       }
@@ -411,7 +416,8 @@ export default function Translate() {
         <button
           className="button translate-button"
           onClick={handleTranslate}
-          disabled={translating || !inputText || !inputText.trim() || processing}
+          disabled={translating || !inputText || !inputText.trim() || processing ||
+            (inputText === lastTranslatedInput && targetLang === lastTranslatedLang)}
         >
           {translating ? "Translating..." : "Translate"}
         </button>

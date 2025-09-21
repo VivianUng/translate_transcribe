@@ -24,6 +24,9 @@ export default function RecordDetailsPage() {
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState(null);
 
+    const [lastProcessedInput, setLastProcessedInput] = useState("");
+    const [lastProcessedLang, setLastProcessedLang] = useState("");
+
     // Map frontend type → backend endpoint
     const endpointMap = {
         conversation: "conversations",
@@ -197,6 +200,8 @@ export default function RecordDetailsPage() {
             }
 
             setFormData((prev) => ({ ...prev, output_text: result }));
+            setLastProcessedInput(formData.input_text);
+            setLastProcessedLang(formData.output_lang);
         } catch (err) {
             console.error("Error processing action:", err);
             toast.error("Action failed.");
@@ -275,7 +280,9 @@ export default function RecordDetailsPage() {
                             type === "translation") && (
                                 <button
                                     onClick={handleExtraAction}
-                                    disabled={processing || !isChanged}
+                                    disabled={processing || !isChanged ||
+                                        (formData.input_text === lastProcessedInput &&
+                                            formData.output_lang === lastProcessedLang)}
                                     className="button secondary"
                                 >
                                     {processing
@@ -319,7 +326,7 @@ export default function RecordDetailsPage() {
                 <div className="button-group">
                     <button
                         onClick={handleUpdate}
-                        disabled={saving || !isChanged}
+                        disabled={saving || !isChanged || processing}
                         className="button save"
                     >
                         {saving ? "Saving..." : "Save Changes"}

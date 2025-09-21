@@ -26,6 +26,8 @@ export default function ConversationPage() {
   const [autoSave, setAutoSave] = useState(false);
 
   const [isSaved, setIsSaved] = useState(false); // track if conversation is saved
+  const [lastTranslatedInput, setLastTranslatedInput] = useState("");
+  const [lastTranslatedLang, setLastTranslatedLang] = useState("");
   const isProcessingTranscription =
     transcription === "Converting audio to text......";
 
@@ -146,6 +148,8 @@ export default function ConversationPage() {
       // Step 2: Translate using utils
       const translated = await translateText(transcription, detectedLang, targetLang);
       setTranslatedText(translated);
+      setLastTranslatedInput(transcription);
+      setLastTranslatedLang(targetLang);
 
       if (session?.user && autoSave) { // if user is logged in and has auto-save on
         await handleSaveConversation(transcription, translated);
@@ -303,7 +307,8 @@ export default function ConversationPage() {
           disabled={loading || !transcription ||
             !transcription.trim() ||
             isProcessingTranscription ||
-            transcription === "No speech detected."}
+            transcription === "No speech detected." ||
+            (transcription === lastTranslatedInput && targetLang === lastTranslatedLang)}
         >
           {loading ? "Translating..." : "Translate"}
         </button>

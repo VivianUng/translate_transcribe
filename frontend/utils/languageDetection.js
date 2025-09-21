@@ -92,7 +92,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
     };
   }
 
-  const minLengthSummary = 3000;
+  const minLengthSummary = 1500;
   if (source === "summarizer") {
     if (inputText.length < minLengthSummary) {
       return {

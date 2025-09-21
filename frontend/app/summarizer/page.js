@@ -27,6 +27,9 @@ export default function Summarizer() {
   const [isSaved, setIsSaved] = useState(false); // track if summary is saved
   const [saving, setSaving] = useState(false);
 
+  const [lastSummarizedInput, setLastSummarizedInput] = useState("");
+  const [lastSummarizedLang, setLastSummarizedLang] = useState("");
+
   const micRecorderRef = useRef(null);
   const audioChunks = useRef([]);
   const [listening, setListening] = useState(false);
@@ -120,6 +123,8 @@ export default function Summarizer() {
         finalSummary = await translateText(summarized, "en", targetLang);
       }
       setSummarizedText(finalSummary);
+      setLastSummarizedInput(filteredText);
+      setLastSummarizedLang(targetLang);
 
       if (session?.user && autoSave) {
         await handleSaveSummary(filteredText, finalSummary);
@@ -241,7 +246,8 @@ export default function Summarizer() {
         <button
           className="button summarize-button"
           onClick={handleSummarize}
-          disabled={loading || !inputText || !inputText.trim()}
+          disabled={loading || !inputText || !inputText.trim() ||
+            (inputText === lastSummarizedInput && targetLang === lastSummarizedLang)}
         >
           {loading ? "Summarizing..." : "Summarize"}
         </button>
