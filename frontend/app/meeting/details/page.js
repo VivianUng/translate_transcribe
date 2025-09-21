@@ -73,6 +73,7 @@ export default function MeetingDetailsPage() {
 
     const fetchRole = async () => {
         try {
+            const token = session?.access_token;
             if (!token) {
                 alert("You must be logged in to end meetings.");
                 return;
@@ -97,6 +98,7 @@ export default function MeetingDetailsPage() {
     const fetchStatus = async () => {
         try {
             setFetching(true);
+            const token = session?.access_token;
             if (!token) {
                 alert("You must be logged in to check meeting status.");
                 return;
@@ -127,7 +129,7 @@ export default function MeetingDetailsPage() {
     const fetchMeetingInfo = async () => {
         try {
             setFetching(true);
-
+            const token = session?.access_token;
             if (!token) {
                 alert("You must be logged in to view meetings.");
                 return;
@@ -179,6 +181,7 @@ export default function MeetingDetailsPage() {
     async function handleEndMeeting() {
         try {
             if (role === "host") {
+                const token = session?.access_token;
                 if (!token) {
                     alert("You must be logged in to end meetings.");
                     return;
@@ -219,8 +222,13 @@ export default function MeetingDetailsPage() {
     async function handleDeleteMeeting() {
         try {
             if (role !== "host") return;
-            if (!confirm("Are you sure you want to delete this meeting?")) return;
 
+            if (!confirm("Are you sure you want to delete this meeting?")) return;
+            const token = session?.access_token;
+            if (!token) {
+                alert("You must be logged in to end meetings.");
+                return;
+            }
             const res = await fetch(
                 `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}`,
                 {

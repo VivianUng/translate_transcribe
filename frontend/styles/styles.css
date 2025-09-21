@@ -35,6 +35,12 @@ a {
   padding: 12px !important;
 }
 
+/* Error toast */
+.toast-error {
+  background-color: #ef4444 !important;
+  color: #fff !important;
+}
+
 /* Main container for page */
 .page-container {
   position: relative;

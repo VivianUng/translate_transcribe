@@ -57,32 +57,7 @@ export default function RecordDetailsPage() {
                 );
 
                 if (!res.ok) {
-                    let errorMsg = "Failed to fetch record";
-
-                    try {
-                        const errData = await res.json();
-
-                        // If backend sends message/code, interpret it
-                        if (errData?.message?.includes("0 rows")) {
-                            errorMsg = "This record does not exist.";
-                        } else if (errData?.code === "PGRST116") {
-                            errorMsg = "No data found for this record.";
-                        } else if (errData?.detail) {
-                            errorMsg = errData.detail;
-                        } else if (errData?.message) {
-                            errorMsg = errData.message;
-                        }
-                    } catch {
-                        // fallback to HTTP status
-                        if (res.status === 401) errorMsg = "You are not authorized.";
-                        else if (res.status === 403)
-                            errorMsg = "You do not have access to this record.";
-                        else if (res.status === 404) errorMsg = "Record does not exist.";
-                        else if (res.status >= 500)
-                            errorMsg = "Server error. Please try again later.";
-                    }
-
-                    throw new Error(errorMsg);
+                    router.push('/history?toast=notFound');
                 }
 
                 const data = await res.json();
