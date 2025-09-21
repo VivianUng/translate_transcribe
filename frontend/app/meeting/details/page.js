@@ -16,7 +16,7 @@ export default function MeetingDetailsPage() {
     const searchParams = useSearchParams();
     const { languages } = useLanguages();
     const [loadingPage, setLoadingPage] = useState(true);
-    const [fetching, setFetching] = useState(true);
+    // const [fetching, setFetching] = useState(true);
 
     const [role, setRole] = useState(null); // "host" or "participant"
     const [status, setStatus] = useState(null); // "upcoming" or "ongoing" or "past"
@@ -48,8 +48,24 @@ export default function MeetingDetailsPage() {
 
     useEffect(() => {
         if (!loading && session) {
-            Promise.all([fetchRole(), fetchStatus(), fetchMeetingInfo()])
-                .finally(() => setLoadingPage(false));
+            const fetchAll = async () => {
+                setLoadingPage(true); // start loading
+                try {
+                    await Promise.all([
+                        fetchRole(),
+                        fetchStatus(),
+                        fetchMeetingInfo()
+                    ]);
+                } catch (err) {
+                    console.error("Error fetching meeting data:", err);
+                    router.push("/meeting?toast=notFound");
+                    return;
+                } finally {
+                    setLoadingPage(false); // done loading
+                }
+            };
+
+            fetchAll();
         }
     }, [loading, session]);
 
@@ -61,114 +77,79 @@ export default function MeetingDetailsPage() {
         }
     }, [role, status]);
 
-    // // Example: simulate updates (replace with websocket listener)
-    // useEffect(() => {
-    //     const interval = setInterval(() => {
-    //         setTranscription(prev => prev + "\nSomeone said something new...");
-    //         setTranslation(prev => prev + "\n[Translated line]");
-    //         setSummary(prev => prev + "\n[Summary line]");
-    //     }, 5000);
-    //     return () => clearInterval(interval);
-    // }, []);
-
     const fetchRole = async () => {
-        try {
-            const token = session?.access_token;
-            if (!token) {
-                alert("You must be logged in to end meetings.");
-                return;
+        const token = session?.access_token;
+        if (!token) throw new Error("You must be logged in to check your role.");
+
+        const res = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/role`,
+            {
+                method: "GET",
+                headers: { Authorization: `Bearer ${token}` },
             }
-            const res = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/role`,
-                {
-                    method: "GET",
-                    headers: { Authorization: `Bearer ${token}` },
-                }
-            );
+        );
 
-            if (!res.ok) throw new Error("Failed to fetch role");
-
-            const data = await res.json();
-            setRole(data.role); // "host" or "participant"
-        } catch (err) {
-            console.error(err);
+        if (!res.ok) {
+            router.push("/meeting?toast=notFound");
         }
+
+        const data = await res.json();
+        setRole(data.role); // "host" or "participant"
     };
 
     const fetchStatus = async () => {
-        try {
-            setFetching(true);
-            const token = session?.access_token;
-            if (!token) {
-                alert("You must be logged in to check meeting status.");
-                return;
-            }
+        const token = session?.access_token;
+        if (!token) throw new Error("You must be logged in to check meeting status.");
 
-            // 2. Call backend to get status
-            const res = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/status`,
-                {
-                    method: "GET",
-                    headers: { Authorization: `Bearer ${token}` },
-                }
-            );
-
-            if (!res.ok) throw new Error("Failed to fetch status");
-
-            // 3. Parse response
-            const data = await res.json();
-            setStatus(data.status); // "ongoing", "upcoming", "past"
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setFetching(false);
-        }
-    };
-
-
-    const fetchMeetingInfo = async () => {
-        try {
-            setFetching(true);
-            const token = session?.access_token;
-            if (!token) {
-                alert("You must be logged in to view meetings.");
-                return;
-            }
-
-            // 2. Fetch meeting info from backend
-            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}`, {
+        const res = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/status`,
+            {
                 method: "GET",
                 headers: { Authorization: `Bearer ${token}` },
-            });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                console.error("Failed to fetch meeting info:", data);
-                alert(data.detail || "Failed to fetch meeting info.");
-                return;
             }
+        );
 
-            const m = data.meeting;
-
-            const formatTime = (timeStr) => {
-                if (!timeStr) return "";
-                if (timeStr.includes("T")) return timeStr.split("T")[1].slice(0, 5);
-                return timeStr.slice(0, 5);
-            };
-
-            setMeetingName(m.name || "");
-            setMeetingHost(m.host_name || "");
-            setDate(m.date || "");
-            setStartTime(formatTime(m.start_time));
-            setEndTime(formatTime(m.end_time));
-
-        } catch (err) {
-            console.error("Failed to fetch meeting info:", err);
-        } finally {
-            setFetching(false);
+        if (!res.ok) {
+            router.push("/meeting?toast=notFound");
         }
+
+        const data = await res.json();
+        setStatus(data.status); // "ongoing", "upcoming", "past"
     };
+
+    const fetchMeetingInfo = async () => {
+        const token = session?.access_token;
+        if (!token) throw new Error("You must be logged in to view meetings.");
+
+        const res = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}`,
+            {
+                method: "GET",
+                headers: { Authorization: `Bearer ${token}` },
+            }
+        );
+
+        const data = await res.json();
+
+        const m = data.meeting;
+        if (!m) {
+            router.push("/meeting?toast=notFound");
+            return;
+        }
+
+        const formatTime = (timeStr) => {
+            if (!timeStr) return "";
+            if (timeStr.includes("T")) return timeStr.split("T")[1].slice(0, 5);
+            return timeStr.slice(0, 5);
+        };
+
+        setMeetingName(m.name || "");
+        setMeetingHost(m.host_name || "");
+        setDate(m.date || "");
+        setStartTime(formatTime(m.start_time));
+        setEndTime(formatTime(m.end_time));
+    };
+
 
     // --- update page title ---
     const getPageTitle = () => {

@@ -31,8 +31,6 @@ export default function MeetingFormPage() {
     // Store initial meeting state to detect changes
     const [initialMeeting, setInitialMeeting] = useState(null);
 
-    const [error, setError] = useState(null);
-
     // Fetch existing meeting data if in update mode
     useEffect(() => {
         if (mode === "update" && meetingId && session) {
@@ -43,25 +41,18 @@ export default function MeetingFormPage() {
                         headers: { Authorization: `Bearer ${token}` },
                     });
 
-                    if (res.status === 400) {
-                        throw new Error("Invalid request. Please check the meeting ID.");
-                    }
-                    if (res.status === 401) {
-                        throw new Error("Unauthorized. Please log in again.");
-                    }
-                    if (res.status === 403) {
-                        throw new Error("You do not have permission to access this meeting.");
-                    }
-                    if (res.status === 404) {
-                        throw new Error("Meeting not found.");
-                    }
-                    if (!res.ok) {
+                    if (!res) {
                         throw new Error("Failed to fetch meeting.");
                     }
 
                     const result = await res.json();
 
                     const m = result.meeting;
+
+                    if (!m){
+                        router.push("/meeting?toast=notFound");
+                        return;
+                    }
 
                     // Check if logged-in user is the host
                     if (m.host_id !== session.user.id) {
@@ -90,7 +81,8 @@ export default function MeetingFormPage() {
                     setFormErrors({});
                 } catch (err) {
                     console.error(err);
-                    setError(err.message || "Failed to load meeting data.");
+                    router.push("/meeting?toast=notFound");
+                    return;
                 }
             };
 
@@ -244,7 +236,6 @@ export default function MeetingFormPage() {
     };
 
     if (loading) return <p>Loading...</p>;
-    if (error) return <p style={{ color: "red" }}>{error}</p>;
 
     return (
         <div className="page-container">
