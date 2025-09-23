@@ -20,7 +20,9 @@ export default function MeetingDetailsPage() {
 
     const [role, setRole] = useState(null); // "host" or "participant"
     const [status, setStatus] = useState(null); // "upcoming" or "ongoing" or "past"
-    const meetingId = searchParams.get("id");
+
+    const [meetingId, setMeetingId] = useState(searchParams.get("id"));
+    const recordId = searchParams.get("recordId");
 
     const [saving, setSaving] = useState(false);
     const [isSaved, setIsSaved] = useState(false); // track if translation is saved
@@ -45,6 +47,11 @@ export default function MeetingDetailsPage() {
     const [recording, setRecording] = useState(false);
     const [mounted, setMounted] = useState(false);
 
+    const formatTime = (timeStr) => {
+        if (!timeStr) return "";
+        return timeStr.includes("T") ? timeStr.split("T")[1].slice(0, 5) : timeStr.slice(0, 5);
+    };
+
     useEffect(() => {
         setMounted(true); // for react-select component
     },);
@@ -52,99 +59,83 @@ export default function MeetingDetailsPage() {
     useEffect(() => {
         if (!loading && session) {
             const fetchAll = async () => {
-                setLoadingPage(true); // start loading
+                setLoadingPage(true);
                 try {
-                    await Promise.all([
-                        fetchRole(),
-                        fetchStatus(),
-                        fetchMeetingInfo()
-                    ]);
+                    let idToUse = meetingId;
+
+                    if (recordId) {
+                        idToUse = await fetchIndivMeeting();
+                    } else {
+                        await fetchMeetingInfo(meetingId);
+                    }
+
+                    if (!idToUse) throw new Error("Meeting ID not ready");
+
+                    await fetchMeetingDependentData(idToUse); // use the updated id
+
                 } catch (err) {
                     console.error("Error fetching meeting data:", err);
                     router.push("/meeting?toast=notFound");
-                    return;
                 } finally {
-                    setLoadingPage(false); // done loading
+                    setLoadingPage(false);
                 }
             };
 
             fetchAll();
         }
-    }, [loading, session]);
+    }, [loading, session, recordId]);
 
-    useEffect(() => {
-        if (role === "host" && status === "ongoing") {
-            setRecording(true);
-        } else {
-            setRecording(false);
-        }
-    }, [role, status]);
 
-    const fetchRole = async () => {
+    // -----------------------
+    // Fetch functions accept meetingId as argument
+    // -----------------------
+    const fetchMeetingDependentData = async (meetingId) => {
+        await fetchRole(meetingId);
+        await fetchStatus(meetingId);
+    };
+
+    const fetchRole = async (meetingId) => {
         const token = session?.access_token;
         if (!token) throw new Error("You must be logged in to check your role.");
 
         const res = await fetch(
             `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/role`,
-            {
-                method: "GET",
-                headers: { Authorization: `Bearer ${token}` },
-            }
+            { method: "GET", headers: { Authorization: `Bearer ${token}` } }
         );
 
-        if (!res.ok) {
-            router.push("/meeting?toast=notFound");
-        }
+        if (!res.ok) throw new Error("Failed to fetch role");
 
         const data = await res.json();
-        setRole(data.role); // "host" or "participant"
+        setRole(data.role);
     };
 
-    const fetchStatus = async () => {
+    const fetchStatus = async (meetingId) => {
         const token = session?.access_token;
         if (!token) throw new Error("You must be logged in to check meeting status.");
 
         const res = await fetch(
             `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/status`,
-            {
-                method: "GET",
-                headers: { Authorization: `Bearer ${token}` },
-            }
+            { method: "GET", headers: { Authorization: `Bearer ${token}` } }
         );
 
-        if (!res.ok) {
-            router.push("/meeting?toast=notFound");
-        }
+        if (!res.ok) throw new Error("Failed to fetch status");
 
         const data = await res.json();
-        setStatus(data.status); // "ongoing", "upcoming", "past"
+        setStatus(data.status);
     };
 
-    const fetchMeetingInfo = async () => {
+    const fetchMeetingInfo = async (meetingId) => {
         const token = session?.access_token;
         if (!token) throw new Error("You must be logged in to view meetings.");
 
         const res = await fetch(
             `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}`,
-            {
-                method: "GET",
-                headers: { Authorization: `Bearer ${token}` },
-            }
+            { method: "GET", headers: { Authorization: `Bearer ${token}` } }
         );
 
         const data = await res.json();
-
         const m = data.meeting;
-        if (!m) {
-            router.push("/meeting?toast=notFound");
-            return;
-        }
-
-        const formatTime = (timeStr) => {
-            if (!timeStr) return "";
-            if (timeStr.includes("T")) return timeStr.split("T")[1].slice(0, 5);
-            return timeStr.slice(0, 5);
-        };
+        if (!m) throw new Error("Meeting not found");
 
         setMeetingName(m.name || "");
         setMeetingHost(m.host_name || "");
@@ -153,6 +144,32 @@ export default function MeetingDetailsPage() {
         setEndTime(formatTime(m.end_time));
     };
 
+    const fetchIndivMeeting = async () => {
+        const token = session?.access_token;
+        if (!token) throw new Error("You must be logged in to view meetings.");
+
+        // returns entire content of row in meeting_details_individual
+        const res = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/records/meeting_details_individual/${recordId}`,
+            { method: "GET", headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        const data = await res.json();
+        if (!data) {
+            router.push("/meeting?toast=notFound");
+            return null;
+        }
+
+        setMeetingId(data.meeting_id); // for UI state
+        setMeetingName(data.meeting_name || "");
+        // data.host_id (get the host name from this)
+        setStartTime(formatTime(data.actual_start_time));
+        setEndTime(formatTime(data.actual_end_time));
+        setTranscription(data.original_transcription);
+        setSummary(data.original_summary);
+
+        return data.meeting_id;
+    };
 
     // --- update page title ---
     const getPageTitle = () => {
@@ -162,7 +179,7 @@ export default function MeetingDetailsPage() {
         return "Meeting";
     };
 
-    async function handleEndMeeting() {
+    async function handleEndMeeting() { // add setting the actual_end_time
         try {
             if (role === "host") {
                 const token = session?.access_token;
@@ -239,6 +256,14 @@ export default function MeetingDetailsPage() {
         alert("Logic for updating meeting");
     }
 
+    async function handleUpdateIndiv() {
+        // update individual record (use same as records file)
+    }
+
+    async function handleDeleteIndiv() {
+        // delete individual record
+    }
+
     async function handleSaveMeeting() {
         // test data: // first click : set test data, second click : save
         setTranscription("Test Transcription");
@@ -285,7 +310,14 @@ export default function MeetingDetailsPage() {
 
     return (
         <div className="page-container">
-            <button className="back-button" onClick={() => router.push("/meeting")}>
+            <button className="back-button"
+                onClick={() => {
+                    if (recordId) {
+                        router.push("/history");
+                    } else {
+                        router.push("/meeting");
+                    }
+                }}>
                 <ArrowLeft size={20} />
             </button>
             <h1 className="page-title">{getPageTitle()}</h1>

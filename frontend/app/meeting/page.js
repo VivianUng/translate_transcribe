@@ -89,17 +89,6 @@ export default function Meetings() {
         } else if (status === "upcoming") {
           upcoming.push(meetingData);
         }
-
-        // if (meetingEnd < now) {
-        //   // Meeting ended in the past
-        //   past.push(meetingData);
-        // } else if (meetingStart <= now && now <= meetingEnd) {
-        //   // Meeting is currently ongoing
-        //   ongoing.push(meetingData);
-        // } else {
-        //   // Meeting is in the future
-        //   upcoming.push(meetingData);
-        // }
       });
 
       ongoing.sort((a, b) => b.meetingStart - a.meetingStart);  // most recent first
