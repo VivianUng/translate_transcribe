@@ -40,6 +40,18 @@ export default function Translate() {
   const fileInputRef = useRef(null);
   const [mounted, setMounted] = useState(false);
 
+  const translateDisabledReason = (() => {
+    if (processing) return "Text Extraction in progress...";
+    if (translating) return "Currently translating...";
+    if (!inputText || !inputText.trim()) return "Please enter some text to translate";
+    if (inputText === lastTranslatedInput && targetLang === lastTranslatedLang)
+      return "This text has already been translated to the selected language";
+    if (inputLang === targetLang) return "Input language is the same as output language";
+    return "";
+  })();
+
+  const translateDisabled = Boolean(translateDisabledReason);
+
   useEffect(() => {
     setMounted(true); // for react-select component
   },);
@@ -175,6 +187,11 @@ export default function Translate() {
 
       setInputLang(detectedLang);
       setFinalInputText(filteredText);
+
+      if (detectedLang === targetLang) {
+        setMessage("Input language is same as Output Language");
+        return;
+      }
 
       const translated = await translateText(filteredText, detectedLang, targetLang);
       setTranslatedText(translated);
@@ -416,8 +433,8 @@ export default function Translate() {
         <button
           className="button translate-button"
           onClick={handleTranslate}
-          disabled={translating || !inputText || !inputText.trim() || processing ||
-            (inputText === lastTranslatedInput && targetLang === lastTranslatedLang)}
+          disabled={translateDisabled}
+          title={translateDisabledReason}
         >
           {translating ? "Translating..." : "Translate"}
         </button>

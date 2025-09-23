@@ -24,9 +24,6 @@ export default function RecordDetailsPage() {
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState(null);
 
-    const [lastProcessedInput, setLastProcessedInput] = useState("");
-    const [lastProcessedLang, setLastProcessedLang] = useState("");
-
     // Map frontend type → backend endpoint
     const endpointMap = {
         conversation: "conversations",
@@ -38,9 +35,39 @@ export default function RecordDetailsPage() {
     // Safe lookup
     const getEndpoint = (type) => endpointMap[type] || `${type}s`;
 
-    const isChanged = useMemo(() => {
+    const [lastProcessed, setLastProcessed] = useState({
+        input_text: "",
+        output_lang: "",
+        output_text: "",
+    });
+
+    // For checking to prevent runnning resummarize / retranslate on same inputs
+    const differsFromLastProcessed =
+        !!formData && !!lastProcessed &&
+        (formData.input_text !== lastProcessed.input_text ||
+            formData.output_lang !== lastProcessed.output_lang);
+
+    // Disabled reason
+    const actionDisabledReason = (() => {
+        if (processing) return "Processing...";
+        if (!differsFromLastProcessed) {
+            return "No changes compared to last processed state";
+        }
+        if (type === "translation" && formData.input_lang === formData.output_lang) {
+            return "Input language is the same as output language";
+        }
+        return "";
+    })();
+
+    const actionDisabled = Boolean(actionDisabledReason);
+
+    // only save update if the input / output changed. Not if only the language changed
+    const isTextChanged = useMemo(() => {
         if (!record || !formData) return false;
-        return JSON.stringify(formData) !== JSON.stringify(record);
+        return (
+            formData.input_text !== record.input_text ||
+            formData.output_text !== record.output_text
+        );
     }, [record, formData]);
 
     // Fetch record by ID
@@ -76,6 +103,13 @@ export default function RecordDetailsPage() {
                 };
                 setRecord(normalized);
                 setFormData(normalized);
+
+                setLastProcessed({
+                    input_text: normalized.input_text,
+                    output_lang: normalized.output_lang,
+                    output_text: normalized.output_text,
+                });
+
             } catch (err) {
                 // final fallback user-friendly message
                 let msg = err.message || "Error fetching record";
@@ -159,49 +193,83 @@ export default function RecordDetailsPage() {
 
         try {
             let result = "";
+            let useOriginal = false;
 
-            if (type === "summary") {
-                const { valid, detectedLang, filteredText, message } = await detectAndValidateLanguage(
-                    "summarizer",
-                    formData.input_lang,
-                    formData.input_text
-                );
-                setFormData((prev) => ({ ...prev, input_text: filteredText }));
-                // Step 1: ensure input is in English
-                let enInput = filteredText;
-                if (formData.input_lang !== "en") {
-                    enInput = await translateText(filteredText, formData.input_lang, "en");
-                }
-
-                // Step 2: summarize in English
-                const summarized = await summarizeText(enInput, "en");
-
-                // Step 3: if target is not English, translate back
-                if (formData.output_lang !== "en") {
-                    result = await translateText(summarized, "en", formData.output_lang);
-                } else {
-                    result = summarized;
-                }
+            // Check against original saved record
+            if (
+                formData.input_text === record.input_text &&
+                formData.output_lang === record.output_lang
+            ) {
+                result = record.output_text;
+                useOriginal = true;
             }
-            else if (type === "conversation" || type === "translation") {
-                const { valid, detectedLang, filteredText, message } = await detectAndValidateLanguage(
-                    "translator",
+
+            let filteredText = formData.input_text;
+
+            const inputChanged = formData.input_text !== lastProcessed.input_text;
+            const langChanged = formData.output_lang !== lastProcessed.output_lang;
+
+            if (!useOriginal && inputChanged) {
+                const validatorType = type === "summary" ? "summarizer" : "translator";
+                const { valid, filteredText: validatedText, message } = await detectAndValidateLanguage(
+                    validatorType,
                     formData.input_lang,
                     formData.input_text
                 );
+                if (!valid) {
+                    toast.error(message || "Invalid input text for processing.");
+                    setProcessing(false);
+                    return; // exit early
+                }
+                filteredText = validatedText;
+                setFormData((prev) => ({ ...prev, input_text: validatedText }));
+            }
 
-                setFormData((prev) => ({ ...prev, input_text: filteredText }));
+            if (!useOriginal) {
+                if (type === "summary") {
+                    let summarizedEn; // always store English summary here
 
-                result = await translateText(
-                    filteredText,
-                    formData.input_lang,
-                    formData.output_lang
-                );
+                    if (inputChanged) {
+                        // Step 1: ensure input is in English
+                        let enInput = filteredText;
+                        if (formData.input_lang !== "en") {
+                            enInput = await translateText(filteredText, formData.input_lang, "en");
+                        }
+
+                        // Step 2: summarize in English
+                        summarizedEn = await summarizeText(enInput, "en");
+
+                        // Step 3: final translation into target language
+                        if (formData.output_lang !== "en") {
+                            result = await translateText(summarizedEn, "en", formData.output_lang);
+                        } else {
+                            result = summarizedEn;
+                        }
+
+                    } else if (langChanged) {
+                        // Input same, only output_lang changed → direct re-translate
+                        result = await translateText(
+                            lastProcessed.output_text,
+                            lastProcessed.output_lang,
+                            formData.output_lang
+                        );
+                    }
+                }
+                else if (type === "conversation" || type === "translation") {
+                    result = await translateText(
+                        filteredText,
+                        formData.input_lang,
+                        formData.output_lang
+                    );
+                }
             }
 
             setFormData((prev) => ({ ...prev, output_text: result }));
-            setLastProcessedInput(formData.input_text);
-            setLastProcessedLang(formData.output_lang);
+            setLastProcessed({
+                input_text: formData.input_text,
+                output_lang: formData.output_lang,
+                output_text: result,
+            });
         } catch (err) {
             console.error("Error processing action:", err);
             toast.error("Action failed.");
@@ -275,23 +343,20 @@ export default function RecordDetailsPage() {
                             )}
 
                         {/* Extra action button */}
-                        {(type === "summary" ||
-                            type === "conversation" ||
-                            type === "translation") && (
-                                <button
-                                    onClick={handleExtraAction}
-                                    disabled={processing || !isChanged ||
-                                        (formData.input_text === lastProcessedInput &&
-                                            formData.output_lang === lastProcessedLang)}
-                                    className="button secondary"
-                                >
-                                    {processing
-                                        ? "Processing..."
-                                        : type === "summary"
-                                            ? "Resummarize"
-                                            : "Retranslate"}
-                                </button>
-                            )}
+                        {(type === "summary" || type === "conversation" || type === "translation") && (
+                            <button
+                                onClick={handleExtraAction}
+                                disabled={actionDisabled}
+                                title={actionDisabledReason}
+                                className="button"
+                            >
+                                {processing
+                                    ? "Processing..."
+                                    : type === "summary"
+                                        ? "Resummarize"
+                                        : "Retranslate"}
+                            </button>
+                        )}
                     </div>
 
                     <textarea
@@ -326,7 +391,7 @@ export default function RecordDetailsPage() {
                 <div className="button-group">
                     <button
                         onClick={handleUpdate}
-                        disabled={saving || !isChanged || processing}
+                        disabled={saving || !isTextChanged || processing}
                         className="button save"
                     >
                         {saving ? "Saving..." : "Save Changes"}

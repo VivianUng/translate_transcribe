@@ -13,7 +13,7 @@ import { startMicRecording, startScreenRecording, stopRecording, } from "@/utils
 
 export default function ConversationPage() {
   const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
-  const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_conversations",]);
+  const { prefs, loading, prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_conversations",]);
   const [listening, setListening] = useState(false);
   const [recordingType, setRecordingType] = useState(null); // "mic" or "screen"
   const [transcription, setTranscription] = useState("");
@@ -32,7 +32,7 @@ export default function ConversationPage() {
     transcription === "Converting audio to text......";
 
 
-  const [loading, setLoading] = useState(false); // for translation
+  const [translating, setTranslating] = useState(false); // for translation
   const [saving, setSaving] = useState(false);   // for saving conversation
 
   const [segments, setSegments] = useState([]); // store diarized segments
@@ -44,6 +44,19 @@ export default function ConversationPage() {
   const [audioURL, setAudioURL] = useState(null); // for playback/download
 
   const [mounted, setMounted] = useState(false);
+
+  const translateDisabledReason = (() => {
+    if (translating) return "Currently translating...";
+    if (isProcessingTranscription) return "Processing transcription...";
+    if (!transcription || !transcription.trim()) return "No transcription available to translate";
+    if (transcription === "No speech detected.") return "No speech detected in the audio";
+    if (transcription === lastTranslatedInput && targetLang === lastTranslatedLang)
+      return "This transcription has already been translated to the selected language";
+    if (inputLang === targetLang) return "Input language is the same as output language";
+    return "";
+  })();
+
+  const translateDisabled = Boolean(translateDisabledReason);
 
   useEffect(() => {
     setMounted(true); // for react-select component
@@ -69,7 +82,7 @@ export default function ConversationPage() {
   function clearDisplay() {
     setIsSaved(false);
     setSaving(false);
-    setLoading(false);
+    setTranslating(false);
     setMessage("");
     setTranscription("");
     setTranscriptMessage("");
@@ -127,7 +140,7 @@ export default function ConversationPage() {
 
   // ---------- TRANSLATION ----------
   async function handleTranslate() {
-    setLoading(true);
+    setTranslating(true);
     setMessage("");
     setTranscriptMessage("");
     setTranslatedText("");
@@ -145,6 +158,12 @@ export default function ConversationPage() {
       if (!valid) return;
 
       setInputLang(detectedLang);
+
+      if (detectedLang === targetLang) {
+        setMessage("Input language is same as Output Language");
+        return;
+      }
+
       // Step 2: Translate using utils
       const translated = await translateText(transcription, detectedLang, targetLang);
       setTranslatedText(translated);
@@ -158,7 +177,7 @@ export default function ConversationPage() {
     } catch (error) {
       setMessage(error.message || "Unexpected error occurred.");
     } finally {
-      setLoading(false);
+      setTranslating(false);
     }
   }
 
@@ -253,7 +272,7 @@ export default function ConversationPage() {
         >
           {transcription_message}
         </div>
-        {/* --- Audio Playback / Download Container (fixed space) --- */}
+        {/* --- Audio Playback / Download Container --- */}
         <div className="audio-container">
           {audioURL ? (
             <>
@@ -304,13 +323,10 @@ export default function ConversationPage() {
         <button
           className="button translate-button"
           onClick={handleTranslate}
-          disabled={loading || !transcription ||
-            !transcription.trim() ||
-            isProcessingTranscription ||
-            transcription === "No speech detected." ||
-            (transcription === lastTranslatedInput && targetLang === lastTranslatedLang)}
+          disabled={translateDisabled}
+          title={translateDisabledReason}
         >
-          {loading ? "Translating..." : "Translate"}
+          {translating ? "Translating..." : "Translate"}
         </button>
         <div
           className="message"
@@ -326,7 +342,7 @@ export default function ConversationPage() {
           <button
             className="button save-conversation-button"
             onClick={() => handleSaveConversation(transcription, translatedText)}
-            disabled={saving || loading || isSaved ||
+            disabled={saving || translating || isSaved ||
               transcription === "No speech detected."}
           >
             {saving ? "Saving..." : isSaved ? "Saved" : "Save Conversation"}
