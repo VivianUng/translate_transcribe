@@ -120,6 +120,9 @@ export function startScreenRecording({
         return;
       }
 
+      // Remove video track(s) so only audio remains
+      stream.getVideoTracks().forEach(track => track.stop());
+      
       screenStreamRef.current = stream;
       const audioStream = new MediaStream(stream.getAudioTracks());
       screenRecorderRef.current = new MediaRecorder(audioStream);

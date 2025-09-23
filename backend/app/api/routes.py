@@ -82,6 +82,12 @@ class GenericSavePayload(BaseModel):
     output_lang: str
     type: Literal["translation", "summary", "conversation"]
 
+class MeetingSavePayload(BaseModel):
+    meeting_id: str
+    translation: Optional[str] = None
+    translated_lang: Optional[str] = None
+    translated_summary: Optional[str] = None
+
 class CreateMeetingPayload(BaseModel):
     meeting_name: str
     date: str
@@ -178,6 +184,73 @@ async def save_item(payload: GenericSavePayload, current_user=Depends(get_curren
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to save {payload.type}: {e}")
 
+@router.post("/save-meeting")
+async def save_meeting(
+    payload: MeetingSavePayload,
+    current_user=Depends(get_current_user),
+):
+    """
+    Save meeting record into meeting_details_individual for authenticated user.
+    """
+    try:
+        # Fetch base meeting info (meeting_name, host_id) from meetings table
+        meeting_res = (
+            supabase.table("meetings")
+            .select("id, name, host_id")
+            .eq("id", payload.meeting_id)
+            .single()
+            .execute()
+        )
+        if not meeting_res.data:
+            raise HTTPException(status_code=404, detail="Meeting not found")
+
+        meeting_data = meeting_res.data
+
+        # Fetch details from meeting_details table
+        details_res = (
+            supabase.table("meeting_details")
+            .select(
+                "transcription, transcription_lang, en_summary, "
+                "actual_start_time, actual_end_time"
+            )
+            .eq("meeting_id", payload.meeting_id)
+            .single()
+            .execute()
+        )
+        if not details_res.data:
+            raise HTTPException(status_code=404, detail="Meeting details not found")
+
+        details_data = details_res.data
+
+        # Build insert data for meeting_details_individual
+        insert_data = {
+            "user_id": current_user.id,
+            "meeting_id": meeting_data["id"],
+            "meeting_name": meeting_data["name"],
+            "host_id": meeting_data["host_id"],
+            "original_transcription": details_data.get("transcription"),
+            "original_summary": details_data.get("en_summary"),
+            "actual_start_time": details_data.get("actual_start_time"),
+            "actual_end_time": details_data.get("actual_end_time"),
+            "transcription_lang": details_data.get("transcription_lang"),
+            # User-specific fields
+            "translation": payload.translation,
+            "translated_lang": payload.translated_lang,
+            "translated_summary": payload.translated_summary,
+        }
+
+        # Save to meeting_details_individual
+        result = (
+            supabase.table("meeting_details_individual")
+            .insert(insert_data)
+            .execute()
+        )
+
+        return {"message": "Meeting saved successfully!"}
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to save meeting: {e}")
+
     
 @router.get("/user-history")
 async def get_user_history(current_user=Depends(get_current_user)):
@@ -196,10 +269,14 @@ async def get_user_history(current_user=Depends(get_current_user)):
         # Fetch summaries
         summaries = supabase.table("summaries").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
 
+        # Fetch meetings
+        meetings = supabase.table("meeting_details_individual").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+
         return {
             "translations": translations.data or [],
             "conversations": conversations.data or [],
-            "summaries": summaries.data or []
+            "summaries": summaries.data or [],
+            "meetings": meetings.data or []
         }
 
     except Exception as e:

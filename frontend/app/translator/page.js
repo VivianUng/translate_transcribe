@@ -165,6 +165,7 @@ export default function Translate() {
     }
 
     fileInputRef.current.setAttribute("accept", acceptTypes);
+    fileInputRef.current.value = "";
     fileInputRef.current.click();
   }
 

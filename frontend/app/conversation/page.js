@@ -21,8 +21,6 @@ export default function ConversationPage() {
   const [inputLang, setInputLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("en");
   const { languages, error } = useLanguages();
-  const [message, setMessage] = useState("");
-  const [transcription_message, setTranscriptMessage] = useState("");
   const [autoSave, setAutoSave] = useState(false);
 
   const [isSaved, setIsSaved] = useState(false); // track if conversation is saved
@@ -65,7 +63,6 @@ export default function ConversationPage() {
   // Whenever input or target language changes, reset isSaved
   useEffect(() => {
     setIsSaved(false);
-    setMessage("");
   }, [transcription, targetLang]);
 
   const prefsAppliedRef = useRef(false);
@@ -83,9 +80,7 @@ export default function ConversationPage() {
     setIsSaved(false);
     setSaving(false);
     setTranslating(false);
-    setMessage("");
     setTranscription("");
-    setTranscriptMessage("");
     setTranslatedText("");
     setAudioURL(null);
   }
@@ -141,8 +136,6 @@ export default function ConversationPage() {
   // ---------- TRANSLATION ----------
   async function handleTranslate() {
     setTranslating(true);
-    setMessage("");
-    setTranscriptMessage("");
     setTranslatedText("");
 
     try {
@@ -153,14 +146,12 @@ export default function ConversationPage() {
         transcription
       );
 
-      setTranscriptMessage(message); // language detection feedback
-
       if (!valid) return;
 
       setInputLang(detectedLang);
 
       if (detectedLang === targetLang) {
-        setMessage("Input language is same as Output Language");
+        toast.error("Input language is same as Output Language");
         return;
       }
 
@@ -175,7 +166,7 @@ export default function ConversationPage() {
       }
 
     } catch (error) {
-      setMessage(error.message || "Unexpected error occurred.");
+      toast.error(error.message || "Unexpected error occurred.");
     } finally {
       setTranslating(false);
     }
@@ -265,13 +256,7 @@ export default function ConversationPage() {
 
         </div>
         <div className="conversation-text">{transcription || "..."}</div>
-        <div
-          className="message"
-          role="alert"
-          aria-live="assertive"
-        >
-          {transcription_message}
-        </div>
+
         {/* --- Audio Playback / Download Container --- */}
         <div className="audio-container">
           {audioURL ? (
@@ -328,13 +313,6 @@ export default function ConversationPage() {
         >
           {translating ? "Translating..." : "Translate"}
         </button>
-        <div
-          className="message"
-          role="alert"
-          aria-live="assertive"
-        >
-          {message}
-        </div>
       </section>
 
       {isLoggedIn && transcription && (

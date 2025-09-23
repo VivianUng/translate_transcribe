@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
+import { toast } from "react-hot-toast";
 import Select from "react-select";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguages } from "@/contexts/LanguagesContext";
@@ -16,11 +17,13 @@ export default function MeetingDetailsPage() {
     const searchParams = useSearchParams();
     const { languages } = useLanguages();
     const [loadingPage, setLoadingPage] = useState(true);
-    // const [fetching, setFetching] = useState(true);
 
     const [role, setRole] = useState(null); // "host" or "participant"
     const [status, setStatus] = useState(null); // "upcoming" or "ongoing" or "past"
     const meetingId = searchParams.get("id");
+
+    const [saving, setSaving] = useState(false);
+    const [isSaved, setIsSaved] = useState(false); // track if translation is saved
 
     const [meetingName, setMeetingName] = useState("");
     const [meetingHost, setMeetingHost] = useState("");
@@ -233,7 +236,49 @@ export default function MeetingDetailsPage() {
     }
 
     async function handleUpdateMeeting() {
-        alert("Logic for updating meeting")
+        alert("Logic for updating meeting");
+    }
+
+    async function handleSaveMeeting() {
+        // test data: // first click : set test data, second click : save
+        setTranscription("Test Transcription");
+        setSummary("Test Summary");
+
+        if (!isLoggedIn || !transcription) return;
+
+        setSaving(true);
+
+        try {
+            const token = session?.access_token;
+            if (!token) {
+                alert("You must be logged in to save meetings.");
+                return;
+            }
+
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/save-meeting`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    meeting_id: meetingId,
+                    translation,
+                    translated_lang: translationLang,
+                    translated_summary: summary,
+                }),
+            });
+
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.detail || "Failed to save meeting");
+
+            toast.success("Meeting saved successfully");
+            setIsSaved(true); // disable button after successful save
+        } catch (err) {
+            toast.error(err.message || "Failed to save meeting.");
+        } finally {
+            setSaving(false);
+        }
     }
 
     if (loadingPage) return <p>Loading...</p>;
@@ -321,6 +366,13 @@ export default function MeetingDetailsPage() {
                 {status === "past" && role === "host" && (
                     <div style={{ display: "flex", gap: "8px" }}>
                         <button
+                            className="button save-btn"
+                            onClick={handleSaveMeeting}
+                            disabled={saving || isSaved}
+                        >
+                            {saving ? "Saving..." : isSaved ? "Saved" : "Save Meeting"}
+                        </button>
+                        <button
                             className="button update-btn"
                             onClick={handleUpdateMeeting}
                         >
@@ -331,6 +383,17 @@ export default function MeetingDetailsPage() {
                             onClick={handleDeleteMeeting}
                         >
                             Delete
+                        </button>
+                    </div>
+                )}
+                {status === "past" && role === "participant" && (
+                    <div style={{ display: "flex", gap: "8px" }}>
+                        <button
+                            className="button save-btn"
+                            onClick={handleSaveMeeting}
+                            disabled={saving || isSaved}
+                        >
+                            {saving ? "Saving..." : isSaved ? "Saved" : "Save Meeting"}
                         </button>
                     </div>
                 )}

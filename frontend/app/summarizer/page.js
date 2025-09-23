@@ -9,7 +9,6 @@ import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { startMicRecording, stopRecording } from "@/utils/transcription";
 import { summarizeText } from "@/utils/summarization";
-import { translateText } from "@/utils/translation";
 
 
 export default function Summarizer() {

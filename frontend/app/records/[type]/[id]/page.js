@@ -17,8 +17,11 @@ export default function RecordDetailsPage() {
     const { languages } = useLanguages();
 
     const [mounted, setMounted] = useState(false);
+
     const [record, setRecord] = useState(null);
     const [formData, setFormData] = useState(null);
+    const [lastProcessed, setLastProcessed] = useState(null);
+    
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [processing, setProcessing] = useState(false);
@@ -35,11 +38,6 @@ export default function RecordDetailsPage() {
     // Safe lookup
     const getEndpoint = (type) => endpointMap[type] || `${type}s`;
 
-    const [lastProcessed, setLastProcessed] = useState({
-        input_text: "",
-        output_lang: "",
-        output_text: "",
-    });
 
     // For checking to prevent runnning resummarize / retranslate on same inputs
     const differsFromLastProcessed =

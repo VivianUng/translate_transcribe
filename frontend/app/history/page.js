@@ -10,7 +10,7 @@ export default function History() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
-  const [history, setHistory] = useState({ translations: [], conversations: [], summaries: [] });
+  const [history, setHistory] = useState({ translations: [], conversations: [], summaries: [], meetings: [] });
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -81,6 +81,18 @@ export default function History() {
       });
     });
 
+    history.meetings.forEach((item) => {
+      combined.push({
+        id: item.id,
+        type: "Meeting",
+        createdAt: new Date(item.created_at),
+        date: new Date(item.created_at).toLocaleDateString("en-GB"),
+        time: new Date(item.created_at).toLocaleTimeString(),
+        input: item.meeting_name || "Untitled Meeting",
+        output: item.translated_summary || "",
+      });
+    });
+
     // sort by created_at descending
     combined.sort((a, b) => b.createdAt - a.createdAt);
 
@@ -133,7 +145,7 @@ export default function History() {
       const token = session?.access_token;
       if (!token) {
         alert("You must be logged in to view history.");
-        return { translations: [], conversations: [], summaries: [] };
+        return { translations: [], conversations: [], summaries: [], meetings: [] };
       }
 
       const res = await fetch(
@@ -157,17 +169,18 @@ export default function History() {
         translations: result.translations || [],
         conversations: result.conversations || [],
         summaries: result.summaries || [],
+        meetings: result.meetings || [],
       };
     } catch (err) {
       console.error("Error fetching user history:", err.message || err);
-      return { translations: [], conversations: [], summaries: [] };
+      return { translations: [], conversations: [], summaries: [], meetings: [] };
     }
   }
 
   const viewDetails = (row) => {
     const type = row.type.toLowerCase();
     router.push(`/records/${type}/${row.id}`);
-};
+  };
 
   const handleStartDateChange = (e) => {
     const value = e.target.value; // YYYY-MM-DD
@@ -270,11 +283,11 @@ export default function History() {
               <div className="card-body">
                 {row.type === "Meeting" && (
                   <>
-                    <p className="card-subtitle"><strong>Agenda:</strong></p>
-                    <p className="card-preview">{row.input || "No agenda available"}</p>
+                    <p className="card-subtitle"><strong>Meeting Name:</strong></p>
+                    <p className="card-preview">{row.input}</p>
 
                     <p className="card-subtitle"><strong>Summary:</strong></p>
-                    <p className="card-preview">{row.output || "No summary available"}</p>
+                    <p className="card-preview">{row.output || "No translated summary available"}</p>
                   </>
                 )}
 
