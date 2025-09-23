@@ -193,69 +193,77 @@ export default function RecordDetailsPage() {
 
         try {
             let result = "";
-            let useOriginal = false;
-
-            // Check against original saved record
-            if (
-                formData.input_text === record.input_text &&
-                formData.output_lang === record.output_lang
-            ) {
-                result = record.output_text;
-                useOriginal = true;
-            }
-
             let filteredText = formData.input_text;
 
-            const inputChanged = formData.input_text !== lastProcessed.input_text;
-            const langChanged = formData.output_lang !== lastProcessed.output_lang;
+            // --- Cache checks ---
+            const matchesRecord =
+                formData.input_text === record.input_text &&
+                formData.output_lang === record.output_lang;
 
-            if (!useOriginal && inputChanged) {
-                const validatorType = type === "summary" ? "summarizer" : "translator";
-                const { valid, filteredText: validatedText, message } = await detectAndValidateLanguage(
-                    validatorType,
-                    formData.input_lang,
-                    formData.input_text
-                );
-                if (!valid) {
-                    toast.error(message || "Invalid input text for processing.");
-                    setProcessing(false);
-                    return; // exit early
-                }
-                filteredText = validatedText;
-                setFormData((prev) => ({ ...prev, input_text: validatedText }));
+            const matchesLast =
+                formData.input_text === lastProcessed.input_text &&
+                formData.output_lang === lastProcessed.output_lang;
+
+            // --- Case 1: Exact match with cache → reuse directly ---
+            if (matchesRecord) {
+                result = record.output_text;
             }
+            else if (matchesLast) {
+                result = lastProcessed.output_text;
+            }
+            else {
+                // --- Validation if input_text changed from both caches ---
+                const inputChanged =
+                    formData.input_text !== record.input_text &&
+                    formData.input_text !== lastProcessed.input_text;
 
-            if (!useOriginal) {
+                if (inputChanged) {
+                    const validatorType = type === "summary" ? "summarizer" : "translator";
+                    const { valid, filteredText: validatedText, message } =
+                        await detectAndValidateLanguage(
+                            validatorType,
+                            formData.input_lang,
+                            formData.input_text
+                        );
+
+                    if (!valid) {
+                        toast.error(message || "Invalid input text for processing.");
+                        setProcessing(false);
+                        return;
+                    }
+
+                    filteredText = validatedText;
+                    setFormData((prev) => ({ ...prev, input_text: validatedText }));
+                }
+
+                // --- Case 2: Processing based on type ---
                 if (type === "summary") {
-                    let summarizedEn; // always store English summary here
+                    const inputMatchesRecord = formData.input_text === record.input_text;
+                    const inputMatchesLast = formData.input_text === lastProcessed.input_text;
 
-                    if (inputChanged) {
-                        // Step 1: ensure input is in English
-                        let enInput = filteredText;
-                        if (formData.input_lang !== "en") {
-                            enInput = await translateText(filteredText, formData.input_lang, "en");
-                        }
-
-                        // Step 2: summarize in English
-                        summarizedEn = await summarizeText(enInput, "en");
-
-                        // Step 3: final translation into target language
-                        if (formData.output_lang !== "en") {
-                            result = await translateText(summarizedEn, "en", formData.output_lang);
-                        } else {
-                            result = summarizedEn;
-                        }
-
-                    } else if (langChanged) {
-                        // Input same, only output_lang changed → direct re-translate
+                    if (inputMatchesRecord) {
+                        // Same input, new output lang → translate record’s summary
+                        result = await translateText(
+                            record.output_text,
+                            record.output_lang,
+                            formData.output_lang
+                        );
+                    } else if (inputMatchesLast) {
+                        // Same input, new output lang → translate lastProcessed summary
                         result = await translateText(
                             lastProcessed.output_text,
                             lastProcessed.output_lang,
                             formData.output_lang
                         );
+                    } else {
+                        // New input text → must re-summarize
+                        result = await summarizeText(
+                            filteredText,
+                            formData.input_lang,
+                            formData.output_lang
+                        );
                     }
-                }
-                else if (type === "conversation" || type === "translation") {
+                } else if (type === "translation" || type === "conversation") {
                     result = await translateText(
                         filteredText,
                         formData.input_lang,
@@ -264,6 +272,7 @@ export default function RecordDetailsPage() {
                 }
             }
 
+            // --- Save result ---
             setFormData((prev) => ({ ...prev, output_text: result }));
             setLastProcessed({
                 input_text: formData.input_text,
@@ -277,7 +286,6 @@ export default function RecordDetailsPage() {
             setProcessing(false);
         }
     };
-
 
     if (!id || !type) return <p>Invalid link</p>;
     if (loading) return <p>Loading...</p>;

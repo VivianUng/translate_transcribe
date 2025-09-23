@@ -70,12 +70,10 @@ class TranslateResponse(BaseModel):
 
 class SummarizeRequest(BaseModel):
     input_text: str
-    target_lang: str = "en"
 
 class SummarizeResponse(BaseModel):
     input_text: str
     summarized_text: str
-    output_lang: str = "en"
 
 class GenericSavePayload(BaseModel):
     input_text: str
@@ -810,7 +808,6 @@ async def summarize(req: SummarizeRequest):
         return SummarizeResponse(
             input_text=req.input_text,
             summarized_text=summary,
-            output_lang=req.target_lang,
         )
 
     except Exception as e:
