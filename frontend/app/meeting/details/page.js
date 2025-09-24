@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import StickyScrollBox from "@/components/StickyScrollBox";
+import { formatDate, formatTime, formatTimeFromTimestamp, formatDateFromTimestamp } from "@/utils/dateTime";
 
 export default function MeetingDetailsPage() {
     const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
@@ -21,11 +22,13 @@ export default function MeetingDetailsPage() {
     const [role, setRole] = useState(null); // "host" or "participant"
     const [status, setStatus] = useState(null); // "upcoming" or "ongoing" or "past"
 
-    const [meetingId, setMeetingId] = useState(searchParams.get("id"));
+    const [recordMeetingId, setRecordMeetingId] = useState(null); // if source is from records
+    const meetingId = searchParams.get("id");
     const recordId = searchParams.get("recordId");
 
     const [saving, setSaving] = useState(false);
-    const [isSaved, setIsSaved] = useState(false); // track if translation is saved
+    const [isSaved, setIsSaved] = useState(false); // track if meeting is saved
+    const [isUpdated, setIsUpdated] = useState(false); // track changes from saved record
 
     const [meetingName, setMeetingName] = useState("");
     const [meetingHost, setMeetingHost] = useState("");
@@ -47,10 +50,6 @@ export default function MeetingDetailsPage() {
     const [recording, setRecording] = useState(false);
     const [mounted, setMounted] = useState(false);
 
-    const formatTime = (timeStr) => {
-        if (!timeStr) return "";
-        return timeStr.includes("T") ? timeStr.split("T")[1].slice(0, 5) : timeStr.slice(0, 5);
-    };
 
     useEffect(() => {
         setMounted(true); // for react-select component
@@ -61,18 +60,19 @@ export default function MeetingDetailsPage() {
             const fetchAll = async () => {
                 setLoadingPage(true);
                 try {
-                    let idToUse = meetingId;
-
                     if (recordId) {
-                        idToUse = await fetchIndivMeeting();
-                    } else {
+                        // Individual record flow
+                        await fetchIndivMeeting(recordId);
+                        setRole("participant");
+                        setStatus("past");
+                    } else if (meetingId) {
+                        // Normal meeting flow
                         await fetchMeetingInfo(meetingId);
+                        await fetchMeetingDependentData(meetingId);
+                    } else {
+                        // Safety net: no valid params
+                        throw new Error("No meetingId or recordId provided");
                     }
-
-                    if (!idToUse) throw new Error("Meeting ID not ready");
-
-                    await fetchMeetingDependentData(idToUse); // use the updated id
-
                 } catch (err) {
                     console.error("Error fetching meeting data:", err);
                     router.push("/meeting?toast=notFound");
@@ -84,6 +84,7 @@ export default function MeetingDetailsPage() {
             fetchAll();
         }
     }, [loading, session, recordId]);
+
 
 
     // -----------------------
@@ -139,12 +140,12 @@ export default function MeetingDetailsPage() {
 
         setMeetingName(m.name || "");
         setMeetingHost(m.host_name || "");
-        setDate(m.date || "");
+        setDate(formatDate(m.date) || "");
         setStartTime(formatTime(m.start_time));
         setEndTime(formatTime(m.end_time));
     };
 
-    const fetchIndivMeeting = async () => {
+    const fetchIndivMeeting = async (recordId) => {
         const token = session?.access_token;
         if (!token) throw new Error("You must be logged in to view meetings.");
 
@@ -160,15 +161,15 @@ export default function MeetingDetailsPage() {
             return null;
         }
 
-        setMeetingId(data.meeting_id); // for UI state
+        setRecordMeetingId(data.meeting_id); // possibly null (if meeting was deleted by host)
         setMeetingName(data.meeting_name || "");
         // data.host_id (get the host name from this)
-        setStartTime(formatTime(data.actual_start_time));
-        setEndTime(formatTime(data.actual_end_time));
+        setDate(formatDateFromTimestamp(data.actual_start_time) || "");
+        setStartTime(formatTimeFromTimestamp(data.actual_start_time));
+        setEndTime(formatTimeFromTimestamp(data.actual_end_time));
         setTranscription(data.original_transcription);
         setSummary(data.original_summary);
-
-        return data.meeting_id;
+        setTranslation(data.translation);
     };
 
     // --- update page title ---
@@ -179,7 +180,7 @@ export default function MeetingDetailsPage() {
         return "Meeting";
     };
 
-    async function handleEndMeeting() { // add setting the actual_end_time
+    async function handleEndMeeting() {
         try {
             if (role === "host") {
                 const token = session?.access_token;
@@ -220,6 +221,7 @@ export default function MeetingDetailsPage() {
         }
     }
 
+    // host only : delete from meetings table (on delete cascade meeting_participants, meeting_details)
     async function handleDeleteMeeting() {
         try {
             if (role !== "host") return;
@@ -252,18 +254,22 @@ export default function MeetingDetailsPage() {
         }
     }
 
+    // host only : update meeting_details table
     async function handleUpdateMeeting() {
         alert("Logic for updating meeting");
     }
 
+    // from saved individual record, update the record
     async function handleUpdateIndiv() {
         // update individual record (use same as records file)
     }
 
+    // from saved individual record, delete the record
     async function handleDeleteIndiv() {
-        // delete individual record
+        // delete individual record (use same as records file)
     }
 
+    // from past / ongoing meeting : save to individual records
     async function handleSaveMeeting() {
         // test data: // first click : set test data, second click : save
         setTranscription("Test Transcription");
@@ -418,7 +424,7 @@ export default function MeetingDetailsPage() {
                         </button>
                     </div>
                 )}
-                {status === "past" && role === "participant" && (
+                {meetingId && status === "past" && role === "participant" && (
                     <div style={{ display: "flex", gap: "8px" }}>
                         <button
                             className="button save-btn"
@@ -429,8 +435,25 @@ export default function MeetingDetailsPage() {
                         </button>
                     </div>
                 )}
+                {recordId && (
+                    <div style={{ display: "flex", gap: "8px" }}>
+                        <button
+                            className="button update-btn"
+                            onClick={handleUpdateIndiv}
+                            disabled={saving || isUpdated}
+                        >
+                            {saving ? "Saving..." : isUpdated ? "Updated" : "Update Record"}
+                        </button>
+                        <button
+                            className="button delete-btn"
+                            onClick={handleDeleteIndiv}
+                        >
+                            {"Delete Record"}
+                        </button>
+                    </div>
+                )}
                 {/* any buttons for participants of ongoing / past meetings
-                    Ongoing : Save meeting once it ends
+                    Ongoing : Save meeting once it ends (checkbox)
                     Past : Save meeting */}
             </div>
         </div>

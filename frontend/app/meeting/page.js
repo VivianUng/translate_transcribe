@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
+import { formatDate, formatTime } from "@/utils/dateTime";
 
 export default function Meetings() {
   const router = useRouter();
@@ -51,33 +52,15 @@ export default function Meetings() {
       const past = [];
 
       data.forEach((meeting) => {
-        // Split date
-        const [year, month, day] = meeting.date.split("-").map(Number);
-
-        // Split start and end time (ignore timezone offset for local display)
-        const [startHour, startMinute, startSecond] = meeting.start_time.split(":").map(Number);
-        const [endHour, endMinute, endSecond] = meeting.end_time.split(":").map(Number);
-
-        // Construct Date objects (month is 0-indexed)
-        const meetingStart = new Date(year, month - 1, day, startHour, startMinute, startSecond || 0);
-        const meetingEnd = new Date(year, month - 1, day, endHour, endMinute, endSecond || 0);
-
         const isHost = meeting.host_id === session.user.id;
-        const now = new Date();
+
         const meetingData = {
           ...meeting,
           isHost,
           hostName: meeting.host_name || "Unknown",
-          meetingStart,
-          meetingEnd,
-          formattedDate: meetingStart.toLocaleDateString(undefined, {
-            weekday: "short",
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          }),
-          formattedStartTime: meetingStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          formattedEndTime: meetingEnd.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          formattedDate: formatDate(meeting.date),
+          formattedStartTime: formatTime(meeting.start_time),
+          formattedEndTime: formatTime(meeting.end_time),
         };
 
         const status = meeting.status?.toLowerCase();
@@ -91,9 +74,17 @@ export default function Meetings() {
         }
       });
 
-      ongoing.sort((a, b) => b.meetingStart - a.meetingStart);  // most recent first
-      upcoming.sort((a, b) => a.meetingStart - b.meetingStart); // soonest first
-      past.sort((a, b) => b.meetingEnd - a.meetingEnd);         // most recent past first
+      // Helper: combine date + time into Date object for sorting
+      const makeDateTime = (dateStr, timeStr) => {
+        if (!dateStr || !timeStr) return 0;
+        const cleanTime = timeStr.replace(/\+\d+$/, ""); // remove "+00" or any +offset
+        return new Date(`${dateStr}T${cleanTime}`);
+      };
+
+      // Sort arrays
+      ongoing.sort((a, b) => makeDateTime(a.date, a.start_time) - makeDateTime(b.date, b.start_time));   // soonest start first
+      upcoming.sort((a, b) => makeDateTime(a.date, a.start_time) - makeDateTime(b.date, b.start_time));  // soonest start first
+      past.sort((a, b) => makeDateTime(b.date, b.end_time) - makeDateTime(a.date, a.end_time));          // most recent ended first
 
 
       // 4. Update state

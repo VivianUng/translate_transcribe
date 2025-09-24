@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Select from "react-select";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { formatDateFromTimestamp, formatTimeFromTimestamp } from "@/utils/dateTime";
 import useAuthCheck from "@/hooks/useAuthCheck";
 
 export default function History() {
@@ -51,8 +52,8 @@ export default function History() {
         id: item.id,
         type: "Translation",
         createdAt: new Date(item.created_at),
-        date: new Date(item.created_at).toLocaleDateString("en-GB"),
-        time: new Date(item.created_at).toLocaleTimeString(),
+        date: formatDateFromTimestamp(item.created_at),
+        time: formatTimeFromTimestamp(item.created_at),
         input: item.input_text || "",
         output: item.output_text || "",
       });
@@ -63,8 +64,8 @@ export default function History() {
         id: item.id,
         type: "Conversation",
         createdAt: new Date(item.created_at),
-        date: new Date(item.created_at).toLocaleDateString("en-GB"),
-        time: new Date(item.created_at).toLocaleTimeString(),
+        date: formatDateFromTimestamp(item.created_at),
+        time: formatTimeFromTimestamp(item.created_at),
         input: item.input_text || "",
         output: item.output_text || "",
       });
@@ -75,8 +76,8 @@ export default function History() {
         id: item.id,
         type: "Summary",
         createdAt: new Date(item.created_at),
-        date: new Date(item.created_at).toLocaleDateString("en-GB"),
-        time: new Date(item.created_at).toLocaleTimeString(),
+        date: formatDateFromTimestamp(item.created_at),
+        time: formatTimeFromTimestamp(item.created_at),
         input: item.input_text || "",
         output: item.output_text || "",
       });
@@ -87,8 +88,8 @@ export default function History() {
         id: item.id,
         type: "Meeting",
         createdAt: new Date(item.created_at),
-        date: new Date(item.actual_start_time).toLocaleDateString("en-GB"),
-        time: new Date(item.actual_start_time).toLocaleTimeString(),
+        date: formatDateFromTimestamp(item.actual_start_time),
+        time: formatTimeFromTimestamp(item.actual_start_time),
         input: item.meeting_name || "Untitled Meeting",
         output: item.translated_summary || "",
       });
@@ -180,14 +181,14 @@ export default function History() {
 
   const viewDetails = (row) => {
     const type = row.type.toLowerCase();
-    if (type === "translation" || type === "conversation" || type === "summary"){
+    if (type === "translation" || type === "conversation" || type === "summary") {
       router.push(`/records/${type}/${row.id}`);
     }
-    else if (type === "meeting"){
+    else if (type === "meeting") {
       router.push(`/meeting/details?recordId=${row.id}`);
     }
-    else {toast.error("Error identifying record type");}
-    
+    else { toast.error("Error identifying record type"); }
+
   };
 
   const handleStartDateChange = (e) => {
