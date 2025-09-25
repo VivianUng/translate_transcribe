@@ -88,6 +88,17 @@ class MeetingSavePayload(BaseModel):
     translated_lang: Optional[str] = None
     translated_summary: Optional[str] = None
 
+class MeetingUpdatePayload(BaseModel):
+    translation: Optional[str] = None
+    translated_lang: Optional[str] = None
+    translated_summary: Optional[str] = None
+
+class MeetingDetailsUpdatePayload(BaseModel):
+    transcription: Optional[str] = None
+    transcription_lang: Optional[str] = None
+    en_summary: Optional[str] = None
+    translated_summary: Optional[str] = None
+
 class CreateMeetingPayload(BaseModel):
     meeting_name: str
     date: str
@@ -595,6 +606,84 @@ async def get_meeting_role(meeting_id: str, current_user=Depends(get_current_use
     else:
         return {"role": "participant"}
 
+# UPDATE meeting_details table
+@router.put("/update-meeting-details/{meeting_id}")
+async def update_meeting_details(
+    meeting_id: str,
+    payload: MeetingDetailsUpdatePayload,
+    current_user=Depends(get_current_user)
+):
+    """
+    Host-only update for meeting_details table.
+    """
+    try:
+        meeting_res = (
+            supabase.table("meetings")
+            .select("host_id")
+            .eq("id", meeting_id)
+            .maybe_single()
+            .execute()
+        )
+        if not meeting_res.data:
+            raise HTTPException(status_code=404, detail="Meeting not found")
+        if meeting_res.data["host_id"] != current_user.id:
+            raise HTTPException(status_code=403, detail="Only host can update this meeting")
+
+        # Build updates dictionary
+        updates = {}
+        if payload.transcription is not None:
+            updates["transcription"] = payload.transcription
+        if payload.transcription_lang is not None:
+            updates["transcription_lang"] = payload.transcription_lang
+        if payload.en_summary is not None:
+            updates["en_summary"] = payload.en_summary
+        if payload.translated_summary is not None:
+            updates["translated_summary"] = payload.translated_summary
+
+        if updates:
+            updates["updated_at"] = "now()"
+
+        if not updates:
+            raise HTTPException(status_code=400, detail="No updates provided")
+
+        # Execute update
+        result = (
+            supabase.table("meeting_details")
+            .update(updates)
+            .eq("meeting_id", meeting_id)
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Meeting details not found")
+
+        return result.data[0]
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error updating meeting details: {e}")
+
+# GET meeting_details by meeting_id
+@router.get("/meetings/{meeting_id}/details")
+async def get_meeting_details(meeting_id: str, current_user=Depends(get_current_user)):
+    try:
+        # Fetch the row from meeting_details table using meeting_id
+        result = (
+            supabase.table("meeting_details")
+            .select("*")
+            .eq("meeting_id", meeting_id)
+            .single()
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Meeting details not found")
+
+        return result.data
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error fetching meeting details: {e}")
+
+
 @router.delete("/meetings/{meeting_id}")
 async def delete_meeting(meeting_id: str, current_user=Depends(get_current_user)):
     """
@@ -624,6 +713,51 @@ async def delete_meeting(meeting_id: str, current_user=Depends(get_current_user)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# UPDATE meeting_details_individual
+@router.put("/update-meeting/{record_id}")
+async def update_meeting(
+    record_id: str,
+    payload: MeetingUpdatePayload,
+    current_user=Depends(get_current_user)
+):
+    """
+    Update translation-related fields for a user's meeting record.
+    """
+    try:
+        # Build updates dictionary
+        updates = {}
+        if payload.translation is not None:
+            updates["translation"] = payload.translation
+        if payload.translated_lang is not None:
+            updates["translated_lang"] = payload.translated_lang
+        if payload.translated_summary is not None:
+            updates["translated_summary"] = payload.translated_summary
+        
+        if updates:
+            updates["updated_at"] = "now()"
+
+        if not updates:
+            raise HTTPException(status_code=400, detail="No updates provided")
+
+        # Execute update
+        result = (
+            supabase.table("meeting_details_individual")
+            .update(updates)
+            .eq("id", record_id)
+            .eq("user_id", current_user.id)
+            .execute()
+        )
+
+        # Handle empty result
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Meeting record not found for user")
+
+        return result.data[0]
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error updating meeting: {e}")
+
 
 @router.get("/meetings")
 async def get_user_meetings(current_user=Depends(get_current_user)):

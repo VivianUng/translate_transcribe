@@ -80,7 +80,7 @@ export default function ToastProvider() {
 
   return mounted ? (
     <Toaster
-      position="top-right"
+      position="top-center"
       containerClassName="toast-container"
       toastOptions={{
         className: "toast-message",

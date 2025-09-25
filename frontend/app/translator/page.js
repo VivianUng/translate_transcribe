@@ -15,7 +15,6 @@ export default function Translate() {
   const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_translations",]);
   const [inputText, setInputText] = useState("");
-  const [finalInputText, setFinalInputText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
   const [fileLang, setFileLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("en");
@@ -187,7 +186,6 @@ export default function Translate() {
       if (!valid) return;
 
       setInputLang(detectedLang);
-      setFinalInputText(filteredText);
 
       if (detectedLang === targetLang) {
         setMessage("Input language is same as Output Language");
@@ -240,7 +238,7 @@ export default function Translate() {
 
 
   async function handleSaveTranslation(
-    input_text = finalInputText,
+    input_text = inputText,
     input_lang = inputLang,
     output_text = translatedText,
     output_lang = targetLang
@@ -469,7 +467,7 @@ export default function Translate() {
               className="button save-translation-button"
               onClick={() =>
                 handleSaveTranslation(
-                  finalInputText,
+                  inputText,
                   inputLang,
                   translatedText,
                   targetLang

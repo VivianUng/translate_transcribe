@@ -15,7 +15,6 @@ export default function Summarizer() {
   const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_summaries",]);
   const [inputText, setInputText] = useState("");
-  const [finalInputText, setFinalInputText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("en");
   const [summarizedText, setSummarizedText] = useState("");
@@ -109,7 +108,6 @@ export default function Summarizer() {
 
       setInputLang(detectedLang);
 
-      setFinalInputText(filteredText);
       
       const summary = await summarizeText(filteredText, detectedLang, targetLang);
       setSummarizedText(summary);
@@ -130,7 +128,7 @@ export default function Summarizer() {
   }
 
   async function handleSaveSummary(
-    input_text = finalInputText,
+    input_text = inputText,
     output_text = summarizedText
   ) {
 
@@ -247,7 +245,7 @@ export default function Summarizer() {
         <div>
           <button
             className="button save-summary-button"
-            onClick={() => handleSaveSummary(finalInputText, summarizedText)}
+            onClick={() => handleSaveSummary(inputText, summarizedText)}
             disabled={saving || loading || isSaved}
           >
             {saving ? "Saving..." : isSaved ? "Saved" : "Save Summary"}
