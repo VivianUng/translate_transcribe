@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export function useStickyScroll(content) {
+export function useStickyScroll(content, { autoScroll = true } = {}) {
   const ref = useRef(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
@@ -21,10 +21,10 @@ export function useStickyScroll(content) {
     const el = ref.current;
     if (!el) return;
 
-    if (isAtBottom) {
+    if (autoScroll && isAtBottom) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [content, isAtBottom]);
+  }, [content, isAtBottom, autoScroll]);
 
   return { ref, isAtBottom };
 }

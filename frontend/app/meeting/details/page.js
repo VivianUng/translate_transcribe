@@ -23,7 +23,17 @@ export default function MeetingDetailsPage() {
     const [loadingPage, setLoadingPage] = useState(true);
 
     const [role, setRole] = useState(null); // "host" or "participant" or "individual"
-    const [status, setStatus] = useState(null); // "upcoming" or "ongoing" or "past" or "individual"
+    const [status, setStatus] = useState(null); // "ongoing" or "past" or "individual"
+
+    const roleRef = useRef(role);
+    useEffect(() => {
+        roleRef.current = role;
+    }, [role]);
+
+    const statusRef = useRef(status);
+    useEffect(() => {
+        statusRef.current = status;
+    }, [status])
 
     // if source is from records, this stores the actual meeting id (can be null if the original meeting was deleted)
     const [recordMeetingId, setRecordMeetingId] = useState(null);
@@ -78,7 +88,7 @@ export default function MeetingDetailsPage() {
 
     useEffect(() => {
         setMounted(true); // for react-select component
-    },);
+    }, []);
 
     const prefsAppliedRef = useRef(false);
     useEffect(() => {
@@ -146,7 +156,7 @@ export default function MeetingDetailsPage() {
                 .update({
                     transcription,
                     en_summary: summary,
-                    translated_summary: translation,
+                    translated_summary: translation, // modify accordingly
                     transcription_lang: translationLang,
                 })
                 .eq("meeting_id", meetingId);
@@ -159,60 +169,79 @@ export default function MeetingDetailsPage() {
         return () => clearTimeout(timeout);
     }, [transcription, summary, translation, translationLang, meetingId, role]);
 
-
-    // Participant listens for realtime updates
-    // get the intial one : 
+    // Participant get real-time data 
+    // (this way causes every load of this page to subscribe & fetch current Details, which can trigger errors)
     useEffect(() => {
-        if (!meetingId || role !== "participant" || status !== "ongoing") return;
-
-        const fetchCurrentDetails = async () => {
-            const { data, error } = await supabase
-                .from("meeting_details")
-                .select("*")
-                .eq("meeting_id", meetingId)
-                .single();
-
-            if (error) {
-                console.error("Failed to fetch meeting_details for participant:", error);
-                return;
-            }
-
-            setTranscription(data.transcription || "");
-            setSummary(data.en_summary || "");
-            setTranslation(data.translated_summary || "");
-        };
-
-        fetchCurrentDetails();
-    }, [meetingId, role, status]);
-
-    // get from real-time
-    useEffect(() => {
-        if (!meetingId || role !== "participant" || status !== "ongoing") return;
+        if (!meetingId) return;
 
         const channel = supabase
             .channel(`meeting-${meetingId}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "UPDATE",
-                    schema: "public",
-                    table: "meeting_details",
-                    filter: `meeting_id=eq.${meetingId}`,
-                },
-                (payload) => {
+            .on("postgres_changes", {
+                event: "UPDATE",
+                schema: "public",
+                table: "meeting_details",
+                filter: `meeting_id=eq.${meetingId}`,
+            }, (payload) => {
+                console.log("Realtime payload:", payload);
+                // Only update if this user is a participant and meeting is ongoing
+                if (roleRef.current === "participant" && statusRef.current === "ongoing") {
                     const data = payload.new;
                     setTranscription(data.transcription || "");
                     setSummary(data.en_summary || "");
                     setTranslation(data.translated_summary || "");
+                    if (data.status === "past") {
+                        toast('This meeting has ended');
+                        setStatus("past"); // update local state
+                        if (autoSave) { handleSaveMeeting(); }
+                    }
                 }
-            )
-            .subscribe();
+            })
+            .subscribe((subStatus) => {
+                console.log("Subscription status:", subStatus);
+                if (subStatus === "SUBSCRIBED") {
+                    fetchCurrentDetails();
+                }
+            });
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [meetingId, role, status]);
+    }, [meetingId, session]);
 
+
+
+
+    // fetch direct from meeting_details table
+    const fetchCurrentDetails = async () => {
+        try {
+            const token = session?.access_token;
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/details`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (!res.ok) {
+                const errData = await res.json();
+                console.error("Failed to fetch meeting details:", errData.detail);
+                return;
+            }
+
+            const data = await res.json();
+            console.log("Initial / Refetch meeting details:", data);
+
+            setTranscription(data.transcription || "");
+            setSummary(data.en_summary || "");
+            setTranslation(data.translated_summary || "");
+        } catch (err) {
+            console.error("Error fetching meeting details:", err);
+        }
+    };
 
 
     // -----------------------
@@ -261,8 +290,6 @@ export default function MeetingDetailsPage() {
         try {
             const token = session?.access_token;
             if (!token) throw new Error("You must be logged in");
-
-            const recordType = "meeting_details";
 
             const res = await fetch(
                 `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/details`,
@@ -362,6 +389,11 @@ export default function MeetingDetailsPage() {
 
                 const data = await res.json();
 
+                // if host has auto-save on : trigger saveMeeting
+                if (autoSave) {
+                    handleSaveMeeting();
+                }
+
                 // 3. Redirect and show confirmation
                 router.push("/meeting?toast=meetingEnd"); // back to meetings page
             }
@@ -441,6 +473,7 @@ export default function MeetingDetailsPage() {
 
             const result = await res.json();
             if (!res.ok) throw new Error(result.detail || "Failed to update meeting");
+            else setIsUpdated(true);
 
             toast.success("Meeting details updated successfully!");
         } catch (err) {
@@ -513,9 +546,6 @@ export default function MeetingDetailsPage() {
 
     // from past / ongoing meeting : save to individual records
     async function handleSaveMeeting() {
-        // test data: // first click : set test data, second click : save
-        setTranscription("Test Transcription");
-        setSummary("Test Summary");
 
         if (!isLoggedIn || !transcription) return;
 

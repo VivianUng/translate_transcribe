@@ -9,8 +9,8 @@ export default function StickyScrollBox({
   editable = false,
   onChange,
 }) {
-  // Only use sticky scroll if not editable
-  const { ref, isAtBottom } = !editable ? useStickyScroll(content) : { ref: null, isAtBottom: true };
+  // Always track scroll, but disable auto-scroll if editable
+  const { ref, isAtBottom } = useStickyScroll(content, { autoScroll: !editable });
 
   function handleScrollToBottom() {
     if (ref?.current) {
@@ -22,6 +22,7 @@ export default function StickyScrollBox({
     <div className="sticky-scroll-wrapper">
       {editable ? (
         <textarea
+          ref={ref}
           className="scrollable-box editable-box"
           value={content || ""}
           placeholder={placeholder}
@@ -35,7 +36,7 @@ export default function StickyScrollBox({
         </div>
       )}
 
-      {!editable && !isAtBottom && (
+      {!isAtBottom && (
         <button className="scroll-button" onClick={handleScrollToBottom}>
           ↓ Scroll to bottom
         </button>
@@ -43,39 +44,3 @@ export default function StickyScrollBox({
     </div>
   );
 }
-
-
-// // components/StickyScrollBox.js
-// "use client";
-
-// import React from "react";
-// import { useStickyScroll } from "@/hooks/useStickyScroll";
-
-// export default function StickyScrollBox({ content, placeholder }) {
-//   const { ref, isAtBottom } = useStickyScroll(content);
-
-//   function handleScrollToBottom() {
-//     if (ref.current) {
-//       ref.current.scrollTop = ref.current.scrollHeight;
-//     }
-//   }
-
-//   return (
-//     <div className="sticky-scroll-wrapper">
-//       <div className="scrollable-box" ref={ref}>
-//         <pre className="section-content">
-//           {content || placeholder}
-//         </pre>
-//       </div>
-
-//       {!isAtBottom && (
-//         <button
-//           className="scroll-button"
-//           onClick={handleScrollToBottom}
-//         >
-//           ↓ Scroll to bottom
-//         </button>
-//       )}
-//     </div>
-//   );
-// }
