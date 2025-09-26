@@ -55,3 +55,15 @@ export const formatTimeFromTimestamp = (timestamp) => {
   if (!timestamp) return "";
   return new Date(timestamp).toLocaleTimeString();
 };
+
+/**
+ * Format a full timestamp into en-GB date and local time
+ * Example: "2025-09-24T13:45:30.000Z" → "24/09/2025 9:45:30 PM"
+ */
+export const formatDateTimeFromTimestamp = (timestamp) => {
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  const formattedDate = date.toLocaleDateString("en-GB");
+  const formattedTime = date.toLocaleTimeString();
+  return `${formattedDate}, ${formattedTime}`;
+};

@@ -426,10 +426,26 @@ async def create_meeting(payload: CreateMeetingPayload, current_user=Depends(get
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.get("/hosts/names/{host_id}")
+async def get_host_name(host_id: str, current_user=Depends(get_current_user)):
+    """
+    Fetch host names for a single host ID using the Supabase RPC.
+    """
+    try : 
+        result = supabase.rpc("get_host_names", {"host_ids": [host_id]}).execute()
+        if not result or not result.data:
+            raise HTTPException(status_code=404, detail="Host not found")
+        return {"host": result.data[0]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/meetings/{meeting_id}")
 async def get_meeting(meeting_id: str, current_user=Depends(get_current_user)):
     """
     Fetch a single meeting and its participants by meeting ID.
+    Only called by host to view upcoming meeting
     """
     try:
         # Fetch the meeting
@@ -455,16 +471,9 @@ async def get_meeting(meeting_id: str, current_user=Depends(get_current_user)):
         host_email = host_res.data["email"] if host_res.data else "Unknown"
         meeting["host_email"] = host_email
 
-        host_id = meeting["host_id"]
-
-        profiles_result = supabase.rpc("get_host_names", {"host_ids": [host_id]}).execute()
-        if not profiles_result:
-            print("RPC fetch error")
-
-        profiles = profiles_result.data or []
-        host_map = {p["host_id"]: p["name"] for p in profiles}
-
-        meeting["host_name"] = host_map.get(host_id, "Unknown")
+        # Fetch host name via RPC
+        host_data = await get_host_name(meeting["host_id"], current_user=current_user)
+        meeting["host_name"] = host_data["host"]["name"] if host_data.get("host") else "Unknown"
 
         return {"meeting": meeting, "participants": participants}
 
@@ -796,12 +805,10 @@ async def get_user_meetings(current_user=Depends(get_current_user)):
         host_map = {}
         if all_meetings:
             host_ids = list({m["host_id"] for m in all_meetings})
-            if host_ids:
-                profiles_result = supabase.rpc("get_host_names", {"host_ids": host_ids}).execute()
-                if not profiles_result:
-                    print("RPC fetch error")
-                profiles = profiles_result.data or []
-                host_map = {p["host_id"]: p["name"] for p in profiles}
+            for hid in host_ids:
+                host_data = await get_host_name(hid, current_user=current_user)
+                host = host_data["host"]
+                host_map[host["host_id"]] = host["name"]
 
         # 5. Attach host_name to each meeting
         for m in all_meetings:
@@ -828,7 +835,7 @@ async def delete_account(current_user=Depends(get_current_user)):
     try:
         user_id = current_user.id
 
-        # 1. Delete dependent rows
+        # 1. Delete dependent rows (modify on delete cascade then remove these lines)
         supabase.table("translations").delete().eq("user_id", user_id).execute()
         supabase.table("summaries").delete().eq("user_id", user_id).execute()
         supabase.table("conversations").delete().eq("user_id", user_id).execute()

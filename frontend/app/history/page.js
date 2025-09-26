@@ -180,15 +180,11 @@ export default function History() {
   }
 
   const viewDetails = (row) => {
-    const type = row.type.toLowerCase();
-    if (type === "translation" || type === "conversation" || type === "summary") {
+    if (row.type && row.id) {
+      const type = row.type.toLowerCase();
       router.push(`/records/${type}/${row.id}`);
     }
-    else if (type === "meeting") {
-      router.push(`/meeting/details?recordId=${row.id}`);
-    }
-    else { toast.error("Error identifying record type"); }
-
+    else { toast.error("Error identifying record"); }
   };
 
   const handleStartDateChange = (e) => {

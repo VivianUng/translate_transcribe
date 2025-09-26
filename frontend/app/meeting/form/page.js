@@ -361,7 +361,7 @@ export default function MeetingFormPage() {
                 {mode === "update" && (
                     <button
                         type="button"
-                        className="button"
+                        className="button delete"
                         onClick={handleDelete}
                         disabled={isSubmitting}
                     >

@@ -266,7 +266,7 @@ export default function SettingsPage() {
         disabled={loading || loadingSendEmail || pwRequested}>
           {loadingSendEmail ? "Sending Email..." : pwRequested ? "Email Sent" : "Change Password"}
         </button>
-        <button className="button danger-button" onClick={deleteAccount}>
+        <button className="button delete" onClick={deleteAccount}>
           Delete Account
         </button>
       </div>

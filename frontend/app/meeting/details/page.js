@@ -15,15 +15,16 @@ import { supabase } from "@/lib/supabaseClient";
 export default function MeetingDetailsPage() {
     const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
     const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_meetings",]);
-    const token = session?.access_token;
+    
+    const searchParams = useSearchParams();
+    const meetingId = searchParams.get("id");
 
     const router = useRouter();
-    const searchParams = useSearchParams();
     const { languages } = useLanguages();
     const [loadingPage, setLoadingPage] = useState(true);
 
-    const [role, setRole] = useState(null); // "host" or "participant" or "individual"
-    const [status, setStatus] = useState(null); // "ongoing" or "past" or "individual"
+    const [role, setRole] = useState(null); // "host" or "participant"
+    const [status, setStatus] = useState(null); // "ongoing" or "past"
 
     const roleRef = useRef(role);
     useEffect(() => {
@@ -35,15 +36,10 @@ export default function MeetingDetailsPage() {
         statusRef.current = status;
     }, [status])
 
-    // if source is from records, this stores the actual meeting id (can be null if the original meeting was deleted)
-    const [recordMeetingId, setRecordMeetingId] = useState(null);
-    const meetingId = searchParams.get("id");
-    const recordId = searchParams.get("recordId");
-
     const [saving, setSaving] = useState(false);
     const [ending, setEnding] = useState(false);
     const [isSaved, setIsSaved] = useState(false); // track if meeting is saved
-    const [isUpdated, setIsUpdated] = useState(false); // track changes from saved record
+    const [isUpdated, setIsUpdated] = useState(false); // track changes from meeting_details record (modify to use some other way) - currently only allows updates once per page load
     const [autoSave, setAutoSave] = useState(false);
 
     const [meetingName, setMeetingName] = useState("");
@@ -95,6 +91,7 @@ export default function MeetingDetailsPage() {
         if (!prefsLoading && session?.user && !prefsAppliedRef.current && prefs.default_language) {
             if (prefs.default_language) {
                 setTranslationLang(prefs.default_language);
+                setSummaryLang(prefs.default_language);
             }
             if (prefs.auto_save_meetings) {
                 setAutoSave(true);
@@ -108,19 +105,14 @@ export default function MeetingDetailsPage() {
             const fetchAll = async () => {
                 setLoadingPage(true);
                 try {
-                    if (recordId) {
-                        // Individual record flow
-                        await fetchIndivMeeting(recordId);
-                        setRole("individual");
-                        setStatus("individual");
-                    } else if (meetingId) {
+                    if (meetingId) {
                         // from meeting_details
                         await fetchMeetingInfo(meetingId);
                         await fetchMeetingDetails(meetingId);
                         await fetchRole(meetingId);
                     } else {
                         // Safety net: no valid params
-                        throw new Error("No meetingId or recordId provided");
+                        throw new Error("No meetingId provided");
                     }
                 } catch (err) {
                     console.error("Error fetching meeting data:", err);
@@ -188,7 +180,7 @@ export default function MeetingDetailsPage() {
                     const data = payload.new;
                     setTranscription(data.transcription || "");
                     setSummary(data.en_summary || "");
-                    setTranslation(data.translated_summary || "");
+
                     if (data.status === "past") {
                         toast('This meeting has ended');
                         setStatus("past"); // update local state
@@ -211,7 +203,7 @@ export default function MeetingDetailsPage() {
 
 
 
-    // fetch direct from meeting_details table
+    // fetch from meeting_details table
     const fetchCurrentDetails = async () => {
         try {
             const token = session?.access_token;
@@ -233,7 +225,6 @@ export default function MeetingDetailsPage() {
             }
 
             const data = await res.json();
-            console.log("Initial / Refetch meeting details:", data);
 
             setTranscription(data.transcription || "");
             setSummary(data.en_summary || "");
@@ -310,7 +301,11 @@ export default function MeetingDetailsPage() {
 
             const data = await res.json();
 
-            // Update frontend state (modify accordingly)
+            // Update frontend state 
+            setStartTime(formatTimeFromTimestamp(data.actual_start_time));
+            setEndTime(formatTimeFromTimestamp(data.actual_end_time));
+            setDate(formatDateFromTimestamp(data.actual_start_time) || "");
+            // (modify accordingly)
             setTranscription(data.transcription || "");
             setSummary(data.en_summary || "");
 
@@ -320,40 +315,12 @@ export default function MeetingDetailsPage() {
     };
 
 
-    const fetchIndivMeeting = async (recordId) => {
-        const token = session?.access_token;
-        if (!token) throw new Error("You must be logged in to view meetings.");
-
-        // returns entire content of row in meeting_details_individual
-        const res = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/records/meeting_details_individual/${recordId}`,
-            { method: "GET", headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        const data = await res.json();
-        if (!data) {
-            router.push("/meeting?toast=notFound");
-            return null;
-        }
-
-        setRecordMeetingId(data.meeting_id); // possibly null (if meeting was deleted by host)
-        setMeetingName(data.meeting_name || "");
-        // data.host_id (get the host name from this) 
-        setMeetingHost(data.host_id); // change to use supabase rpc to get hostname
-        setDate(formatDateFromTimestamp(data.actual_start_time) || "");
-        setStartTime(formatTimeFromTimestamp(data.actual_start_time));
-        setEndTime(formatTimeFromTimestamp(data.actual_end_time));
-        setTranscription(data.original_transcription);
-        setSummary(data.original_summary);
-        setTranslation(data.translation);
-    };
 
     // --- update page title ---
     const getPageTitle = () => {
         if (status === "ongoing") return "Ongoing Meeting";
         if (status === "past") return "Past Meeting";
         if (status === "upcoming") return "Upcoming Meeting";
-        if (status === "individual") return "Individual Meeting Record";
         return "Meeting";
     };
 
@@ -481,67 +448,6 @@ export default function MeetingDetailsPage() {
         }
     }
 
-    // from saved individual record, update the record
-    async function handleUpdateIndiv() {
-        if (!isLoggedIn) return;
-
-        setSaving(true);
-
-        try {
-            const token = session?.access_token;
-            if (!token) {
-                alert("You must be logged in to update meetings.");
-                return;
-            }
-
-            const res = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/update-meeting/${recordId}`,
-                {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                        translation,
-                        translated_lang: translationLang,
-                        translated_summary: summary,
-                    }),
-                }
-            );
-
-            const result = await res.json();
-            if (!res.ok) throw new Error(result.detail || "Failed to update meeting");
-
-            toast.success("Meeting updated successfully");
-        } catch (err) {
-            toast.error(err.message || "Failed to update meeting.");
-        } finally {
-            setSaving(false);
-        }
-    }
-
-    // from saved individual record, delete the record
-    async function handleDeleteIndiv() {
-        if (!recordId) return;
-        if (!confirm(`Are you sure you want to delete this meeting?`)) return;
-
-        try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/records/meeting_details_individual/${recordId}`, {
-                method: "DELETE",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${session?.access_token}`,
-                },
-            });
-            if (!res.ok) throw new Error("Failed to delete record");
-            toast.success(`Meeting Record deleted.`);
-            router.push("/history");
-        } catch (err) {
-            console.error("Error deleting:", err);
-            toast.error("Delete failed.");
-        }
-    }
 
 
     // from past / ongoing meeting : save to individual records
@@ -622,7 +528,7 @@ export default function MeetingDetailsPage() {
                         <StickyScrollBox
                             content={transcription}
                             placeholder="Waiting for transcription..."
-                            editable={role === "individual" || (role === "host" && status === "past")}
+                            editable={(role === "host" && status === "past")}
                             onChange={setTranscription}
                         />
                     </div>
@@ -643,7 +549,7 @@ export default function MeetingDetailsPage() {
                         <StickyScrollBox
                             content={translation}
                             placeholder="Waiting for translation..."
-                            editable={role === "individual" || (role === "host" && status === "past")}
+                            editable={(role === "host" && status === "past")}
                             onChange={setTranslation}
                         />
                     </div>
@@ -666,7 +572,7 @@ export default function MeetingDetailsPage() {
                         <StickyScrollBox
                             content={summary}
                             placeholder="Summary will appear here..."
-                            editable={role === "individual" || (role === "host" && status === "past")}
+                            editable={(role === "host" && status === "past")}
                             onChange={setSummary}
                         />
                     </div>
@@ -692,7 +598,7 @@ export default function MeetingDetailsPage() {
                         {status === "ongoing" && (
                             <div style={{ display: "flex", gap: "8px" }}>
                                 <button
-                                    className="button danger"
+                                    className="button delete"
                                     onClick={handleEndMeeting}
                                     disabled={ending}
                                 >
@@ -710,10 +616,12 @@ export default function MeetingDetailsPage() {
                                 >
                                     {saving ? "Saving..." : isSaved ? "Saved" : "Save Meeting"}
                                 </button>
-                                <button className="button update-btn" onClick={handleUpdateMeeting}>
-                                    Update
+                                <button className="button update-btn"
+                                    onClick={handleUpdateMeeting}
+                                    disabled={isUpdated}>
+                                    {saving ? "Saving..." : isUpdated ? "Updated" : "Update Meeting"}
                                 </button>
-                                <button className="button danger" onClick={handleDeleteMeeting}>
+                                <button className="button delete" onClick={handleDeleteMeeting}>
                                     Delete
                                 </button>
                             </div>
@@ -730,22 +638,6 @@ export default function MeetingDetailsPage() {
                     >
                         {saving ? "Saving..." : isSaved ? "Saved" : "Save Meeting"}
                     </button>
-                )}
-
-                {/* Individual actions */}
-                {role === "individual" && (
-                    <div style={{ display: "flex", gap: "8px" }}>
-                        <button
-                            className="button update-btn"
-                            onClick={handleUpdateIndiv}
-                            disabled={saving || isUpdated}
-                        >
-                            {saving ? "Saving..." : isUpdated ? "Updated" : "Update Record"}
-                        </button>
-                        <button className="button delete-btn" onClick={handleDeleteIndiv}>
-                            Delete Record
-                        </button>
-                    </div>
                 )}
             </div>
         </div>

@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Select from "react-select";
 import toast from "react-hot-toast";
 import { ArrowLeft } from "lucide-react";
+import { formatDateTimeFromTimestamp } from "@/utils/dateTime";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import { useLanguages } from "@/contexts/LanguagesContext";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
@@ -379,17 +380,11 @@ export default function RecordDetailsPage() {
                 <div className="meta-info">
                     <p>
                         <strong>Created:</strong>{" "}
-                        {new Date(record.created_at).toLocaleString("en-GB", {
-                            dateStyle: "short",
-                            timeStyle: "medium",
-                        })}
+                        {formatDateTimeFromTimestamp(record.created_at)}
                     </p>
                     <p>
                         <strong>Last Updated:</strong>{" "}
-                        {new Date(record.updated_at).toLocaleString("en-GB", {
-                            dateStyle: "short",
-                            timeStyle: "medium",
-                        })}
+                        {formatDateTimeFromTimestamp(record.updated_at)}
                     </p>
                 </div>
 
