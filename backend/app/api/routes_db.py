@@ -1,9 +1,120 @@
 from ..core.supabase_client import supabase
-from app.models import CreateMeetingPayload, GenericSavePayload, UpdateMeetingPayload, RecordUpdatePayload, StatusUpdatePayload, MeetingUpdatePayload, MeetingDetailsUpdatePayload, MeetingSavePayload
+from app.models import SignupRequest, ProfileUpdateRequest, CreateMeetingPayload, GenericSavePayload, UpdateMeetingPayload, RecordUpdatePayload, StatusUpdatePayload, MeetingUpdatePayload, MeetingDetailsUpdatePayload, MeetingSavePayload
 from app.auth import get_current_user
 from fastapi import APIRouter, Depends, HTTPException
 
 router = APIRouter()
+
+@router.get("/email_exists/")
+async def email_exists(email: str, current_user=Depends(get_current_user)):
+    """
+    Check if an email exists in the profiles table.
+    Returns {"exists": True/False}.
+    """
+    try:
+        res = supabase.rpc("email_exists", {"check_email": email}).execute()
+
+        exists = False
+        if res.data :
+            exists = True
+
+        return {"exists": exists}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/signup")
+async def signup(request: SignupRequest):
+    """
+    Signup a new user: check if email exists, then create user in Supabase Auth.
+    """
+    try:
+        email_check = await email_exists(email=request.email)
+        if email_check["exists"]:
+            return {
+                "status": "exists",
+                "message": "This email is already registered. Please log in instead."
+            }
+
+        # Create new user in Supabase Auth
+        auth_res = supabase.auth.sign_up({
+            "email": request.email,
+            "password": request.password,
+            "options": {"data": {"full_name": request.full_name}}
+        })
+
+        if not auth_res:
+            raise HTTPException(status_code=500, detail="Failed to create user.")
+
+        return {
+            "status": "success",
+            "message": "User created successfully",
+            "user_id": auth_res.user.id
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/profile")
+async def get_profile(current_user=Depends(get_current_user)):
+    try:
+        result = (
+            supabase.table("profiles")
+            .select("*")
+            .eq("id", current_user.id)
+            .single()
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail=f"Profile not found")
+
+        return result.data
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error fetching profile: {e}")
+
+@router.put("/profile")
+async def update_profile(
+    profile_data: ProfileUpdateRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Update the current user's profile.
+    """
+    if not profile_data.name:
+        raise HTTPException(status_code=400, detail="Name cannot be empty.")
+
+    try:
+        # Update profile table
+        profile_res = supabase.table("profiles").update(
+            {
+                "id": current_user.id,
+                "name": profile_data.name,
+                "email": profile_data.email,
+                "auto_save_translations": profile_data.auto_save_translations,
+                "auto_save_summaries": profile_data.auto_save_summaries,
+                "auto_save_conversations": profile_data.auto_save_conversations,
+                "auto_save_meetings": profile_data.auto_save_meetings,
+                "default_language": profile_data.default_language,
+                "updated_at": "now()",
+            }
+        ).eq("id", current_user.id).execute()
+
+        if not profile_res.data:
+            raise HTTPException(status_code=404, detail=f"Profile not found")
+
+        # Update Supabase Auth user metadata (full_name)
+        auth_res = supabase.auth.admin.update_user_by_id(
+            current_user.id,
+            {"user_metadata": {"full_name": profile_data.name}}
+        )
+
+        return {"message": "Profile updated successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/save")
 async def save_item(payload: GenericSavePayload, current_user=Depends(get_current_user)):
@@ -35,6 +146,102 @@ async def save_item(payload: GenericSavePayload, current_user=Depends(get_curren
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to save {payload.type}: {e}")
+
+def get_table(record_type: str):
+    table = record_type
+    if not table:
+        raise HTTPException(status_code=400, detail="Invalid record type")
+    return table
+
+# GET record
+@router.get("/records/{record_type}/{record_id}")
+async def get_record(record_type: str, record_id: str, current_user=Depends(get_current_user)):
+    try:
+        table = get_table(record_type)
+        result = (
+            supabase.table(table)
+            .select("*")
+            .eq("id", record_id)
+            .eq("user_id", current_user.id)
+            .single()
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail=f"{record_type[:-1].capitalize()} not found")
+
+        return result.data
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error fetching {record_type}: {e}")
+
+
+# UPDATE record
+@router.put("/records/{record_type}/{record_id}")
+async def update_record(
+    record_type: str,
+    record_id: str,
+    payload: RecordUpdatePayload,
+    current_user=Depends(get_current_user)
+):
+    try:
+        table = get_table(record_type)
+
+        updates = {}
+        if payload.input_text is not None:
+            updates["input_text"] = payload.input_text
+        if payload.output_text is not None:
+            updates["output_text"] = payload.output_text
+        if payload.input_lang is not None:
+            updates["input_lang"] = payload.input_lang
+        if payload.output_lang is not None:
+            updates["output_lang"] = payload.output_lang
+        
+        if updates : 
+            updates["updated_at"] = "now()"
+
+        if not updates:
+            raise HTTPException(status_code=400, detail="No updates provided")
+
+        result = (
+            supabase.table(table)
+            .update(updates)
+            .eq("id", record_id)
+            .eq("user_id", current_user.id)
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail=f"{record_type[:-1].capitalize()} not found")
+
+        return result.data[0]
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error updating {record_type}: {e}")
+
+
+# DELETE record
+@router.delete("/records/{record_type}/{record_id}")
+async def delete_record(record_type: str, record_id: str, current_user=Depends(get_current_user)):
+    try:
+        table = get_table(record_type)
+
+        result = (
+            supabase.table(table)
+            .delete()
+            .eq("id", record_id)
+            .eq("user_id", current_user.id)
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail=f"{record_type[:-1].capitalize()} not found")
+
+        return {"message": f"{record_type[:-1].capitalize()} deleted successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error deleting {record_type}: {e}")
+
 
 @router.post("/save-meeting")
 async def save_meeting(
@@ -134,100 +341,6 @@ async def get_user_history(current_user=Depends(get_current_user)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to fetch user history: {e}")
 
-def get_table(record_type: str):
-    table = record_type
-    if not table:
-        raise HTTPException(status_code=400, detail="Invalid record type")
-    return table
-
-# GET record
-@router.get("/records/{record_type}/{record_id}")
-async def get_record(record_type: str, record_id: str, current_user=Depends(get_current_user)):
-    try:
-        table = get_table(record_type)
-        result = (
-            supabase.table(table)
-            .select("*")
-            .eq("id", record_id)
-            .eq("user_id", current_user.id)
-            .single()
-            .execute()
-        )
-
-        if not result.data:
-            raise HTTPException(status_code=404, detail=f"{record_type[:-1].capitalize()} not found")
-
-        return result.data
-
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error fetching {record_type}: {e}")
-
-
-# UPDATE record
-@router.put("/records/{record_type}/{record_id}")
-async def update_record(
-    record_type: str,
-    record_id: str,
-    payload: RecordUpdatePayload,
-    current_user=Depends(get_current_user)
-):
-    try:
-        table = get_table(record_type)
-
-        updates = {}
-        if payload.input_text is not None:
-            updates["input_text"] = payload.input_text
-        if payload.output_text is not None:
-            updates["output_text"] = payload.output_text
-        if payload.input_lang is not None:
-            updates["input_lang"] = payload.input_lang
-        if payload.output_lang is not None:
-            updates["output_lang"] = payload.output_lang
-        
-        if updates : 
-            updates["updated_at"] = "now()"
-
-        if not updates:
-            raise HTTPException(status_code=400, detail="No updates provided")
-
-        result = (
-            supabase.table(table)
-            .update(updates)
-            .eq("id", record_id)
-            .eq("user_id", current_user.id)
-            .execute()
-        )
-
-        if not result.data:
-            raise HTTPException(status_code=404, detail=f"{record_type[:-1].capitalize()} not found")
-
-        return result.data[0]
-
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error updating {record_type}: {e}")
-
-
-# DELETE record
-@router.delete("/records/{record_type}/{record_id}")
-async def delete_record(record_type: str, record_id: str, current_user=Depends(get_current_user)):
-    try:
-        table = get_table(record_type)
-
-        result = (
-            supabase.table(table)
-            .delete()
-            .eq("id", record_id)
-            .eq("user_id", current_user.id)
-            .execute()
-        )
-
-        if not result.data:
-            raise HTTPException(status_code=404, detail=f"{record_type[:-1].capitalize()} not found")
-
-        return {"message": f"{record_type[:-1].capitalize()} deleted successfully"}
-
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error deleting {record_type}: {e}")
 
 @router.post("/create-meeting")
 async def create_meeting(payload: CreateMeetingPayload, current_user=Depends(get_current_user)):

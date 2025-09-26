@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabaseClient';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from "lucide-react";
@@ -13,27 +12,9 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    async function fetchSession() {
-      const { data } = await supabase.auth.getSession();
-      setIsLoggedIn(!!data.session);
-    }
-    fetchSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  // currently using Supabase strongpw checking 
   function isStrongPassword(password) {
     const minLength = 8;
     const errors = [];
@@ -71,43 +52,52 @@ export default function Signup() {
     setLoading(true);
     setErrorMsg('');
 
-    // const result = isStrongPassword(password);
+    const result = isStrongPassword(password);
 
-    // if (!result.valid) {
-    //   setErrorMsg(result.message);
-    //   setLoading(false);
-    //   return;
-    // }
-
-    const { data: emailExists, error: errorEmailExist } = await supabase.rpc("email_exists", {
-      check_email: email,
-    });
-
-    if (errorEmailExist) {
-      setErrorMsg(errorEmailExist);
+    if (!result.valid) {
+      setErrorMsg(result.message);
       setLoading(false);
       return;
-    } else if (emailExists) {
-      setErrorMsg('This email is already registered. Please log in instead.');
-      setLoading(false);
-      return;
-    } else { // continue with creation of account if no existing account
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: name } },
+    }
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/signup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          full_name: name,
+        }),
       });
 
-      setLoading(false);
+      const data = await res.json();
 
-      if (error) {
-        setErrorMsg(error.message);
+      if (!res.ok) {
+        setErrorMsg(data.detail || "Something went wrong. Please try again.");
+        setLoading(false);
         return;
       }
 
-      // Success
-      setIsLoggedIn(true);
-      router.push('/login?from=signupSuccess&toast=signupSuccess');
+      if (data.status === "exists") {
+        setErrorMsg(data.message);
+        setLoading(false);
+        return;
+      }
+
+      if (data.status === "success") {
+        router.push("/login?from=signupSuccess&toast=signupSuccess");
+        return;
+      }
+
+      // Fallback for unexpected cases
+      setErrorMsg("Unexpected response from server.");
+    } catch (err) {
+      setErrorMsg(err.message || "An error occurred. Please try again.");
+    } finally {
+      setLoading(false);
     }
   }
 

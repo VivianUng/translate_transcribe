@@ -4,7 +4,6 @@ import { ArrowLeft } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
-import { supabase } from "@/lib/supabaseClient";
 
 export default function MeetingFormPage() {
     const router = useRouter();
@@ -156,20 +155,36 @@ export default function MeetingFormPage() {
             return;
         }
 
-        const { data, error } = await supabase.rpc("email_exists", { check_email: emailInput });
-        if (error) {
+        try {
+            const token = session.access_token;
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/email_exists/?email=${encodeURIComponent(emailInput)}`,
+                {
+                    method: "GET",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (!res.ok) {
+                throw new Error("Failed to check email");
+            }
+
+            const data = await res.json();
+
+            if (data.exists) {
+                setParticipants([...participants, emailInput]);
+                setEmailInput("");
+                setFormErrors((prev) => ({ ...prev, participants: "" }));
+            } else {
+                setFormErrors((prev) => ({ ...prev, participants: "This email is not registered." }));
+            }
+        } catch (error) {
             console.error(error);
             setFormErrors((prev) => ({ ...prev, participants: "Error checking email. Please try again." }));
-            return;
         }
 
-        if (data) {
-            setParticipants([...participants, emailInput]);
-            setEmailInput("");
-            setFormErrors((prev) => ({ ...prev, participants: "" }));
-        } else {
-            setFormErrors((prev) => ({ ...prev, participants: "This email is not registered." }));
-        }
     };
 
     const removeParticipant = (email) => {

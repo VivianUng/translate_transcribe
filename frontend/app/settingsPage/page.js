@@ -50,7 +50,6 @@ export default function SettingsPage() {
     }
   }, [session]);
 
-
   const fetchProfile = async () => {
     if (!session?.user) {
       console.error("No session or user found");
@@ -59,15 +58,21 @@ export default function SettingsPage() {
 
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", session.user.id)
-      .single();
+    try {
+      const token = session?.access_token;
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/profile`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    if (error) {
-      console.error(error);
-    } else {
+      if (!res.ok) {
+        throw new Error("Failed to fetch profile");
+      }
+
+      const data = await res.json();
+
       const normalized = {
         id: data?.id ?? session.user.id,
         name: data?.name ?? "",
@@ -82,9 +87,11 @@ export default function SettingsPage() {
       // set both to the same normalized object
       setProfile(normalized);
       setFormData(normalized);
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
 
@@ -97,33 +104,29 @@ export default function SettingsPage() {
     }
 
     try {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert({
-          id: formData.id,
-          name: formData.name,
-          email: formData.email,
-          auto_save_translations: formData.auto_save_translations,
-          auto_save_summaries: formData.auto_save_summaries,
-          auto_save_conversations: formData.auto_save_conversations,
-          auto_save_meetings: formData.auto_save_meetings,
-          default_language: formData.default_language,
-          updated_at: new Date().toISOString(),
-        });
-
-      if (profileError) throw profileError;
-
-      const { error: authError } = await supabase.auth.updateUser({
-        data: { full_name: formData.name },
+      const token = session?.access_token;
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
       });
 
-      if (authError) throw authError;
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Failed to update profile");
+      }
 
+      const data = await res.json();
+    
       setProfile(formData);
+      setFormData(formData);
 
-      toast.success("Profile updated successfully");
+      toast.success(data.message ||"Profile updated successfully");
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err.message || "Error updating profile");
     } finally {
       setLoading(false);
     }
@@ -262,8 +265,8 @@ export default function SettingsPage() {
 
       {/* Account Actions */}
       <div className="account-actions">
-        <button className="button changePw-button" onClick={changePassword} 
-        disabled={loading || loadingSendEmail || pwRequested}>
+        <button className="button changePw-button" onClick={changePassword}
+          disabled={loading || loadingSendEmail || pwRequested}>
           {loadingSendEmail ? "Sending Email..." : pwRequested ? "Email Sent" : "Change Password"}
         </button>
         <button className="button delete" onClick={deleteAccount}>

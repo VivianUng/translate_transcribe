@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional, List, Literal
 
 
@@ -53,6 +53,20 @@ class OCRResponse(BaseModel) :
 
 
 # Payloads for saving / updating database
+class SignupRequest(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: str
+
+class ProfileUpdateRequest(BaseModel):
+    name: str
+    email: str
+    auto_save_translations: bool = False
+    auto_save_summaries: bool = False
+    auto_save_conversations: bool = False
+    auto_save_meetings: bool = False
+    default_language: str = "en"
+
 class GenericSavePayload(BaseModel):
     input_text: str
     output_text: str
