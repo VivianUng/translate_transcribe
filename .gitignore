@@ -1,5 +1,17 @@
-backend/db/sessions/
-backend/__pycache__/
+# =========================
+# Python / Backend
+# =========================
+
+# Bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+env/
+venv/
 
 # Environment files
 .env
@@ -7,3 +19,57 @@ backend/__pycache__/
 .env.development
 .env.production
 backend/.env
+
+# Database / Session files
+backend/db/sessions/*
+
+# Logs / temp
+*.log
+*.tmp
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# Node.js / Frontend
+# =========================
+
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Next.js
+.next/
+out/
+
+# Production
+build/
+
+# Typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Misc
+.DS_Store
+*.pem
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Vercel
+.vercel
+
+# Frontend env files
+frontend/.env*

@@ -174,7 +174,7 @@ export default function SettingsPage() {
       });
 
       if (!res.ok) {
-        throw new Error(dataRes?.detail || "Failed to delete account");
+        throw new Error(res?.detail || "Failed to delete account");
       }
 
       // 4. Clear local session + redirect

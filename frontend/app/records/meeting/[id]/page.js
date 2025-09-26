@@ -32,13 +32,13 @@ export default function IndividualMeetingRecordPage() {
     const [translation, setTranslation] = useState("");
     const [summary, setSummary] = useState("");
 
-    // both are synced because in daabase ony stores one translation language
-    const [translationLang, setTranslationLang] = useState("en");
-    const [summaryLang, setSummaryLang] = useState("en");
-
-    const [recordData, setRecordData] = useState(null); // for change detection
     const [createdAt, setCreatedAt] = useState("");
     const [updatedAt, setUpdatedAt] = useState("");
+
+    // both summary and translationLang synced because in daabase ony stores one translation language
+    const [translationLang, setTranslationLang] = useState("en");
+
+    const [recordData, setRecordData] = useState(null); // for change detection
 
     const [lastProcessedTranslation, setLastProcessedTranslation] = useState({
         input: "",    // transcription used
@@ -48,9 +48,21 @@ export default function IndividualMeetingRecordPage() {
 
     const [lastProcessedSummary, setLastProcessedSummary] = useState({
         input: "",    // transcription used
-        lang: "",     // summaryLang
+        lang: "",     // translationLang
         output: ""    // summary result
     });
+
+    const matchesRecord =
+        transcription === recordData?.transcription &&
+        translationLang === recordData?.translationLang;
+
+    const matchesLastTranslate =
+        transcription === lastProcessedTranslation?.input &&
+        translationLang === lastProcessedTranslation?.lang;
+
+    const matchesLastSummary =
+        transcription === lastProcessedSummary?.input &&
+        translationLang === lastProcessedSummary?.lang;
 
     const [processing, setProcessing] = useState(false);
 
@@ -88,7 +100,7 @@ export default function IndividualMeetingRecordPage() {
                 setTranslation(data.translation || "");
                 setSummary(data.translated_summary || "");
                 setTranslationLang(data.translated_lang || "en");
-                setSummaryLang(data.translated_lang || "en");
+                //setSummaryLang(data.translated_lang || "en");
 
                 setCreatedAt(formatDateTimeFromTimestamp(data.created_at));
                 setUpdatedAt(formatDateTimeFromTimestamp(data.updated_at));
@@ -128,10 +140,9 @@ export default function IndividualMeetingRecordPage() {
             transcription !== recordData.transcription ||
             translation !== recordData.translation ||
             summary !== recordData.summary ||
-            translationLang !== recordData.translationLang ||
-            summaryLang !== recordData.summaryLang
+            translationLang !== recordData.translationLang
         );
-    }, [transcription, translation, summary, translationLang, summaryLang, recordData]);
+    }, [transcription, translation, summary, translationLang, recordData]);
 
 
     const handleRetranslate = async () => {
@@ -141,17 +152,9 @@ export default function IndividualMeetingRecordPage() {
         try {
             let result = "";
 
-            const matchesRecord =
-                transcription === recordData.transcription &&
-                translationLang === recordData.translationLang;
-
-            const matchesLast =
-                transcription === lastProcessedTranslation.input &&
-                translationLang === lastProcessedTranslation.lang;
-
             if (matchesRecord) {
                 result = recordData.translation;
-            } else if (matchesLast) {
+            } else if (matchesLastTranslate) {
                 result = lastProcessedTranslation.output;
             } else {
                 result = await translateText(transcription, "en", translationLang); // default for now always assume input lang is english
@@ -178,26 +181,18 @@ export default function IndividualMeetingRecordPage() {
         try {
             let result = "";
 
-            const matchesRecord =
-                transcription === recordData.transcription &&
-                summaryLang === recordData.summaryLang;
-
-            const matchesLast =
-                transcription === lastProcessedSummary.input &&
-                summaryLang === lastProcessedSummary.lang;
-
             if (matchesRecord) {
                 result = recordData.summary;
-            } else if (matchesLast) {
+            } else if (matchesLastSummary) {
                 result = lastProcessedSummary.output;
             } else {
-                result = await summarizeText(transcription, "en", summaryLang);
+                result = await summarizeText(transcription, "en", translationLang);
             }
 
             setSummary(result);
             setLastProcessedSummary({
                 input: transcription,
-                lang: summaryLang,
+                lang: translationLang,
                 output: result
             });
         } catch (err) {
@@ -349,8 +344,8 @@ export default function IndividualMeetingRecordPage() {
                                 {mounted && (
                                     <Select
                                         options={languages.filter((l) => l.value !== "auto")}
-                                        value={languages.find((opt) => opt.value === summaryLang)}
-                                        onChange={(opt) => setSummaryLang(opt.value)}
+                                        value={languages.find((opt) => opt.value === translationLang)}
+                                        onChange={(opt) => setTranslationLang(opt.value)}
                                         classNamePrefix="react-select"
                                     />
                                 )}

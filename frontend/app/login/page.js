@@ -11,54 +11,60 @@ export default function Login() {
   const router = useRouter();
 
   const searchParams = useSearchParams();
-  const toastParam = searchParams.get('toast');
+  const toastParam = searchParams.get('from');
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
-
-  useEffect(() => {
-    async function fetchSession() {
-      const { data } = await supabase.auth.getSession();
-      setIsLoggedIn(!!data.session);
-    }
-    fetchSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setIsLoggedIn(!!session);
-      }
-    );
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
 
   async function handleLogin(e) {
     e.preventDefault();
     setLoading(true);
     setErrorMsg("");
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      // Check if email exists
+      const { data: emailExists, error: errorEmailExist } = await supabase.rpc("email_exists", {
+        check_email: email,
+      });
 
-    setLoading(false);
+      if (errorEmailExist) {
+        setErrorMsg("Failed to verify email. Please try again.");
+        setLoading(false);
+        return;
+      }
 
-    if (error) {
-      setErrorMsg(error.message);
-    } else {
-      setIsLoggedIn(true);
-      router.push("/");
+      if (!emailExists) {
+        setErrorMsg("Account does not exist. Please sign up first.");
+        setLoading(false);
+        return;
+      }
+
+      // Attempt login
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      setLoading(false);
+
+      if (loginError) {
+        setErrorMsg("Wrong password. Please try again.");
+      } else {
+        router.push("/");
+      }
+    } catch (err) {
+      setErrorMsg("An unexpected error occurred. Please try again.");
+      setLoading(false);
+      console.error(err);
     }
   }
+
 
   async function handleForgotPw() {
     if (!email) {
@@ -106,7 +112,7 @@ export default function Login() {
           type="email"
           placeholder="Enter your email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => (setEmail(e.target.value), setErrorMsg(""))}
           required
           className="input-field login-input"
         />
@@ -119,7 +125,7 @@ export default function Login() {
             type={showPassword ? "text" : "password"}
             placeholder="Enter your password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => (setPassword(e.target.value), setErrorMsg(""))}
             required
             className="input-field login-input"
           />

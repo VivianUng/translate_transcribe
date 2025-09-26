@@ -495,13 +495,7 @@ export default function MeetingDetailsPage() {
     return (
         <div className="page-container">
             <button className="back-button"
-                onClick={() => {
-                    if (recordId) {
-                        router.push("/history");
-                    } else {
-                        router.push("/meeting");
-                    }
-                }}>
+                onClick={() => router.push("/meeting")}>
                 <ArrowLeft size={20} />
             </button>
             <h1 className="page-title">{getPageTitle()}</h1>

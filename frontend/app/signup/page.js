@@ -107,7 +107,7 @@ export default function Signup() {
 
       // Success
       setIsLoggedIn(true);
-      router.push('/login?toast=signupSuccess');
+      router.push('/login?from=signupSuccess&toast=signupSuccess');
     }
   }
 
