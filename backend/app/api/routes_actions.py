@@ -14,7 +14,7 @@ import io
 import subprocess
 import os
 from dotenv import load_dotenv
-from transformers import T5ForConditionalGeneration, T5Tokenizer
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, T5ForConditionalGeneration, T5Tokenizer
 
 from app.core.image_preprocessing import process_image_for_ocr
 from app.core.audio_preprocessing import preprocess_audio
@@ -32,6 +32,14 @@ router = APIRouter()
 
 LIBRETRANSLATE_URL = os.environ.get("LIBRETRANSLATE_URL")
 pytesseract.pytesseract.tesseract_cmd = os.environ.get("TESSERACT_PATH")
+
+# Load once when the app starts
+t5_tokenizer = T5Tokenizer.from_pretrained("t5-small")
+t5_model = T5ForConditionalGeneration.from_pretrained("t5-small")
+
+# Long input model (handles bigger context)
+long_tokenizer = AutoTokenizer.from_pretrained("google/long-t5-tglobal-base")
+long_model = AutoModelForSeq2SeqLM.from_pretrained("google/long-t5-tglobal-base")
 
 
 @router.get("/languages")
@@ -167,30 +175,38 @@ async def translate(
         output_lang=req.target_lang,
     )
 
+# select which model to use depending on input size
 @router.post("/summarize", response_model=SummarizeResponse)
 async def summarize(req: SummarizeRequest):
-    # Load T5 model and tokenizer once
-    MODEL_NAME = "t5-small"
-    tokenizer = T5Tokenizer.from_pretrained(MODEL_NAME)
-    model = T5ForConditionalGeneration.from_pretrained(MODEL_NAME)
-
     if not req.input_text.strip():
         raise HTTPException(status_code=400, detail="Input text is required.")
 
     try:
-        # Prepare T5 input
-        input_str = "summarize: " + req.input_text
+        input_text = req.input_text
+        char_length = len(input_text)
 
-        # Tokenize (increase max_length for long transcripts)
+        # Decide which model to use
+        if char_length <= 4000:  # short input
+            tokenizer, model = t5_tokenizer, t5_model
+            input_str = "summarize: " + input_text
+        else:  # long input
+            tokenizer, model = long_tokenizer, long_model
+            input_str = "summarize: " + input_text
+
+        # Tokenize
         inputs = tokenizer.encode(
-            input_str, return_tensors="pt", max_length=1024, truncation=True
+            input_str, return_tensors="pt", max_length=4096, truncation=True
         )
+        input_length = inputs.shape[1]
 
-        # Generate summary
+        # Dynamic summary length
+        min_len = max(30, int(input_length * 0.1))
+        max_len = min(500, int(input_length * 0.3))
+
         outputs = model.generate(
             inputs,
-            max_length=150,
-            min_length=50,
+            max_length=max_len,
+            min_length=min_len,
             length_penalty=2.0,
             num_beams=4,
             early_stopping=True
@@ -208,6 +224,7 @@ async def summarize(req: SummarizeRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to summarize text: {str(e)}")
+
 
 ## First version : only using pytesseract, fallback is to preprocess the image and try pytesseract again
 @router.post("/extract-text", response_model=OCRResponse)

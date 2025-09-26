@@ -181,10 +181,10 @@ export default function Translate() {
         inputText
       );
       setMessage(message);
-      setInputText(filteredText);
 
       if (!valid) return;
 
+      setInputText(filteredText);
       setInputLang(detectedLang);
 
       if (detectedLang === targetLang) {

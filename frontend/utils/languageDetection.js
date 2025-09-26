@@ -74,7 +74,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
 
   const limits = {
     translator: 9000,
-    summarizer: 15000,
+    summarizer: 30000,
     conversation: 25000,
     meetings: 70000,
     default: 9000,

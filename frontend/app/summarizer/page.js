@@ -102,10 +102,9 @@ export default function Summarizer() {
         inputText
       );
       setMessage(message);
-      setInputText(filteredText);
 
       if (!valid) return;
-
+      setInputText(filteredText);
       setInputLang(detectedLang);
 
       

@@ -28,6 +28,7 @@ a {
 .toast-container {
   top: 4.5rem !important;
   right: 1rem !important;
+  z-index: 11000 !important;
 }
 
 .toast-message {
