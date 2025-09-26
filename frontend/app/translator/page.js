@@ -107,7 +107,7 @@ export default function Translate() {
       preview.content = await file.text();
     } else if (file.type === "application/pdf") {
       preview.url = URL.createObjectURL(file);
-    } else if (file.type.startsWith("audio/")) {
+    } else if (file.type.startsWith("audio/") || file.type === "video/webm") {
       preview.url = URL.createObjectURL(file);
     }
 
@@ -126,7 +126,7 @@ export default function Translate() {
       ) {
         extractedText = await extractTextFromDocument(file, fileLang);
         setFileUploadMessage("Text extracted from document.");
-      } else if (file.type.startsWith("audio/")) {
+      } else if (file.type.startsWith("audio/") || file.type === "video/webm") {
         extractedText = await extractTextFromAudio(file, fileLang);
         setFileUploadMessage("Text extracted from audio.");
       } else {
@@ -156,11 +156,11 @@ export default function Translate() {
       acceptTypes =
         "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain";
     } else if (type === "audio") {
-      acceptTypes = "audio/*";
+      acceptTypes = "audio/*,video/webm";
     } else {
       // default: allow all
       acceptTypes =
-        "image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,audio/*";
+        "image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,audio/*,video/webm";
     }
 
     fileInputRef.current.setAttribute("accept", acceptTypes);
@@ -375,7 +375,7 @@ export default function Translate() {
                     )}
 
                     {/* Audio */}
-                    {previewFile.type.startsWith("audio/") && previewFile.url && (
+                    {(previewFile.type.startsWith("audio/") || previewFile.type === "video/webm") && previewFile.url && (
                       <audio controls src={previewFile.url} className="file-content audio">
                         Your browser does not support the audio element.
                       </audio>
@@ -392,7 +392,7 @@ export default function Translate() {
                       previewFile.type.startsWith("image/") ||
                       previewFile.type === "application/pdf" ||
                       previewFile.type === "text/plain" ||
-                      previewFile.type.startsWith("audio/") ||
+                      (previewFile.type.startsWith("audio/") || previewFile.type === "video/webm") ||
                       previewFile.type ===
                       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     ) && <p className="file-content unsupported">Preview not available for this file type</p>}
