@@ -95,6 +95,10 @@ a {
   margin: auto;
 }
 
+.button-group {
+  display: flex;
+}
+
 /* box sections within page */
 .section {
   flex: 1;
@@ -807,10 +811,7 @@ a {
 /* ===========================
           Records  Styles
    =========================== */
-.button-group {
-  display: flex;
-  gap: 12px;
-}
+
 
 .extra-action {
   border-radius: 15px;
@@ -856,13 +857,6 @@ a {
   border: none;
   border-top: 1px solid #eee;
 }
-
-.account-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-}
-
 
 /* ===========================
     Create Meetings  Styles

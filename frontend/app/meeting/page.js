@@ -206,7 +206,7 @@ export default function Meetings() {
                 </div>
               </div>
               {title === "Upcoming Meetings" && meeting.isHost && (
-                <div style={{ display: "flex", gap: "8px" }}>
+                <div className="button-group" style={{gap: "8px" }}>
                   <button
                     className="button update-btn meeting-button"
                     onClick={() => router.push(`/meeting/form?mode=update&id=${meeting.id}`)}
@@ -233,7 +233,6 @@ export default function Meetings() {
 
               {/* === Past Meetings buttons === */}
               {title === "Past Meetings" && (
-                <div style={{ display: "flex", gap: "8px" }}>
                   <button
                     className="button view-btn meeting-button"
                     onClick={() =>
@@ -242,7 +241,6 @@ export default function Meetings() {
                   >
                     View
                   </button>
-                </div>
               )}
 
             </div>

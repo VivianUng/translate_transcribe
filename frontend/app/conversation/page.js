@@ -9,6 +9,7 @@ import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { startMicRecording, startScreenRecording, stopRecording, } from "@/utils/transcription";
+import { generatePDF } from "@/utils/pdfGenerator";
 
 
 export default function ConversationPage() {
@@ -24,6 +25,7 @@ export default function ConversationPage() {
   const [autoSave, setAutoSave] = useState(false);
 
   const [isSaved, setIsSaved] = useState(false); // track if conversation is saved
+  const [isDownloaded, setIsDownloaded] = useState(false);
   const [lastTranslatedInput, setLastTranslatedInput] = useState("");
   const [lastTranslatedLang, setLastTranslatedLang] = useState("");
   const isProcessingTranscription =
@@ -63,6 +65,7 @@ export default function ConversationPage() {
   // Whenever input or target language changes, reset isSaved
   useEffect(() => {
     setIsSaved(false);
+    setIsDownloaded(false);
   }, [transcription, targetLang]);
 
   const prefsAppliedRef = useRef(false);
@@ -78,6 +81,7 @@ export default function ConversationPage() {
 
   function clearDisplay() {
     setIsSaved(false);
+    setIsDownloaded(false);
     setSaving(false);
     setTranslating(false);
     setTranscription("");
@@ -172,6 +176,20 @@ export default function ConversationPage() {
     }
   }
 
+const handleDownload = async () => {
+  try {
+    const data = {
+      Transcription: transcription,
+      Translation: translatedText,
+    };
+
+    await generatePDF(data, inputLang || "en", targetLang || "en");
+    setIsDownloaded(true);
+  } catch (error) {
+    console.error("PDF download failed:", error);
+  }
+};
+
   async function handleSaveConversation(
     input_text = transcription,
     output_text = translatedText
@@ -223,7 +241,7 @@ export default function ConversationPage() {
     <div className="page-container">
       <h1 className="page-title">Conversation</h1>
 
-      <div className="button-group" style={{ display: "flex", gap: "10px", marginBottom: "1rem" }}>
+      <div className="button-group">
         <button
           onClick={recordingType === "mic" && listening ? handleStop : handleMicStart}
           className="button conversation-button"
@@ -301,18 +319,27 @@ export default function ConversationPage() {
         </textarea>
       </section>
 
-      {isLoggedIn && transcription && (
-        <div>
-          <button
-            className="button save-conversation-button"
-            onClick={() => handleSaveConversation(transcription, translatedText)}
-            disabled={saving || translating || isSaved ||
-              transcription === "No speech detected."}
-          >
-            {saving ? "Saving..." : isSaved ? "Saved" : "Save Conversation"}
-          </button>
-        </div>
-      )}
+      <div className="button-group">
+        <button
+          className="button download-pdf-button"
+          onClick={handleDownload}
+          disabled={!transcription || !translatedText || isDownloaded}
+        >
+          Download PDF
+        </button>
+
+        {isLoggedIn && (
+            <button
+              className="button save-conversation-button"
+              onClick={() => handleSaveConversation(transcription, translatedText)}
+              disabled={saving || translating || isSaved || !transcription ||
+                transcription === "No speech detected."}
+            >
+              {saving ? "Saving..." : isSaved ? "Saved" : "Save Conversation"}
+            </button>
+        )}
+
+      </div>
     </div>
   );
 }

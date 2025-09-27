@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Dict
 
 
 class DetectLangRequest(BaseModel):
@@ -47,6 +47,10 @@ class SummarizeResponse(BaseModel):
 class OCRResponse(BaseModel) :
     extracted_text: str
 
+class PDFRequest(BaseModel): 
+    content: Dict[str, str] 
+    input_language: str = "en"
+    output_language: str = "en"
 
 
 

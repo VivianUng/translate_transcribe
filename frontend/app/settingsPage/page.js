@@ -266,7 +266,7 @@ export default function SettingsPage() {
       </section>
 
       {/* Account Actions */}
-      <div className="account-actions">
+      <div className="button-group">
         <button className="button changePw-button" onClick={changePassword}
           disabled={loading || loadingSendEmail || pwRequested}>
           {loadingSendEmail ? "Sending Email..." : pwRequested ? "Email Sent" : "Change Password"}

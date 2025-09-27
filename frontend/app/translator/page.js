@@ -10,6 +10,7 @@ import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { translateText } from "@/utils/translation";
 import { startMicRecording, stopRecording } from "@/utils/transcription";
 import { extractTextFromImage, extractTextFromDocument, extractTextFromAudio } from "@/utils/fileProcessing";
+import { generatePDF } from "@/utils/pdfGenerator";
 
 export default function Translate() {
   const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
@@ -28,6 +29,7 @@ export default function Translate() {
   const [previewFile, setPreviewFile] = useState(null);
   const [autoSave, setAutoSave] = useState(false);
   const [isSaved, setIsSaved] = useState(false); // track if translation is saved
+  const [isDownloaded, setIsDownloaded] = useState(false);
 
   const [lastTranslatedInput, setLastTranslatedInput] = useState("");
   const [lastTranslatedLang, setLastTranslatedLang] = useState("");
@@ -58,6 +60,7 @@ export default function Translate() {
   // Whenever input or target language changes, reset isSaved
   useEffect(() => {
     setIsSaved(false);
+    setIsDownloaded(false);
     setMessage("");
   }, [inputText, targetLang]);
 
@@ -74,6 +77,7 @@ export default function Translate() {
 
   function clearDisplay() {
     setIsSaved(false);
+    setIsDownloaded(false);
     setSaving(false);
     setTranslating(false);
     setProcessing(false);
@@ -167,6 +171,20 @@ export default function Translate() {
     fileInputRef.current.value = "";
     fileInputRef.current.click();
   }
+
+const handleDownload = async () => {
+  try {
+    const data = {
+      Input: inputText,
+      Translation: translatedText,
+    };
+
+    await generatePDF(data, inputLang || "en", targetLang || "en");
+    setIsDownloaded(true);
+  } catch (error) {
+    console.error("PDF download failed:", error);
+  }
+};
 
   async function handleTranslate() {
     setTranslating(true);
@@ -455,9 +473,18 @@ export default function Translate() {
           />
         </div>
 
-        {/* Save Translation (only if logged in) */}
-        {isLoggedIn && translatedText && (
-          <div>
+        <div className="button-group">
+          {/* Download PDF Button */}
+          <button
+            className="button download-pdf-button"
+            onClick={handleDownload}
+            disabled={!inputText || !translatedText || isDownloaded}
+          >
+            Download PDF
+          </button>
+
+          {/* Save Translation Button - only if logged in */}
+          {isLoggedIn && (
             <button
               className="button save-translation-button"
               onClick={() =>
@@ -468,12 +495,12 @@ export default function Translate() {
                   targetLang
                 )
               }
-              disabled={saving || processing || isSaved}
+              disabled={!inputText || !translatedText || saving || processing || isSaved}
             >
               {saving ? "Saving..." : isSaved ? "Saved" : "Save Translation"}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </>
   );

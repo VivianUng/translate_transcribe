@@ -590,7 +590,7 @@ export default function MeetingDetailsPage() {
                 {role === "host" && (
                     <>
                         {status === "ongoing" && (
-                            <div style={{ display: "flex", gap: "8px" }}>
+                            <div>
                                 <button
                                     className="button delete"
                                     onClick={handleEndMeeting}
@@ -602,7 +602,7 @@ export default function MeetingDetailsPage() {
                         )}
 
                         {status === "past" && (
-                            <div style={{ display: "flex", gap: "8px" }}>
+                            <div className="button-group">
                                 <button
                                     className="button save-btn"
                                     onClick={handleSaveMeeting}

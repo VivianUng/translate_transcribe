@@ -1,5 +1,5 @@
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-
+from fastapi.responses import FileResponse
 import httpx # libretranslate
 import pytesseract
 from paddleocr import PaddleOCR
@@ -16,13 +16,14 @@ import os
 from dotenv import load_dotenv
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, T5ForConditionalGeneration, T5Tokenizer
 
+from app.core.pdf_generator import generate_pdf
 from app.core.image_preprocessing import process_image_for_ocr
 from app.core.audio_preprocessing import preprocess_audio
 from app.core.language_codes import LanguageConverter
-from app.models import DetectLangRequest, DetectLangResponse, OCRResponse, SummarizeRequest, SummarizeResponse, TranscribeResponse, TranslateRequest, TranslateResponse
+from app.models import DetectLangRequest, DetectLangResponse, OCRResponse, SummarizeRequest, SummarizeResponse, TranscribeResponse, TranslateRequest, TranslateResponse, PDFRequest
 
 # from pyannote.audio import Pipeline
-# import tempfile
+import tempfile
 # import whisper
 # import wave
 # import torch
@@ -346,6 +347,25 @@ async def extract_doc_text(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/generate-pdf")
+async def generate_pdf_route(request: PDFRequest):
+    try:
+        # Create a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+            tmp_filename = tmp_file.name
+
+        # Generate the PDF
+        generate_pdf(request.content, tmp_filename, request.input_language, request.output_language)
+
+        # Return as downloadable response
+        return FileResponse(
+            tmp_filename,
+            media_type="application/pdf",
+            filename="generated_output.pdf",
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # # # after complete recording then transcribe 
