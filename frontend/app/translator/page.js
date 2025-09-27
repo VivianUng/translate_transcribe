@@ -300,12 +300,19 @@ export default function Translate() {
                   classNamePrefix="react-select"
                 />
               )}
+              {/* Mic icon */}
+              <div
+                className="mic-icon"
+                title={listening ? "Stop Recording" : "Start Recording"}
+                onClick={handleMicInput}
+              >
+                {listening ? "⏹️" : "🎙️"}
+              </div>
             </div>
 
             {/* Textarea */}
             <textarea
-              className="input-text-area"
-              rows={8}
+              className="text-area"
               value={inputText}
               onChange={(e) => {
                 setInputText(e.target.value);
@@ -313,15 +320,6 @@ export default function Translate() {
               }}
               placeholder="Type text to translate"
             />
-
-            {/* Mic icon */}
-            <div
-              className="mic-icon"
-              title={listening ? "Stop Recording" : "Start Recording"}
-              onClick={handleMicInput}
-            >
-              {listening ? "⏹️" : "🎙️"}
-            </div>
 
             {/* Message */}
             <div className="message" role="alert" aria-live="assertive">
@@ -428,18 +426,8 @@ export default function Translate() {
           </div>
         </div>
 
-        {/* Translate Button */}
-        <button
-          className="button translate-button"
-          onClick={handleTranslate}
-          disabled={translateDisabled}
-          title={translateDisabledReason}
-        >
-          {translating ? "Translating..." : "Translate"}
-        </button>
-
         {/* Translation Output */}
-        <div className="section" style={{ marginTop: "1rem" }}>
+        <div className="section">
           <div className="section-header">
             <span>Translation</span>
             {mounted && (
@@ -450,14 +438,21 @@ export default function Translate() {
                 classNamePrefix="react-select"
               />
             )}
+            {/* Translate Button */}
+            <button
+              className="button sectionhead translate-button"
+              onClick={handleTranslate}
+              disabled={translateDisabled}
+              title={translateDisabledReason}
+            >
+              {translating ? "Translating..." : "Translate"}
+            </button>
           </div>
-          <div
-            className={`translation-result ${!translatedText ? "placeholder" : ""
-              }`}
-            tabIndex={0}
-          >
-            {translatedText || "Translation will appear here...."}
-          </div>
+          <textarea
+            className={`text-area ${!translatedText ? "placeholder" : ""}`}
+            value={translatedText || "Translation will appear here...."}
+            readOnly
+          />
         </div>
 
         {/* Save Translation (only if logged in) */}

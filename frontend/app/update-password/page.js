@@ -96,7 +96,7 @@ export default function UpdatePassword() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          className="updatePw-input"
+          className="input-field"
         />
 
         <label className="input-label" htmlFor="confirmPassword">Confirm Password</label>
@@ -108,7 +108,7 @@ export default function UpdatePassword() {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           required
-          className="updatePw-input"
+          className="input-field"
         />
 
         <button

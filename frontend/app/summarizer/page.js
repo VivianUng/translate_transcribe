@@ -107,7 +107,7 @@ export default function Summarizer() {
       setInputText(filteredText);
       setInputLang(detectedLang);
 
-      
+
       const summary = await summarizeText(filteredText, detectedLang, targetLang);
       setSummarizedText(summary);
 
@@ -186,10 +186,16 @@ export default function Summarizer() {
               classNamePrefix="react-select"
             />
           )}
+          <div
+            className="mic-icon"
+            title={listening ? "Stop Recording" : "Start Recording"}
+            onClick={handleMicInput}
+          >
+            {listening ? "⏹️" : "🎙️"}
+          </div>
         </div>
         <textarea
-          className="input-text-area"
-          rows={8}
+          className="text-area"
           value={inputText}
           onChange={(e) => {
             setInputText(e.target.value);
@@ -197,13 +203,6 @@ export default function Summarizer() {
           }}
           placeholder="Type text to sumarize"
         />
-        <div
-          className="mic-icon"
-          title={listening ? "Stop Recording" : "Start Recording"}
-          onClick={handleMicInput}
-        >
-          {listening ? "⏹️" : "🎙️"}
-        </div>
 
         {/* Message displayed below the box */}
         <div className="message" role="alert" aria-live="assertive">
@@ -223,22 +222,20 @@ export default function Summarizer() {
               classNamePrefix="react-select"
             />
           )}
+          <button
+            className="button sectionhead summarize-button"
+            onClick={handleSummarize}
+            disabled={loading || !inputText || !inputText.trim() ||
+              (inputText === lastSummarizedInput && targetLang === lastSummarizedLang)}
+          >
+            {loading ? "Summarizing..." : "Summarize"}
+          </button>
         </div>
-        <div
-          className={`summary-result ${!summarizedText ? "placeholder" : ""}`}
-          tabIndex={0}
-        >
-
-          {summarizedText || "Summary will appear here...."}
-        </div>
-        <button
-          className="button summarize-button"
-          onClick={handleSummarize}
-          disabled={loading || !inputText || !inputText.trim() ||
-            (inputText === lastSummarizedInput && targetLang === lastSummarizedLang)}
-        >
-          {loading ? "Summarizing..." : "Summarize"}
-        </button>
+        <textarea
+          className={`text-area ${!summarizedText ? "placeholder" : ""}`}
+          value={summarizedText || "Summary will appear here...."}
+          readOnly
+        />
       </section>
       {isLoggedIn && summarizedText && (
         <div>

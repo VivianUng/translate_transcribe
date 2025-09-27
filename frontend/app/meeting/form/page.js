@@ -268,7 +268,7 @@ export default function MeetingFormPage() {
 
             <div className="section">
                 {/* Meeting Name */}
-                <h3 className="input-label">Meeting Name</h3>
+                <label className="input-label">Meeting Name</label>
                 <input
                     className={`input-field ${formErrors.name ? "input-error" : ""}`}
                     type="text"
@@ -284,7 +284,7 @@ export default function MeetingFormPage() {
                 {/* Date & Time */}
                 <div className="date-time-grid">
                     <div>
-                        <h3 className="input-label">Date</h3>
+                        <label className="input-label">Date</label>
                         <input
                             className={`input-field ${formErrors.date ? "input-error" : ""}`}
                             type="date"
@@ -299,7 +299,7 @@ export default function MeetingFormPage() {
                     </div>
 
                     <div>
-                        <h3 className="input-label">Start Time</h3>
+                        <label className="input-label">Start Time</label>
                         <input
                             className={`input-field ${formErrors.start ? "input-error" : ""}`}
                             type="time"
@@ -310,7 +310,7 @@ export default function MeetingFormPage() {
                     </div>
 
                     <div>
-                        <h3 className="input-label">End Time</h3>
+                        <label className="input-label">End Time</label>
                         <input
                             className={`input-field ${formErrors.end ? "input-error" : ""}`}
                             type="time"
@@ -324,7 +324,7 @@ export default function MeetingFormPage() {
                 <hr className="divider" />
 
                 {/* Participants */}
-                <h3 className="input-label">Participants</h3>
+                <label className="input-label">Participants</label>
                 <div className="participant-input">
                     <input
                         className={`input-field ${formErrors.participants ? "input-error" : ""}`}

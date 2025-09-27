@@ -199,7 +199,7 @@ export default function SettingsPage() {
 
         {/* Profile */}
         <div className="input-group">
-          <label>Name</label>
+          <label className="input-label">Name</label>
           <input
             type="text"
             value={formData.name}
@@ -208,12 +208,13 @@ export default function SettingsPage() {
           />
         </div>
         <div className="input-group">
-          <label>Email (fixed)</label>
+          <label className="input-label">Email</label>
           <input
             type="email"
             value={profile.email}
             disabled
             className="input-field input-disabled"
+            title="Email cannot be changed"
           />
         </div>
 
@@ -240,13 +241,14 @@ export default function SettingsPage() {
 
         {/* Language */}
         <div className="input-group">
-          <label>Default Language</label>
+          <label className="input-label">Default Language</label>
           {mounted && (
             <Select
               options={languages.filter(opt => opt.value !== "auto")}
               value={languages.find((opt) => opt.value === formData.default_language)}
               onChange={(opt) => setFormData({ ...formData, default_language: opt.value })}
               classNamePrefix="react-select"
+              className="react-select"
             />
           )}
         </div>

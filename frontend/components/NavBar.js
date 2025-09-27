@@ -3,31 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+
+import useAuthCheck from "@/hooks/useAuthCheck";
 import { supabase } from '../lib/supabaseClient';
 import logo from "./icons/main_icon.png";
 
 export default function NavBar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    // Check current session
-    const session = supabase.auth.getSession();
-    session.then(({ data }) => {
-      setIsLoggedIn(!!data.session);
-    });
-
-    // Subscribe to auth changes
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session);
-    });
-
-    return () => {
-      listener.subscription?.unsubscribe();
-    };
-  }, []);
+  const { isLoggedIn, loading } = useAuthCheck({ redirectIfNotAuth: false, returnSession: false });
   
   const loggedInLinks = [
     { href: "/conversation", label: "Conversation" },
@@ -49,7 +33,6 @@ export default function NavBar() {
   const handleLoginLogout = async () => {
     if (isLoggedIn) {
       await supabase.auth.signOut();
-      setIsLoggedIn(false);
       router.push("/");
     } else {
       // Redirect to login page

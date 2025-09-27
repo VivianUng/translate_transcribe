@@ -67,7 +67,7 @@ a {
   padding: 0.7rem 2rem;
   font-size: 1.1rem;
   cursor: pointer;
-  box-shadow: 0 4px 8px rgba(108, 99, 255, 0.4);
+  box-shadow: 0 4px 8px color-mix(in srgb, var(--secondary-color) 40%, transparent);
   transition: background 0.3s ease;
 }
 
@@ -83,11 +83,16 @@ a {
 
 .button.delete {
   background: #e53e3e;
+  box-shadow: none;
   color: #fff;
 }
 
 .button.delete:hover {
   background: #c53030;
+}
+
+.button.sectionhead {
+  margin: auto;
 }
 
 /* box sections within page */
@@ -128,28 +133,24 @@ a {
   text-decoration: underline;
 }
 
-.translation-result,
-.summary-result {
+.text-area {
   background: #f1edfa;
+  flex-grow: 1;
   border-radius: 10px;
   padding: 1rem;
-  box-shadow: 0 0 8px #ddd;
-  margin-top: 1rem;
-  min-height: 120px;
+  min-height: 180px;
   font-size: 1rem;
   white-space: pre-wrap;
   line-height: 1.4;
+  border: none;
+  resize: vertical;
+  outline: 2px solid var(--navbar-color);
+  overflow: auto;
+  font-family: inherit;
 }
 
-.input-text-area {
-  flex-grow: 1;
-  resize: vertical;
-  border-radius: 10px;
-  border: 1px solid #ccc;
-  padding: 0.5rem;
-  font-size: 1rem;
-  font-family: inherit;
-  background: white;
+.text-area:focus {
+  outline: 2px solid var(--secondary-color);
 }
 
 .save-checkbox {
@@ -162,10 +163,7 @@ a {
 }
 
 /* styles for one-line input fields */
-.input-field,
-.login-input,
-.signup-input,
-.updatePw-input {
+.input-field {
   width: 100%;
   padding: 0.75rem 1rem;
   margin-top: 0.5rem;
@@ -178,18 +176,12 @@ a {
   box-sizing: border-box;
 }
 
-.input-field:hover,
-.login-input:hover,
-.signup-input:hover,
-.updatePw-input:hover {
+.input-field:hover {
   border-color: #888;
 }
 
 /* Highlight when typing */
-.input-field:focus,
-.login-input:focus,
-.signup-input:focus,
-.updatePw-input:focus {
+.input-field:focus {
   outline: none;
   border-color: var(--secondary-color);
   box-shadow: 0 0 0 3px var(--navbar-color);
@@ -225,6 +217,16 @@ a {
   border-radius: 8px !important;
   font-size: 16px !important;
   max-width: 100%;
+  min-width: 215px;
+  width: auto !important;
+}
+
+/* When screen is too small, allow shrinking */
+@media (max-width: 600px) {
+  .react-select__control {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
 }
 
 .react-select__control:hover {
@@ -238,6 +240,11 @@ a {
 
 .react-select__dropdown-indicator:hover {
   color: var(--navbar-color) !important;
+}
+
+.react-select__menu {
+  min-width: 120px;
+  max-width: 100%;
 }
 
 .react-select__option--is-focused {
@@ -360,38 +367,15 @@ a {
 /* ==========================
    Conversation Page Styles
    ========================== */
-
-/*transcription display field*/
-.conversation-text {
-  white-space: pre-wrap;
-  min-height: 100px;
-  margin-bottom: 10px;
-  padding: 10px;
-  background: #fff;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-}
-
 /* --- Audio Container --- */
 .audio-container {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  min-height: 3rem;
-}
-
-/* --- Audio Element --- */
-.audio-container audio {
-  flex: 1;
-  outline: none;
-  border-radius: 0.25rem;
-}
-
-/* --- Placeholder (when no audio) --- */
-.audio-placeholder {
   width: 100%;
+}
+
+.audio-container audio {
   height: 2.5rem;
+  width: 100%;
 }
 
 /* ===========================
@@ -401,15 +385,12 @@ a {
 .translator-top-row {
   display: flex;
   gap: 1rem;
-  margin-bottom: 1rem;
 }
 
 
 .mic-icon {
-  margin-top: 0.5rem;
-  font-size: 1.5rem;
-  color: #666;
-  align-self: flex-end;
+  font-size: 1.6rem;
+  margin-left: auto;
   cursor: pointer;
 }
 
@@ -587,7 +568,15 @@ a {
 /* ===========================
       Meeting Ongoing Styles
    =========================== */
-/* Layout for ongoing meeting page */
+.global-controls {
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+}
+
 .ongoing-meeting-layout {
   display: flex;
   gap: 1rem;
@@ -637,43 +626,12 @@ a {
   min-height: 0;
 }
 
-/* Scrollable content box */
-.scrollable-box {
-  flex: 1;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 0.75rem;
-  overflow-y: auto;
-  background-color: #fafafa;
-  min-height: 0;
-}
-
 .scroll-button {
   position: absolute;
-  bottom: 0.5rem;
-  right: 0.5rem;
+  bottom: 0rem;
+  right: 0.9rem;
   padding: 0.25rem 0.5rem;
   font-size: 0.85rem;
-  border-radius: 4px;
-  background-color: var(--secondary-color);
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.scroll-button:hover {
-  background-color: var(--tertiary-color);
-}
-
-/* Preformatted text inside sections */
-.section-content {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-family: inherit;
-  font-size: 0.95rem;
-  line-height: 1.4;
-  margin: 0;
 }
 
 /* Host-only recording indicator */
@@ -864,22 +822,37 @@ a {
 /* ===========================
           Settings  Styles
    =========================== */
+/*Input fields*/
+.input-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.input-group .input-label {
+  flex: 0 0 40px;
+}
+
+.input-group .react-select {
+  flex: 1;
+}
+
 /* Checkbox group */
 .checkbox-group {
   display: flex;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .checkbox-group input {
-  margin-right: 10px;
+  margin: 0 10px 0 0;
   width: 18px;
   height: 18px;
   accent-color: var(--secondary-color);
 }
 
 .divider {
-  margin: 1.5rem 0;
+  margin: 1rem 0;
   border: none;
   border-top: 1px solid #eee;
 }
@@ -888,7 +861,6 @@ a {
   display: flex;
   gap: 1rem;
   justify-content: center;
-  margin-bottom: 2rem;
 }
 
 

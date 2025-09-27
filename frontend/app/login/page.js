@@ -114,7 +114,7 @@ export default function Login() {
           value={email}
           onChange={(e) => (setEmail(e.target.value), setErrorMsg(""))}
           required
-          className="input-field login-input"
+          className="input-field input-field"
         />
 
         <div className="password-container" style={{ position: "relative" }}>
@@ -127,7 +127,7 @@ export default function Login() {
             value={password}
             onChange={(e) => (setPassword(e.target.value), setErrorMsg(""))}
             required
-            className="input-field login-input"
+            className="input-field input-field"
           />
 
           <button

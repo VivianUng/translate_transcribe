@@ -48,6 +48,22 @@ export const formatDateFromTimestamp = (timestamp) => {
 };
 
 /**
+ * Format a full timestamp into a human-readable string
+ * Example: "2025-09-24T13:45:30.000Z" → "Wed, Sep 24, 2025"
+ */
+export const formatPrettyDateFromTimestamp = (timestamp) => {
+  if (!timestamp) return "";
+
+  return new Date(timestamp).toLocaleDateString(undefined, {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+
+
+/**
  * Format a full timestamp (created_at) into local time
  * Example: "2025-09-24T13:45:30.000Z" → "9:45:30 PM"
  */

@@ -15,7 +15,7 @@ import { supabase } from "@/lib/supabaseClient";
 export default function MeetingDetailsPage() {
     const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
     const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_meetings",]);
-    
+
     const searchParams = useSearchParams();
     const meetingId = searchParams.get("id");
 
@@ -576,14 +576,14 @@ export default function MeetingDetailsPage() {
             <div className="meeting-actions">
                 {/* Shared checkbox for host & participant when meeting is ongoing */}
                 {(role === "host" || role === "participant") && status === "ongoing" && (
-                    <label style={{ display: "block", marginBottom: "8px" }}>
+                    <div className="checkbox-group">
                         <input
                             type="checkbox"
                             checked={autoSave}
                             onChange={(e) => setAutoSave(e.target.checked)}
                         />
-                        Save automatically when meeting ends
-                    </label>
+                        <label>Save automatically when meeting ends</label>
+                    </div>
                 )}
 
                 {/* Host actions */}

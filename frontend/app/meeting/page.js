@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
-import { formatDate, formatTime } from "@/utils/dateTime";
+import { formatDate, formatTime, formatPrettyDateFromTimestamp, formatTimeFromTimestamp } from "@/utils/dateTime";
 
 export default function Meetings() {
   const router = useRouter();
@@ -21,7 +21,6 @@ export default function Meetings() {
     try {
       setFetching(true);
 
-      // 1. Get Supabase JWT token
       const token = session?.access_token;
       if (!token) {
         alert("You must be logged in to view meetings.");
@@ -51,7 +50,7 @@ export default function Meetings() {
       const upcoming = [];
       const past = [];
 
-      data.forEach((meeting) => {
+      for (const meeting of data) {
         const isHost = meeting.host_id === session.user.id;
 
         const meetingData = {
@@ -63,28 +62,77 @@ export default function Meetings() {
           formattedEndTime: formatTime(meeting.end_time),
         };
 
+        meetingData.startAt = new Date(`${meeting.date}T${meeting.start_time}`);
+        meetingData.endAt = new Date(`${meeting.date}T${meeting.end_time}`);
+
         const status = meeting.status?.toLowerCase();
 
         if (status === "past") {
+          try {
+            const res = await fetch(
+              `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meeting.id}/details`,
+              {
+                method: "GET",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${session?.access_token}`,
+                },
+              }
+            );
+
+            const details = await res.json();
+
+            if (details.actual_start_time) {
+              meetingData.startAt = new Date(details.actual_start_time);
+              meetingData.formattedDate = formatPrettyDateFromTimestamp(details.actual_start_time);
+              meetingData.formattedStartTime = formatTimeFromTimestamp(details.actual_start_time);
+            }
+            if (details.actual_end_time) {
+              meetingData.endAt = new Date(details.actual_end_time);
+              meetingData.formattedEndTime = formatTimeFromTimestamp(details.actual_end_time);
+            }
+
+          } catch (err) {
+            console.error("Failed to fetch meeting details", err);
+          }
           past.push(meetingData);
-        } else if (status === "ongoing") {
+        }
+        else if (status === "ongoing") {
+          try {
+            const res = await fetch(
+              `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meeting.id}/details`,
+              {
+                method: "GET",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${session?.access_token}`,
+                },
+              }
+            );
+
+            const details = await res.json();
+
+            if (details.actual_start_time) {
+              meetingData.startAt = new Date(details.actual_start_time);
+              meetingData.formattedDate = formatPrettyDateFromTimestamp(details.actual_start_time);
+              meetingData.formattedStartTime = formatTimeFromTimestamp(details.actual_start_time);
+            }
+            meetingData.endAt = "";
+            meetingData.formattedEndTime = "";
+
+          } catch (err) {
+            console.error("Failed to fetch meeting details", err);
+          }
           ongoing.push(meetingData);
-        } else if (status === "upcoming") {
+        }
+        else if (status === "upcoming") {
           upcoming.push(meetingData);
         }
-      });
+      }
 
-      // Helper: combine date + time into Date object for sorting
-      const makeDateTime = (dateStr, timeStr) => {
-        if (!dateStr || !timeStr) return 0;
-        const cleanTime = timeStr.replace(/\+\d+$/, ""); // remove "+00" or any +offset
-        return new Date(`${dateStr}T${cleanTime}`);
-      };
-
-      // Sort arrays
-      ongoing.sort((a, b) => makeDateTime(a.date, a.start_time) - makeDateTime(b.date, b.start_time));   // soonest start first
-      upcoming.sort((a, b) => makeDateTime(a.date, a.start_time) - makeDateTime(b.date, b.start_time));  // soonest start first
-      past.sort((a, b) => makeDateTime(b.date, b.end_time) - makeDateTime(a.date, a.end_time));          // most recent ended first
+      ongoing.sort((a, b) => a.startAt - b.startAt);    // soonest start first
+      upcoming.sort((a, b) => a.startAt - b.startAt);   // soonest start first
+      past.sort((a, b) => b.endAt - a.endAt);           // most recent ended first
 
 
       // 4. Update state
@@ -98,7 +146,7 @@ export default function Meetings() {
 
   const handleStartMeeting = async (meetingId) => {
     try {
-      // Get Supabase JWT token
+
       const token = session?.access_token;
       if (!token) {
         alert("You must be logged in to view meetings.");

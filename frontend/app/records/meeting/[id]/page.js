@@ -35,7 +35,6 @@ export default function IndividualMeetingRecordPage() {
     const [createdAt, setCreatedAt] = useState("");
     const [updatedAt, setUpdatedAt] = useState("");
 
-    // both summary and translationLang synced because in daabase ony stores one translation language
     const [translationLang, setTranslationLang] = useState("en");
 
     const [recordData, setRecordData] = useState(null); // for change detection
@@ -100,7 +99,6 @@ export default function IndividualMeetingRecordPage() {
                 setTranslation(data.translation || "");
                 setSummary(data.translated_summary || "");
                 setTranslationLang(data.translated_lang || "en");
-                //setSummaryLang(data.translated_lang || "en");
 
                 setCreatedAt(formatDateTimeFromTimestamp(data.created_at));
                 setUpdatedAt(formatDateTimeFromTimestamp(data.updated_at));
@@ -113,7 +111,7 @@ export default function IndividualMeetingRecordPage() {
                     );
                     const hostData = await hostRes.json();
                     setMeetingHost(hostData.host.name || "");
-                }
+                } else { setMeetingHost("Unavailable"); } // if meeting hosts account no longer exists
 
                 // save original record for change detection
                 setRecordData({
@@ -289,7 +287,32 @@ export default function IndividualMeetingRecordPage() {
                         {date} | {startTime} - {endTime}
                     </p>
                 </div>
-
+                {/* Global Controls */}
+                <div className="section global-controls">
+                    <label>Language:</label>
+                    {mounted && (
+                        <Select
+                            options={languages.filter((l) => l.value !== "auto")}
+                            value={languages.find((opt) => opt.value === translationLang)}
+                            onChange={(opt) => setTranslationLang(opt.value)}
+                            classNamePrefix="react-select"
+                        />
+                    )}
+                    <button
+                        className="button extra-action"
+                        disabled={processing}
+                        onClick={handleRetranslate}
+                    >
+                        {processing ? "Processing..." : "Retranslate"}
+                    </button>
+                    <button
+                        className="button extra-action"
+                        disabled={processing}
+                        onClick={handleResummarize}
+                    >
+                        {processing ? "Processing..." : "Resummarize"}
+                    </button>
+                </div>
                 <div className="ongoing-meeting-layout">
                     {/* Left column */}
                     <div className="ongoing-meeting-left">
@@ -309,22 +332,6 @@ export default function IndividualMeetingRecordPage() {
                         <div className="section translation-section">
                             <div className="section-header">
                                 <span>Translation</span>
-
-                                {mounted && (
-                                    <Select
-                                        options={languages.filter((l) => l.value !== "auto")}
-                                        value={languages.find((opt) => opt.value === translationLang)}
-                                        onChange={(opt) => setTranslationLang(opt.value)}
-                                        classNamePrefix="react-select"
-                                    />
-                                )}
-                                <button
-                                    className="button extra-action"
-                                    disabled={processing}
-                                    onClick={handleRetranslate}
-                                >
-                                    {processing ? "Processing..." : "Retranslate"}
-                                </button>
                             </div>
                             <StickyScrollBox
                                 content={translation}
@@ -341,27 +348,12 @@ export default function IndividualMeetingRecordPage() {
                         <div className="section summary-section">
                             <div className="section-header">
                                 <span>Summary</span>
-                                {mounted && (
-                                    <Select
-                                        options={languages.filter((l) => l.value !== "auto")}
-                                        value={languages.find((opt) => opt.value === translationLang)}
-                                        onChange={(opt) => setTranslationLang(opt.value)}
-                                        classNamePrefix="react-select"
-                                    />
-                                )}
                             </div>
                             <StickyScrollBox
                                 content={summary}
                                 editable={true}
                                 onChange={setSummary}
                             />
-                            <button
-                                className="button extra-action"
-                                disabled={processing}
-                                onClick={handleResummarize}
-                            >
-                                {processing ? "Processing..." : "Resummarize"}
-                            </button>
                         </div>
                     </div>
                 </div>

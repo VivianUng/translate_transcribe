@@ -120,7 +120,7 @@ export default function Signup() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          className="login-input"
+          className="input-field"
         />
 
         <label className="input-label" htmlFor="email">Email address</label>
@@ -132,7 +132,7 @@ export default function Signup() {
           value={email}
           onChange={(e) => { setEmail(e.target.value); setErrorMsg(""); }}
           required
-          className="login-input"
+          className="input-field"
         />
 
         <div className="password-container" style={{ position: "relative" }}>
@@ -145,7 +145,7 @@ export default function Signup() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="input-field login-input"
+            className="input-field input-field"
           />
 
           <button

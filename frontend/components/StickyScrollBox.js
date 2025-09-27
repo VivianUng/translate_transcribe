@@ -23,21 +23,20 @@ export default function StickyScrollBox({
       {editable ? (
         <textarea
           ref={ref}
-          className="scrollable-box editable-box"
+          className="text-area"
           value={content || ""}
           placeholder={placeholder}
           onChange={(e) => onChange?.(e.target.value)}
         />
       ) : (
-        <div className="scrollable-box" ref={ref}>
-          <pre className="section-content">
-            {content || placeholder}
-          </pre>
-        </div>
+        <textarea className="text-area" ref={ref}
+          value={content || ""} 
+          placeholder={placeholder} 
+          readOnly />
       )}
 
       {!isAtBottom && (
-        <button className="scroll-button" onClick={handleScrollToBottom}>
+        <button className="button scroll-button" onClick={handleScrollToBottom}>
           ↓ Scroll to bottom
         </button>
       )}

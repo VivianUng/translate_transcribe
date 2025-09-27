@@ -33,7 +33,6 @@ export default function RecordDetailsPage() {
         conversation: "conversations",
         translation: "translations",
         summary: "summaries",
-        meeting: "meetings",
     };
 
     // Safe lookup
@@ -318,19 +317,18 @@ export default function RecordDetailsPage() {
                         )}
                     </div>
                     <textarea
-                        className="input-text-area"
+                        className="text-area"
                         value={formData.input_text}
                         onChange={(e) =>
                             setFormData({ ...formData, input_text: e.target.value })
                         }
-                        rows={8}
                     />
                 </section>
 
                 {/* Output */}
                 <section className="section">
                     <div className="section-header">
-                        <span>Output</span>
+                        <span>{type === "summary" ? "Summary" : "Translation"}</span>
 
                         {mounted &&
                             (type === "conversation" ||
@@ -355,7 +353,7 @@ export default function RecordDetailsPage() {
                                 onClick={handleExtraAction}
                                 disabled={actionDisabled}
                                 title={actionDisabledReason}
-                                className="button"
+                                className="button sectionhead"
                             >
                                 {processing
                                     ? "Processing..."
@@ -367,12 +365,11 @@ export default function RecordDetailsPage() {
                     </div>
 
                     <textarea
-                        className="input-text-area"
+                        className="text-area"
                         value={formData.output_text}
                         onChange={(e) =>
                             setFormData({ ...formData, output_text: e.target.value })
                         }
-                        rows={8}
                     />
                 </section>
 

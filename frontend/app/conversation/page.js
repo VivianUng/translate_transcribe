@@ -39,7 +39,7 @@ export default function ConversationPage() {
   const screenRecorderRef = useRef(null);
   const screenStreamRef = useRef(null);
   const audioChunks = useRef([]);
-  const [audioURL, setAudioURL] = useState(null); // for playback/download
+  const [audioURL, setAudioURL] = useState(null); // for playback
 
   const [mounted, setMounted] = useState(false);
 
@@ -181,7 +181,6 @@ export default function ConversationPage() {
     setSaving(true);
 
     try {
-      // get Supabase JWT token
       const token = session?.access_token;
       if (!token) {
         alert("You must be logged in to save conversations.");
@@ -253,30 +252,17 @@ export default function ConversationPage() {
               classNamePrefix="react-select"
             />
           )}
+          {/* --- Audio Playback Container --- */}
+          <div className="audio-container">
+            {audioURL && <audio controls src={audioURL}></audio>}
+          </div>
 
         </div>
-        <div className="conversation-text">{transcription || "..."}</div>
-
-        {/* --- Audio Playback / Download Container --- */}
-        <div className="audio-container">
-          {audioURL ? (
-            <>
-              <audio controls src={audioURL}></audio>
-              <button className="button download-audio"
-                onClick={() => {
-                  const link = document.createElement("a");
-                  link.href = audioURL;
-                  link.download = "recording.webm";
-                  link.click();
-                }}
-              >
-                Download Recording
-              </button>
-            </>
-          ) : (
-            <div className="audio-placeholder">&nbsp;</div>
-          )}
-        </div>
+        <textarea
+          className={`text-area ${!transcription ? "placeholder" : ""}`}
+          value={transcription || "Transcription will appear here...."}
+          readOnly
+        />
       </section>
 
       <section className="section translation-section">
@@ -290,9 +276,17 @@ export default function ConversationPage() {
               classNamePrefix="react-select"
             />
           )}
+          <button
+            className="button sectionhead translate-button"
+            onClick={handleTranslate}
+            disabled={translateDisabled}
+            title={translateDisabledReason}
+          >
+            {translating ? "Translating..." : "Translate"}
+          </button>
         </div>
-        <div className="translation-result" tabIndex={0}>
-          {translatedText || "Translation will appear here...."}
+        <textarea className={`text-area ${!translatedText ? "placeholder" : ""}`}
+          value={translatedText || "Translation will appear here...."} readOnly>
           {/* {Added parts} */}
           {/* {segments.length > 0 && (
             <div className="segments">
@@ -304,15 +298,7 @@ export default function ConversationPage() {
             </div>
           )} */}
           {/* {Added parts} */}
-        </div>
-        <button
-          className="button translate-button"
-          onClick={handleTranslate}
-          disabled={translateDisabled}
-          title={translateDisabledReason}
-        >
-          {translating ? "Translating..." : "Translate"}
-        </button>
+        </textarea>
       </section>
 
       {isLoggedIn && transcription && (
