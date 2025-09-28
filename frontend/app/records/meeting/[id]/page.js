@@ -11,6 +11,7 @@ import { useLanguages } from "@/contexts/LanguagesContext";
 import { formatDateFromTimestamp, formatTimeFromTimestamp, formatDateTimeFromTimestamp } from "@/utils/dateTime";
 import { summarizeText } from "@/utils/summarization";
 import { translateText } from "@/utils/translation";
+import { generatePDF } from "@/utils/pdfGenerator";
 
 export default function IndividualMeetingRecordPage() {
     const { id } = useParams();
@@ -38,6 +39,7 @@ export default function IndividualMeetingRecordPage() {
     const [translationLang, setTranslationLang] = useState("en");
 
     const [recordData, setRecordData] = useState(null); // for change detection
+    const [isDownloaded, setIsDownloaded] = useState(false);
 
     const [lastProcessedTranslation, setLastProcessedTranslation] = useState({
         input: "",    // transcription used
@@ -67,6 +69,11 @@ export default function IndividualMeetingRecordPage() {
 
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
+
+    // track changes in formData to avoid downloading same data
+    useEffect(() => {
+        setIsDownloaded(false);
+    }, [transcription, translation, summary]);
 
     // Fetch individual meeting record
     useEffect(() => {
@@ -201,6 +208,26 @@ export default function IndividualMeetingRecordPage() {
         }
     };
 
+    const handleDownload = async () => {
+        try {
+            const data = {};
+
+            if (transcription) data.Input = transcription;
+            if (translation) data.Translation = translation;
+            if (summary) data.Summary = summary;
+
+            if (Object.keys(data).length === 0) {
+                alert("Nothing to download!");
+                return;
+            }
+
+            await generatePDF(data);
+            setIsDownloaded(true);
+        } catch (error) {
+            console.error("PDF download failed:", error);
+        }
+    };
+
     // Update individual meeting record
     const handleUpdate = async () => {
         if (!isChanged) return;
@@ -289,7 +316,7 @@ export default function IndividualMeetingRecordPage() {
                 </div>
                 {/* Global Controls */}
                 <div className="section global-controls">
-                    <label>Language:</label>
+                    <label>Translation Language:</label>
                     {mounted && (
                         <Select
                             options={languages.filter((l) => l.value !== "auto")}
@@ -364,6 +391,14 @@ export default function IndividualMeetingRecordPage() {
                 </div>
 
                 <div className="button-group">
+                    {/* Download PDF Button */}
+                    <button
+                        className="button download-pdf-button"
+                        onClick={handleDownload}
+                        disabled={isDownloaded}
+                    >
+                        Download PDF
+                    </button>
                     <button
                         onClick={handleUpdate}
                         disabled={!isChanged || saving}

@@ -9,6 +9,7 @@ import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { startMicRecording, stopRecording } from "@/utils/transcription";
 import { summarizeText } from "@/utils/summarization";
+import { generatePDF } from "@/utils/pdfGenerator";
 
 
 export default function Summarizer() {
@@ -24,6 +25,7 @@ export default function Summarizer() {
   const [autoSave, setAutoSave] = useState(false);
   const [isSaved, setIsSaved] = useState(false); // track if summary is saved
   const [saving, setSaving] = useState(false);
+  const [isDownloaded, setIsDownloaded] = useState(false);
 
   const [lastSummarizedInput, setLastSummarizedInput] = useState("");
   const [lastSummarizedLang, setLastSummarizedLang] = useState("");
@@ -41,6 +43,7 @@ export default function Summarizer() {
   // Whenever input or target language changes, reset isSaved
   useEffect(() => {
     setIsSaved(false);
+    setIsDownloaded(false);
     setMessage("");
   }, [inputText, targetLang]);
 
@@ -57,6 +60,7 @@ export default function Summarizer() {
 
   function clearDisplay() {
     setIsSaved(false);
+    setIsDownloaded(false);
     setSaving(false);
     setLoading(false);
     setMessage("");
@@ -89,6 +93,20 @@ export default function Summarizer() {
       }
     }
   }
+
+  const handleDownload = async () => {
+    try {
+      const data = {
+        Input: inputText,
+        Summary: summarizedText,
+      };
+
+      await generatePDF(data);
+      setIsDownloaded(true);
+    } catch (error) {
+      console.error("PDF download failed:", error);
+    }
+  };
 
   async function handleSummarize() {
     setLoading(true);
@@ -237,17 +255,28 @@ export default function Summarizer() {
           readOnly
         />
       </section>
-      {isLoggedIn && summarizedText && (
-        <div>
+      <div className="button-group">
+        {/* Download PDF Button */}
+        <button
+          className="button download-pdf-button"
+          onClick={handleDownload}
+          disabled={!inputText || !summarizedText || isDownloaded}
+        >
+          Download PDF
+        </button>
+
+        {isLoggedIn && (
           <button
             className="button save-summary-button"
             onClick={() => handleSaveSummary(inputText, summarizedText)}
-            disabled={saving || loading || isSaved}
+            disabled={saving || loading || isSaved || !summarizedText || !inputText}
           >
             {saving ? "Saving..." : isSaved ? "Saved" : "Save Summary"}
           </button>
-        </div>
-      )}
+        )}
+
+      </div>
+
     </div>
   );
 }

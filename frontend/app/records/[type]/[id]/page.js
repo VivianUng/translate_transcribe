@@ -10,6 +10,7 @@ import { useLanguages } from "@/contexts/LanguagesContext";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { summarizeText } from "@/utils/summarization";
 import { translateText } from "@/utils/translation";
+import { generatePDF } from "@/utils/pdfGenerator";
 
 export default function RecordDetailsPage() {
     const { type, id } = useParams(); // dynamic route parameters
@@ -22,6 +23,7 @@ export default function RecordDetailsPage() {
     const [record, setRecord] = useState(null);
     const [formData, setFormData] = useState(null);
     const [lastProcessed, setLastProcessed] = useState(null);
+    const [isDownloaded, setIsDownloaded] = useState(false);
     
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -67,6 +69,11 @@ export default function RecordDetailsPage() {
             formData.output_text !== record.output_text
         );
     }, [record, formData]);
+
+    // track changes in formData to avoid downloading same data
+    useEffect(() => {
+        setIsDownloaded(false);
+    }, [formData]);
 
     // Fetch record by ID
     useEffect(() => {
@@ -127,7 +134,20 @@ export default function RecordDetailsPage() {
         fetchRecord();
     }, [id, session, type]);
 
+    const handleDownload = async () => {
+        try {
+            const keyName = type === "summary" ? "Summary" : "Translation";
+            const data = {
+                Input: formData.input_text,
+                [keyName]: formData.output_text,
+            };
 
+            await generatePDF(data);
+            setIsDownloaded(true);
+        } catch (error) {
+            console.error("PDF download failed:", error);
+        }
+    };
 
     // Update record
     const handleUpdate = async () => {
@@ -387,6 +407,14 @@ export default function RecordDetailsPage() {
 
                 {/* Actions */}
                 <div className="button-group">
+                    {/* Download PDF Button */}
+                    <button
+                        className="button download-pdf-button"
+                        onClick={handleDownload}
+                        disabled={!formData.input_text || !formData.output_text || isDownloaded}
+                    >
+                        Download PDF
+                    </button>
                     <button
                         onClick={handleUpdate}
                         disabled={saving || !isTextChanged || processing}

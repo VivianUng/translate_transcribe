@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "react-hot-toast";
 import Select from "react-select";
@@ -11,6 +11,9 @@ import useProfilePrefs from "@/hooks/useProfilePrefs";
 import StickyScrollBox from "@/components/StickyScrollBox";
 import { formatDate, formatTime, formatTimeFromTimestamp, formatDateFromTimestamp } from "@/utils/dateTime";
 import { supabase } from "@/lib/supabaseClient";
+import { summarizeText } from "@/utils/summarization";
+import { translateText } from "@/utils/translation";
+import { generatePDF } from "@/utils/pdfGenerator";
 
 export default function MeetingDetailsPage() {
     const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
@@ -18,6 +21,11 @@ export default function MeetingDetailsPage() {
 
     const searchParams = useSearchParams();
     const meetingId = searchParams.get("id");
+
+    const meetingIdRef = useRef(meetingId);
+    useEffect(() => {
+        meetingIdRef.current = meetingId;
+    }, [meetingId])
 
     const router = useRouter();
     const { languages } = useLanguages();
@@ -38,8 +46,8 @@ export default function MeetingDetailsPage() {
 
     const [saving, setSaving] = useState(false);
     const [ending, setEnding] = useState(false);
-    const [isSaved, setIsSaved] = useState(false); // track if meeting is saved
-    const [isUpdated, setIsUpdated] = useState(false); // track changes from meeting_details record (modify to use some other way) - currently only allows updates once per page load
+    const [record, setRecord] = useState(null);
+    const [isSaved, setIsSaved] = useState(false); // track if meeting is saved (modify to aactually track if it exists in meeting_details_individual)
     const [autoSave, setAutoSave] = useState(false);
 
     const [meetingName, setMeetingName] = useState("");
@@ -48,19 +56,30 @@ export default function MeetingDetailsPage() {
     const [startTime, setStartTime] = useState("");
     const [endTime, setEndTime] = useState("");
 
-    // State for live data 
-    // // change to fetching transcription and englishSummary from supabase
+    // State for live data / past data
+    const [transcriptionLang, setTranscriptionLang] = useState("en");
     const [transcription, setTranscription] = useState("");
     const [translation, setTranslation] = useState("");
+    const [enSummary, setEnSummary] = useState("");
     const [summary, setSummary] = useState("");
+
+    const [doTranslation, setDoTranslation] = useState(false);
+    const [doSummarization, setDoSummarization] = useState(false);
+    const [processing, setProcessing] = useState(false);
 
     // State for languages
     const [translationLang, setTranslationLang] = useState("en");
-    const [summaryLang, setSummaryLang] = useState("en");
 
     // Recording indicator (host only)
     const [recording, setRecording] = useState(false);
     const [mounted, setMounted] = useState(false);
+
+    const isTextChanged = useMemo(() => {
+        if (!record || !transcription) return false;
+        return (
+            transcription !== record
+        );
+    }, [record, transcription]);
 
     // test data
     useEffect(() => {
@@ -74,6 +93,7 @@ export default function MeetingDetailsPage() {
             setTranscription((prev) => (prev ? prev + "\n" : "") + line);
             setTranslation((prev) => (prev ? prev + "\n" : "") + line);
             setSummary((prev) => (prev ? prev + "\n" : "") + line);
+            setEnSummary((prev) => (prev ? prev + "\n" : "") + line);
 
             counter++;
         }, 2000); // every 2 seconds
@@ -91,7 +111,6 @@ export default function MeetingDetailsPage() {
         if (!prefsLoading && session?.user && !prefsAppliedRef.current && prefs.default_language) {
             if (prefs.default_language) {
                 setTranslationLang(prefs.default_language);
-                setSummaryLang(prefs.default_language);
             }
             if (prefs.auto_save_meetings) {
                 setAutoSave(true);
@@ -105,11 +124,11 @@ export default function MeetingDetailsPage() {
             const fetchAll = async () => {
                 setLoadingPage(true);
                 try {
-                    if (meetingId) {
+                    if (meetingIdRef.current) {
                         // from meeting_details
-                        await fetchMeetingInfo(meetingId);
-                        await fetchMeetingDetails(meetingId);
-                        await fetchRole(meetingId);
+                        await fetchMeetingInfo(meetingIdRef.current);
+                        await fetchMeetingDetails(meetingIdRef.current);
+                        await fetchRole(meetingIdRef.current);
                     } else {
                         // Safety net: no valid params
                         throw new Error("No meetingId provided");
@@ -137,21 +156,23 @@ export default function MeetingDetailsPage() {
 
     // Host updates meeting_details in real-time
     useEffect(() => {
-        if (!meetingId || role !== "host" || status !== "ongoing") return;
+        if (!meetingIdRef.current || role !== "host" || status !== "ongoing") return;
 
         const updateRealtime = async () => {
             // Only update if content exists
-            if (!transcription && !summary && !translation) return;
+            if (!transcription) return;
 
+            const updateData = {};
+            if (transcription) updateData.transcription = transcription;
+            if (enSummary) updateData.en_summary = enSummary;
+            if (summary) updateData.translated_summary = summary;
+            if (transcriptionLang) updateData.transcription_lang = transcriptionLang;
+
+            // Perform the update only with the fields present
             const { error } = await supabase
                 .from("meeting_details")
-                .update({
-                    transcription,
-                    en_summary: summary,
-                    translated_summary: translation, // modify accordingly
-                    transcription_lang: translationLang,
-                })
-                .eq("meeting_id", meetingId);
+                .update(updateData)
+                .eq("meeting_id", meetingIdRef.current);
 
             if (error) console.error("Host update error:", error);
         };
@@ -159,27 +180,28 @@ export default function MeetingDetailsPage() {
         // Debounce updates to prevent spamming database
         const timeout = setTimeout(updateRealtime, 1000); // update every 1 sec
         return () => clearTimeout(timeout);
-    }, [transcription, summary, translation, translationLang, meetingId, role]);
+    }, [transcription, enSummary, summary, transcriptionLang, meetingId, role]);
 
     // Participant get real-time data 
-    // (this way causes every load of this page to subscribe & fetch current Details, which can trigger errors)
     useEffect(() => {
-        if (!meetingId) return;
+        if (!meetingIdRef.current) return;
 
         const channel = supabase
-            .channel(`meeting-${meetingId}`)
+            .channel(`meeting-${meetingIdRef.current}`)
             .on("postgres_changes", {
                 event: "UPDATE",
                 schema: "public",
                 table: "meeting_details",
-                filter: `meeting_id=eq.${meetingId}`,
+                filter: `meeting_id=eq.${meetingIdRef.current}`,
             }, (payload) => {
                 console.log("Realtime payload:", payload);
                 // Only update if this user is a participant and meeting is ongoing
                 if (roleRef.current === "participant" && statusRef.current === "ongoing") {
                     const data = payload.new;
                     setTranscription(data.transcription || "");
-                    setSummary(data.en_summary || "");
+                    setTranscriptionLang(data.transcription_lang || "en");
+                    setEnSummary(data.en_summary || "");
+                    setSummary(data.translated_summary || "");
 
                     if (data.status === "past") {
                         toast('This meeting has ended');
@@ -189,7 +211,6 @@ export default function MeetingDetailsPage() {
                 }
             })
             .subscribe((subStatus) => {
-                console.log("Subscription status:", subStatus);
                 if (subStatus === "SUBSCRIBED") {
                     fetchCurrentDetails();
                 }
@@ -208,7 +229,7 @@ export default function MeetingDetailsPage() {
         try {
             const token = session?.access_token;
             const res = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/details`,
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingIdRef.current}/details`,
                 {
                     method: "GET",
                     headers: {
@@ -227,8 +248,9 @@ export default function MeetingDetailsPage() {
             const data = await res.json();
 
             setTranscription(data.transcription || "");
-            setSummary(data.en_summary || "");
-            setTranslation(data.translated_summary || "");
+            setTranscriptionLang(data.transcription_lang || "en");
+            setEnSummary(data.en_summary || "");
+            setSummary(data.translated_summary || "");
         } catch (err) {
             console.error("Error fetching meeting details:", err);
         }
@@ -300,6 +322,8 @@ export default function MeetingDetailsPage() {
             }
 
             const data = await res.json();
+
+            setRecord(data.transcription);
 
             // Update frontend state 
             setStartTime(formatTimeFromTimestamp(data.actual_start_time));
@@ -373,6 +397,25 @@ export default function MeetingDetailsPage() {
         }
     }
 
+    const handleDownload = async () => {
+        try {
+            const data = {};
+
+            if (transcription) data.Input = transcription;
+            if (translation) data.Translation = translation;
+            if (summary) data.Summary = summary;
+
+            if (Object.keys(data).length === 0) {
+                alert("Nothing to download!");
+                return;
+            }
+
+            await generatePDF(data);
+        } catch (error) {
+            console.error("PDF download failed:", error);
+        }
+    };
+
     // host only : delete from meetings table (on delete cascade meeting_participants, meeting_details)
     async function handleDeleteMeeting() {
         try {
@@ -406,7 +449,7 @@ export default function MeetingDetailsPage() {
         }
     }
 
-    // host only : update meeting_details table (for past meeting)
+    // host only : update meeting_details table (for past meeting) (only if transcription was updated)
     async function handleUpdateMeeting() {
         if (!isLoggedIn) {
             alert("You must be logged in as host to update the meeting.");
@@ -440,7 +483,7 @@ export default function MeetingDetailsPage() {
 
             const result = await res.json();
             if (!res.ok) throw new Error(result.detail || "Failed to update meeting");
-            else setIsUpdated(true);
+            else setRecord(transcription);
 
             toast.success("Meeting details updated successfully!");
         } catch (err) {
@@ -490,6 +533,37 @@ export default function MeetingDetailsPage() {
         }
     }
 
+    const handleRetranslate = async () => {
+        if (!transcription) return;
+        setProcessing(true);
+
+        try {
+            const result = await translateText(transcription, transcriptionLang, translationLang);
+            setTranslation(result);
+
+        } catch (err) {
+            console.error(err);
+            toast.error("Retranslate failed.");
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleResummarize = async () => {
+        if (!transcription) return;
+        setProcessing(true);
+
+        try {
+            const result = await summarizeText(transcription, transcriptionLang, translationLang);
+            setSummary(result);
+        } catch (err) {
+            console.error(err);
+            toast.error("Resummarize failed.");
+        } finally {
+            setProcessing(false);
+        }
+    };
+
     if (loadingPage) return <p>Loading...</p>;
 
     return (
@@ -507,6 +581,59 @@ export default function MeetingDetailsPage() {
                     {date} | {startTime} - {endTime}
                 </p>
             </div>
+
+            <div className="section global-controls">
+                <label>Translation Language:</label>
+                {mounted && (
+                    <Select
+                        options={languages.filter((l) => l.value !== "auto")}
+                        value={languages.find((opt) => opt.value === translationLang)}
+                        onChange={(opt) => setTranslationLang(opt.value)}
+                        classNamePrefix="react-select"
+                    />
+                )}
+
+                {status === "ongoing" && (
+                    <div className="meeting-checkbox-group">
+                        <label>
+                            <input
+                                type="checkbox"
+                                checked={doTranslation}
+                                onChange={(e) => setDoTranslation(e.target.checked)}
+                            />
+                            Translate
+                        </label>
+
+                        <label>
+                            <input
+                                type="checkbox"
+                                checked={doSummarization}
+                                onChange={(e) => setDoSummarization(e.target.checked)}
+                            />
+                            Summarize
+                        </label>
+                    </div>
+                )}
+                {status === "past" && (
+                    <>
+                        <button
+                            className="button extra-action"
+                            disabled={processing}
+                            onClick={handleRetranslate}
+                        >
+                            {processing ? "Processing..." : "Retranslate"}
+                        </button>
+                        <button
+                            className="button extra-action"
+                            disabled={processing}
+                            onClick={handleResummarize}
+                        >
+                            {processing ? "Processing..." : "Resummarize"}
+                        </button>
+                    </>
+                )}
+            </div>
+
 
             <div className="ongoing-meeting-layout">
                 {/* Left column */}
@@ -531,14 +658,13 @@ export default function MeetingDetailsPage() {
                     <div className="section translation-section">
                         <div className="section-header">
                             <span>Translation</span>
-                            {mounted && (
-                                <Select
-                                    options={languages.filter((l) => l.value !== "auto")}
-                                    value={languages.find((opt) => opt.value === translationLang)}
-                                    onChange={(opt) => setTranslationLang(opt.value)}
-                                    classNamePrefix="react-select"
-                                />
-                            )}
+                            {status === "ongoing" && (
+                                <input className="checkbox-input"
+                                    type="checkbox"
+                                    checked={doTranslation}
+                                    onChange={(e) => setDoTranslation(e.target.checked)}
+                                />)}
+
                         </div>
                         <StickyScrollBox
                             content={translation}
@@ -554,14 +680,12 @@ export default function MeetingDetailsPage() {
                     <div className="section summary-section">
                         <div className="section-header">
                             <span>Summary</span>
-                            {mounted && (
-                                <Select
-                                    options={languages.filter((l) => l.value !== "auto")}
-                                    value={languages.find((opt) => opt.value === summaryLang)}
-                                    onChange={(opt) => setSummaryLang(opt.value)}
-                                    classNamePrefix="react-select"
-                                />
-                            )}
+                            {status === "ongoing" && (
+                                <input className="checkbox-input"
+                                    type="checkbox"
+                                    checked={doSummarization}
+                                    onChange={(e) => setDoSummarization(e.target.checked)}
+                                />)}
                         </div>
                         <StickyScrollBox
                             content={summary}
@@ -585,12 +709,20 @@ export default function MeetingDetailsPage() {
                         <label>Save automatically when meeting ends</label>
                     </div>
                 )}
+                <div className="button-group">
+                    {/* Download PDF Button */}
+                    <button
+                        className="button download-pdf-button"
+                        onClick={handleDownload}
+                        disabled={!transcription}
+                    >
+                        Download PDF
+                    </button>
 
-                {/* Host actions */}
-                {role === "host" && (
-                    <>
-                        {status === "ongoing" && (
-                            <div>
+                    {/* Host actions */}
+                    {role === "host" && (
+                        <>
+                            {status === "ongoing" && (
                                 <button
                                     className="button delete"
                                     onClick={handleEndMeeting}
@@ -598,41 +730,44 @@ export default function MeetingDetailsPage() {
                                 >
                                     {ending ? "Ending..." : "End Meeting"}
                                 </button>
-                            </div>
-                        )}
+                            )}
 
-                        {status === "past" && (
-                            <div className="button-group">
-                                <button
-                                    className="button save-btn"
-                                    onClick={handleSaveMeeting}
-                                    disabled={saving || isSaved}
-                                >
-                                    {saving ? "Saving..." : isSaved ? "Saved" : "Save Meeting"}
-                                </button>
-                                <button className="button update-btn"
-                                    onClick={handleUpdateMeeting}
-                                    disabled={isUpdated}>
-                                    {saving ? "Saving..." : isUpdated ? "Updated" : "Update Meeting"}
-                                </button>
-                                <button className="button delete" onClick={handleDeleteMeeting}>
-                                    Delete
-                                </button>
-                            </div>
-                        )}
-                    </>
-                )}
+                            {status === "past" && (
+                                <>
+                                    <button
+                                        className="button save-btn"
+                                        onClick={handleSaveMeeting}
+                                        disabled={saving || isSaved}
+                                    >
+                                        {saving ? "Saving..." : isSaved ? "Saved" : "Save Meeting"}
+                                    </button>
+                                    <button className="button update-btn"
+                                        onClick={handleUpdateMeeting}
+                                        disabled={!isTextChanged}>
+                                        {saving ? "Saving..." : "Update Meeting"}
+                                    </button>
+                                    <button className="button delete" onClick={handleDeleteMeeting}>
+                                        Delete
+                                    </button>
+                                </>
+                            )}
+                        </>
+                    )}
 
-                {/* Participant actions */}
-                {role === "participant" && status === "past" && (
-                    <button
-                        className="button save-btn"
-                        onClick={handleSaveMeeting}
-                        disabled={saving || isSaved}
-                    >
-                        {saving ? "Saving..." : isSaved ? "Saved" : "Save Meeting"}
-                    </button>
-                )}
+                    {/* Participant actions */}
+                    {role === "participant" && status === "past" && (
+                        <button
+                            className="button save-btn"
+                            onClick={handleSaveMeeting}
+                            disabled={saving || isSaved}
+                        >
+                            {saving ? "Saving..." : isSaved ? "Saved" : "Save Meeting"}
+                        </button>
+                    )}
+
+                </div>
+
+
             </div>
         </div>
     );

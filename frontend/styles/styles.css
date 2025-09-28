@@ -157,15 +157,6 @@ a {
   outline: 2px solid var(--secondary-color);
 }
 
-.save-checkbox {
-  margin-top: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-weight: 600;
-  color: #444;
-}
-
 /* styles for one-line input fields */
 .input-field {
   width: 100%;
@@ -580,6 +571,35 @@ a {
   padding: 0.5rem 1rem;
   font-weight: 600;
 }
+
+.meeting-checkbox-group {
+  display: flex;
+  gap: 3rem;
+  align-items: center;
+}
+
+.meeting-checkbox-group label {
+  display: flex;
+  align-items: center;
+  font-size: 1rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.meeting-checkbox-group input[type="checkbox"] {
+  margin-right: 0.5rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  accent-color:var(--secondary-color);  
+}
+
+.checkbox-input {
+  margin-right: 0.5rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  accent-color:var(--secondary-color);  
+}
+
 
 .ongoing-meeting-layout {
   display: flex;
