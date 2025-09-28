@@ -9,11 +9,23 @@ import { useLanguages } from "@/contexts/LanguagesContext";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
 import StickyScrollBox from "@/components/StickyScrollBox";
-import { formatDate, formatTime, formatTimeFromTimestamp, formatDateFromTimestamp } from "@/utils/dateTime";
+import { formatTimeFromTimestamp, formatDateFromTimestamp } from "@/utils/dateTime";
 import { supabase } from "@/lib/supabaseClient";
 import { summarizeText } from "@/utils/summarization";
 import { translateText } from "@/utils/translation";
 import { generatePDF } from "@/utils/pdfGenerator";
+
+function throttle(fn, limit) {
+    let inThrottle = false;
+    return (...args) => {
+        if (!inThrottle) {
+            fn(...args);
+            inThrottle = true;
+            setTimeout(() => (inThrottle = false), limit);
+        }
+    };
+}
+
 
 export default function MeetingDetailsPage() {
     const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
@@ -42,7 +54,7 @@ export default function MeetingDetailsPage() {
     const [saving, setSaving] = useState(false);
     const [ending, setEnding] = useState(false);
     const [record, setRecord] = useState(null);
-    const [isSaved, setIsSaved] = useState(false); // track if meeting is saved (modify to aactually track if it exists in meeting_details_individual)
+    const [isSaved, setIsSaved] = useState(false); // track if meeting is saved (modify to actually track if it exists in meeting_details_individual)
     const [autoSave, setAutoSave] = useState(false);
 
     const autoSaveRef = useRef(autoSave);
@@ -58,21 +70,38 @@ export default function MeetingDetailsPage() {
 
     // State for live data / past data
     const [transcriptionLang, setTranscriptionLang] = useState("en");
+    const [translationLang, setTranslationLang] = useState("en");
     const [transcription, setTranscription] = useState("");
     const [translation, setTranslation] = useState("");
     const [enSummary, setEnSummary] = useState("");
     const [summary, setSummary] = useState("");
 
+    const transcriptionLangRef = useRef(transcriptionLang);
+    const translationLangRef = useRef(translationLang);
+
+    useEffect(() => {
+        transcriptionLangRef.current = transcriptionLang;
+    }, [transcriptionLang]);
+
+    useEffect(() => {
+        translationLangRef.current = translationLang;
+    }, [translationLang]);
+
     const [doTranslation, setDoTranslation] = useState(false);
     const [doSummarization, setDoSummarization] = useState(false);
     const [processing, setProcessing] = useState(false);
 
-    // State for languages
-    const [translationLang, setTranslationLang] = useState("en");
+    const lastTranslatedIndex = useRef(0);
+    const chunkCounter = useRef(0);
+    const CHUNK_THRESHOLD = 5; // after 5 small chunks
+    const LARGE_CHUNK_SIZE = 40; // retranslate last 40 words
+    const THROTTLE_MS = 1000;
 
     // Recording indicator (host only)
     const [recording, setRecording] = useState(false);
     const [mounted, setMounted] = useState(false);
+
+    const toastShownRef = useRef(false);
 
     const isTextChanged = useMemo(() => {
         if (!record || !transcription) return false;
@@ -83,25 +112,59 @@ export default function MeetingDetailsPage() {
         );
     }, [record, transcription, enSummary, summary]);
 
-    // test data
+    // test transcription simulation
     useEffect(() => {
         if (status !== "ongoing" || role !== "host") return; // only run for ongoing meetings host only
 
-        let counter = 1;
+        // Example transcription text
+        const sampleText = `
+            Good morning everyone, and thank you for joining today’s project alignment meeting. 
+            I’d like to start by reviewing our progress from the last sprint. The development team 
+            has successfully completed the authentication module, including the integration with 
+            our single sign-on provider. QA has reported only minor issues, which are currently being addressed. 
+            Overall, we’re on track with the initial milestones, but a few tasks were slightly delayed 
+            due to unexpected dependency updates.
+
+            Moving on to the marketing update, the launch campaign draft is ready, and the design team 
+            has produced initial visuals for the website. Feedback from stakeholders was positive, though 
+            there’s still a need to refine the messaging to better highlight our unique selling points. 
+            The social media plan is also being finalized, and the team expects to begin pre-launch 
+            promotions within two weeks.
+
+            Finally, we need to discuss the risks. The supply chain delays may affect hardware 
+            availability for some of our demo units, and we should prepare a contingency plan. 
+            Additionally, we’ve noticed some scope creep in the client requests, which may impact 
+            delivery if not managed carefully. I’d like everyone to document these risks clearly, 
+            and we’ll assign owners for mitigation in our next session. 
+            Thank you again for your hard work, and let’s keep the momentum going.
+        `;
+
+        const words = sampleText
+            .replace(/\s+/g, " ") // normalize whitespace
+            .trim()
+            .split(" ");
+
+        let index = 0;
 
         const timer = setInterval(() => {
-            const line = `test line${counter}`;
+            const word = words[index];
+            if (!word) {
+                // reached end → restart from beginning
+                index = 0;
+                return;
+            }
 
-            setTranscription((prev) => (prev ? prev + "\n" : "") + line);
-            setTranslation((prev) => (prev ? prev + "\n" : "") + line);
-            setSummary((prev) => (prev ? prev + "\n" : "") + line);
-            setEnSummary((prev) => (prev ? prev + "\n" : "") + line);
+            // Append word-by-word
+            setTranscription((prev) => (prev ? prev + " " : "") + word);
+            setSummary((prev) => (prev ? prev + " " : "") + word);
+            setEnSummary((prev) => (prev ? prev + " " : "") + word);
 
-            counter++;
-        }, 2000); // every 2 seconds
+            index++;
+        }, 500); // every 0.5s, push next word
 
         return () => clearInterval(timer); // cleanup
-    }, [status, role]); // rerun if status changes
+    }, [status, role]);
+
 
 
     useEffect(() => {
@@ -123,28 +186,24 @@ export default function MeetingDetailsPage() {
 
     useEffect(() => {
         if (!loading && session) {
-            const fetchAll = async () => {
+            (async () => {
                 setLoadingPage(true);
                 try {
-                    if (meetingId) {
-                        await fetchMeetingDetails(meetingId);
-                    } else {
-                        // Safety net: no valid params
-                        throw new Error("No meetingId provided");
-                    }
+                    if (!meetingId) throw new Error("No meetingId provided");
+                    await fetchMeetingDetails(meetingId);
                 } catch (err) {
                     console.error("Error fetching meeting data:", err);
                     router.push("/meeting?toast=notFound");
                 } finally {
                     setLoadingPage(false);
                 }
-            };
-
-            fetchAll();
+            })();
         }
     }, [loading, session]);
 
+
     // set indicator of recording for if user is host and meeting is ongoing
+    // will put the recording logic here
     useEffect(() => {
         if (!loading && session) {
             if (role === 'host' && status === 'ongoing') {
@@ -177,7 +236,7 @@ export default function MeetingDetailsPage() {
         };
 
         // Debounce updates to prevent spamming database
-        const timeout = setTimeout(updateRealtime, 1000); // update every 1 sec
+        const timeout = setTimeout(updateRealtime, 200); // update every 200ms (update according to speed of transcription - should be slightly lower than speed of transcription)
         return () => clearTimeout(timeout);
     }, [transcription, enSummary, summary, transcriptionLang, meetingId, role]);
 
@@ -201,8 +260,10 @@ export default function MeetingDetailsPage() {
                     setEnSummary(data.en_summary || "");
                     setSummary(data.translated_summary || "");
 
-                    if (data.status === "past" && statusRef.current !== "past") {
+                    if (data.status === "past" && !toastShownRef.current) {
                         toast('This meeting has ended');
+                        toastShownRef.current = true;
+                        await fetchMeetingDetails(meetingId); // final fetch after meeting ends
 
                         if (autoSaveRef.current) {
                             await handleSaveMeeting();
@@ -217,6 +278,41 @@ export default function MeetingDetailsPage() {
             supabase.removeChannel(channel);
         };
     }, [meetingId, session]);
+
+
+    // real-time translations : 
+    // real-time translations : 
+    const throttledProcess = useMemo(
+        () =>
+            throttle(async (newWords, words) => {
+                try {
+                    const result = await translateText(
+                        newWords.join(" "),
+                        transcriptionLangRef.current,
+                        translationLangRef.current
+                    );
+
+                    setTranslation((prev) => (prev ? prev + " " + result : result));
+                    lastTranslatedIndex.current = words.length;
+                } catch (err) {
+                    console.error(err);
+                    toast.error("Incremental translation failed.");
+                }
+            }, THROTTLE_MS),
+        []
+    );
+
+    useEffect(() => {
+        if (!doTranslation || !transcription) return;
+
+        const words = transcription.split(/\s+/);
+        if (words.length <= lastTranslatedIndex.current) return;
+
+        const newWords = words.slice(lastTranslatedIndex.current);
+        throttledProcess(newWords, words);
+    }, [transcription, doTranslation, throttledProcess]);
+
+
 
 
 
