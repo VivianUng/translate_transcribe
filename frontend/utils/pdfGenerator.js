@@ -1,4 +1,4 @@
-export async function generatePDF(content, input_language = "en", output_language = "en") {
+export async function generatePDF(content) {
   if (!content || Object.keys(content).length === 0) {
     throw new Error("No content provided");
   }
@@ -8,7 +8,7 @@ export async function generatePDF(content, input_language = "en", output_languag
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ content, input_language, output_language }),
+    body: JSON.stringify({ content }),
   });
 
   if (!res.ok) {
@@ -27,48 +27,3 @@ export async function generatePDF(content, input_language = "en", output_languag
   a.remove();
   window.URL.revokeObjectURL(url);
 }
-
-
-
-// import jsPDF from "jspdf";
-
-// export function generatePDF(content) {
-//   const doc = new jsPDF();
-
-//   // Page setup
-//   const pageHeight = doc.internal.pageSize.getHeight();
-//   const pageWidth = doc.internal.pageSize.getWidth();
-//   const margin = 20;
-//   let y = margin;
-
-//   // Loop through all entries
-//   Object.entries(content).forEach(([key, value]) => {
-//     // Add key (header)
-//     doc.setFontSize(14);
-//     let keyLines = doc.splitTextToSize(key, pageWidth - margin * 2);
-//     keyLines.forEach(line => {
-//       if (y > pageHeight - margin) {
-//         doc.addPage();
-//         y = margin;
-//       }
-//       doc.text(line, margin, y);
-//       y += 8;
-//     });
-
-//     // Add value (normal text)
-//     doc.setFontSize(12);
-//     let valueLines = doc.splitTextToSize(value.toString(), pageWidth - margin * 2);
-//     valueLines.forEach(line => {
-//       if (y > pageHeight - margin) {
-//         doc.addPage();
-//         y = margin;
-//       }
-//       doc.text(line, margin, y);
-//       y += 7;
-//     });
-
-//     y += 5; // extra spacing between entries
-//   });
-
-//   doc.save("content.pdf");
-// }

@@ -179,7 +179,7 @@ const handleDownload = async () => {
       Translation: translatedText,
     };
 
-    await generatePDF(data, inputLang || "en", targetLang || "en");
+    await generatePDF(data);
     setIsDownloaded(true);
   } catch (error) {
     console.error("PDF download failed:", error);

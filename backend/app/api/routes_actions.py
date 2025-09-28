@@ -355,7 +355,7 @@ async def generate_pdf_route(request: PDFRequest):
             tmp_filename = tmp_file.name
 
         # Generate the PDF
-        generate_pdf(request.content, tmp_filename, request.input_language, request.output_language)
+        generate_pdf(request.content, tmp_filename)
 
         # Return as downloadable response
         return FileResponse(
