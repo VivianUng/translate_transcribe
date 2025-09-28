@@ -143,6 +143,25 @@ export default function MeetingFormPage() {
         if (!startTime || value > startTime) setEndTime(value);
     };
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // strip time for accurate comparison
+
+    const handleDateChange = (e) => {
+        const selectedDate = e.target.value;
+
+        setDate(selectedDate);
+
+        if (selectedDate.length === 10) {
+            const selected = new Date(selectedDate);
+            if (selected < today) {
+                setDate(""); // clear only after full invalid date
+            } else {
+                setFormErrors((prev) => ({ ...prev, date: "" }));
+            }
+        }
+    };
+
+
     // Participant handlers
     const addParticipant = async () => {
         const errors = {};
@@ -288,8 +307,9 @@ export default function MeetingFormPage() {
                         <input
                             className={`input-field ${formErrors.date ? "input-error" : ""}`}
                             type="date"
-                            min={new Date().toISOString().split("T")[0]}
+                            min={new Date().toLocaleDateString("en-CA")}
                             value={date}
+                            // onChange={handleDateChange}
                             onChange={(e) => {
                                 setDate(e.target.value);
                                 setFormErrors((prev) => ({ ...prev, date: "" }));
@@ -361,28 +381,30 @@ export default function MeetingFormPage() {
                     </div>
                 )}
                 <hr className="divider" />
-
-                {/* Submit Button */}
-                <button
-                    type="button"
-                    className="button"
-                    onClick={handleSubmit}
-                    disabled={isSubmitting || !isChanged}
-                >
-                    {isSubmitting ? (mode === "create" ? "Creating..." : "Updating...") : mode === "create" ? "Create Meeting" : "Update Meeting"}
-                </button>
-
-                {/* Delete Button - only in update mode */}
-                {mode === "update" && (
+                <div className="button-group">
+                    {/* Submit Button */}
                     <button
                         type="button"
-                        className="button delete"
-                        onClick={handleDelete}
-                        disabled={isSubmitting}
+                        className="button"
+                        onClick={handleSubmit}
+                        disabled={isSubmitting || !isChanged}
                     >
-                        Delete Meeting
+                        {isSubmitting ? (mode === "create" ? "Creating..." : "Updating...") : mode === "create" ? "Create Meeting" : "Update Meeting"}
                     </button>
-                )}
+
+                    {/* Delete Button - only in update mode */}
+                    {mode === "update" && (
+                        <button
+                            type="button"
+                            className="button delete"
+                            onClick={handleDelete}
+                            disabled={isSubmitting}
+                        >
+                            Delete Meeting
+                        </button>
+                    )}
+                </div>
+
             </div>
         </div>
     );

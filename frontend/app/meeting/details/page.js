@@ -92,6 +92,8 @@ export default function MeetingDetailsPage() {
     const [processing, setProcessing] = useState(false);
 
     const lastTranslatedIndex = useRef(0);
+    const lastSummarizedIndex = useRef(0);
+    const lastTranslatedSummaryIndex = useRef(0);
     const chunkCounter = useRef(0);
     const CHUNK_THRESHOLD = 5; // after 5 small chunks
     const LARGE_CHUNK_SIZE = 40; // retranslate last 40 words
@@ -156,8 +158,6 @@ export default function MeetingDetailsPage() {
 
             // Append word-by-word
             setTranscription((prev) => (prev ? prev + " " : "") + word);
-            setSummary((prev) => (prev ? prev + " " : "") + word);
-            setEnSummary((prev) => (prev ? prev + " " : "") + word);
 
             index++;
         }, 500); // every 0.5s, push next word
@@ -210,7 +210,7 @@ export default function MeetingDetailsPage() {
                 setRecording(true);
             }
         }
-    }, [role]);
+    }, [role, status]);
 
     // Host updates meeting_details in real-time
     useEffect(() => {
@@ -258,7 +258,6 @@ export default function MeetingDetailsPage() {
                     setTranscription(data.transcription || "");
                     setTranscriptionLang(data.transcription_lang || "en");
                     setEnSummary(data.en_summary || "");
-                    setSummary(data.translated_summary || "");
 
                     if (data.status === "past" && !toastShownRef.current) {
                         toast('This meeting has ended');
@@ -281,16 +280,18 @@ export default function MeetingDetailsPage() {
 
 
     // real-time translations : 
-    // real-time translations : 
-    const throttledProcess = useMemo(
+    const throttledTranslate = useMemo(
         () =>
             throttle(async (newWords, words) => {
                 try {
-                    const result = await translateText(
-                        newWords.join(" "),
-                        transcriptionLangRef.current,
-                        translationLangRef.current
-                    );
+                    let result = newWords.join(" ")
+                    if (transcriptionLangRef.current !== translationLangRef) {
+                        result = await translateText(
+                            newWords.join(" "),
+                            transcriptionLangRef.current,
+                            translationLangRef.current
+                        );
+                    }
 
                     setTranslation((prev) => (prev ? prev + " " + result : result));
                     lastTranslatedIndex.current = words.length;
@@ -309,10 +310,102 @@ export default function MeetingDetailsPage() {
         if (words.length <= lastTranslatedIndex.current) return;
 
         const newWords = words.slice(lastTranslatedIndex.current);
-        throttledProcess(newWords, words);
-    }, [transcription, doTranslation, throttledProcess]);
+        throttledTranslate(newWords, words);
+    }, [transcription, doTranslation, throttledTranslate]);
 
 
+
+    // real-time summaries (host) : 
+    const throttledSummarize = useMemo(
+        () =>
+            throttle(async (words) => {
+                try {
+                    // Summarize the entire transcription in English
+                    const enResult = await summarizeText(
+                        words.join(" "),
+                        transcriptionLangRef.current,
+                        "en"
+                    );
+
+                    setEnSummary(enResult); // keep internal English summary
+
+                    let translatedResult = enResult;
+                    if (translationLangRef.current !== "en") {
+                        // Translate the English summary to target language
+                        translatedResult = await translateText(
+                            enResult,
+                            "en",
+                            translationLangRef.current
+                        );
+                    }
+
+                    // Replace the rolling summary instead of appending
+                    setSummary(translatedResult);
+
+                    lastSummarizedIndex.current = words.length;
+                } catch (err) {
+                    console.error(err);
+                    toast.error("Rolling summarization failed.");
+                }
+            }, THROTTLE_MS * 5), // slower throttle for summaries
+        []
+    );
+
+    useEffect(() => {
+        // only host does summarizations, stores enSummary & translated summary to let participant fetch
+        if (!doSummarization || !transcription || role !== "host") return;
+
+        const words = transcription.split(/\s+/);
+
+        // Only trigger if enough new words since last summary
+        if (words.length - lastSummarizedIndex.current < 50) return;
+        // adjust threshold for how often to resummarize
+
+        throttledSummarize(words);
+    }, [transcription, doSummarization, throttledSummarize]);
+
+
+    // real-time translate summmary (participant)
+    const throttledTranslateSummary = useMemo(
+        () =>
+            throttle(async (words) => {
+                try {
+                    let translatedResult = words.join(" ");
+                    if (translationLangRef.current !== "en") {
+                        // Take the full English summary and translate
+                        translatedResult = await translateText(
+                            words.join(" "),
+                            "en",
+                            translationLangRef.current
+                        );
+                    }
+                    setSummary(translatedResult);
+                    lastTranslatedSummaryIndex.current = words.length;
+                } catch (err) {
+                    console.error(err);
+                    toast.error("Summary translation failed.");
+                }
+            }, THROTTLE_MS),
+        []
+    );
+
+    useEffect(() => {
+        if (!doSummarization || role !== "participant") return;
+
+        if (enSummary) {
+            // host provided summary → just translate it
+            const words = enSummary.split(/\s+/);
+            if (words.length <= lastTranslatedSummaryIndex.current) return;
+
+            throttledTranslateSummary(words);
+        } else if (transcription) {
+            // no host summary → fall back to own summarization
+            const words = transcription.split(/\s+/);
+            if (words.length - lastSummarizedIndex.current < 50) return;
+
+            throttledSummarize(words);
+        }
+    }, [enSummary, transcription, doSummarization, role, throttledTranslateSummary, throttledSummarize]);
 
 
 
@@ -340,6 +433,7 @@ export default function MeetingDetailsPage() {
             if (!res.ok) {
                 const errData = await res.json();
                 console.error("Failed to fetch meeting details:", errData.detail);
+                router.push("/meeting?toast=notFound");
                 return;
             }
 
@@ -369,7 +463,16 @@ export default function MeetingDetailsPage() {
             setTranscription(data.transcription || "");
             setTranscriptionLang(data.transcription_lang || "en");
             setEnSummary(data.en_summary || "");
-            setSummary(data.translated_summary || "");
+
+            // if (summary === "") { // check to prevent overwrite participant in meeting that just ended
+            //     setSummary(data.translated_summary || "");
+            // }
+            setSummary((prev) => {
+                if (prev && prev !== "") {
+                    return prev; // keep existing summary
+                }
+                return data.translated_summary || "";
+            });
 
         } catch (err) {
             console.error("Error fetching meeting details:", err);
@@ -423,8 +526,10 @@ export default function MeetingDetailsPage() {
                     handleSaveMeeting();
                 }
 
-                // 3. Redirect and show confirmation
-                router.push("/meeting?toast=meetingEnd"); // back to meetings page
+                toast.success("Meeting Ended");
+                setEndTime(formatTimeFromTimestamp(new Date().toISOString()));
+                setRecording(false);
+                setStatus("past");
             }
 
         } catch (err) {
