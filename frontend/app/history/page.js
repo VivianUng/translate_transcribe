@@ -91,7 +91,7 @@ export default function History() {
         date: formatDateFromTimestamp(item.actual_start_time),
         time: formatTimeFromTimestamp(item.actual_start_time),
         input: item.meeting_name || "Untitled Meeting",
-        output: item.translated_summary || "",
+        output: item.translated_summary || item.original_summary || "",
       });
     });
 

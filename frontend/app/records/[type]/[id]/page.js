@@ -307,7 +307,7 @@ export default function RecordDetailsPage() {
 
     if (!id || !type) return <p>Invalid link</p>;
     if (loading) return <p>Loading...</p>;
-    if (error) return <p style={{ color: "red" }}>{error}</p>;
+    if (error) return <p className="error-message">{error}</p>;
     if (!record) return <p>Record not found</p>;
 
     return (

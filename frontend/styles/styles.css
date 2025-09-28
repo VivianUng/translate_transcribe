@@ -2,20 +2,22 @@
          Global Styles
    =========================== */
 :root {
-  --primary-color: #f7f5fb;
-  /*section color*/
-  --secondary-color: #5a5f9f;
-  /*button color*/
-  --tertiary-color: #484c8a;
+  --section-color: #f7f5fb;
+  --content-color: #f1edfa;
   --navbar-color: #d7d9e8;
+  --button-color: #5a5f9f;
+  --button-hover-color: #484c8a;
   --text-color: #4a4a63;
   --text-color-active: #2c2c54;
+  --section2-color:#f9f9f9;
+  --disable-color:#bbb;
+  --danger-color:#e53e3e;
 }
 
 body {
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #ffffff;
+  background-color: white;
 }
 
 /* Reset link styles */
@@ -38,8 +40,8 @@ a {
 
 /* Error toast */
 .toast-error {
-  background-color: #ef4444 !important;
-  color: #fff !important;
+  background-color: var(--danger-color) !important;
+  color: white !important;
 }
 
 /* Main container for page */
@@ -60,35 +62,35 @@ a {
 .button {
   display: block;
   margin: 1rem auto;
-  background: var(--secondary-color);
+  background: var(--button-color);
   color: white;
   border: none;
   border-radius: 20px;
   padding: 0.7rem 2rem;
   font-size: 1.1rem;
   cursor: pointer;
-  box-shadow: 0 4px 8px color-mix(in srgb, var(--secondary-color) 40%, transparent);
+  box-shadow: 0 4px 8px color-mix(in srgb, var(--button-color) 40%, transparent);
   transition: background 0.3s ease;
 }
 
 .button:hover {
-  background-color: var(--tertiary-color);
+  background-color: var(--button-hover-color);
 }
 
 .button:disabled {
-  background: #bbb;
+  background: var(--disable-color);
   cursor: not-allowed;
   box-shadow: none;
 }
 
 .button.delete {
-  background: #e53e3e;
-  box-shadow: none;
-  color: #fff;
+  background: var(--danger-color);
+  box-shadow: 0 4px 8px color-mix(in srgb, var(--danger-color) 40%, transparent);
+  color: white;
 }
 
 .button.delete:hover {
-  background: #c53030;
+  filter: brightness(0.9);
 }
 
 .button.sectionhead {
@@ -102,7 +104,7 @@ a {
 /* box sections within page */
 .section {
   flex: 1;
-  background: var(--primary-color);
+  background: var(--section-color);
   border-radius: 10px;
   padding: 1rem;
   box-shadow: 0 0 8px #ddd;
@@ -129,16 +131,8 @@ a {
   color: gray;
 }
 
-.page-link-word {
-  margin-bottom: 1rem;
-  font-size: 1rem;
-  cursor: pointer;
-  color: #6B63FF;
-  text-decoration: underline;
-}
-
 .text-area {
-  background: #f1edfa;
+  background: var(--content-color);
   flex-grow: 1;
   border-radius: 10px;
   padding: 1rem;
@@ -154,7 +148,7 @@ a {
 }
 
 .text-area:focus {
-  outline: 2px solid var(--secondary-color);
+  outline: 2px solid var(--button-color);
 }
 
 /* styles for one-line input fields */
@@ -178,15 +172,14 @@ a {
 /* Highlight when typing */
 .input-field:focus {
   outline: none;
-  border-color: var(--secondary-color);
+  border-color: var(--button-color);
   box-shadow: 0 0 0 3px var(--navbar-color);
-  background-color: #fff;
+  background-color: white;
 }
 
 .input-disabled {
-  background: #f5f5f5;
   cursor: not-allowed;
-  color: #999;
+  color: var(--disable-color);
 }
 
 .input-label {
@@ -199,9 +192,15 @@ a {
   top: 0.1rem;
   background: transparent;
   border: none;
-  color: var(--tertiary-color);
+  color: var(--button-hover-color);
   font-size: 0.95rem;
   font-weight: 600;
+  cursor: pointer;
+}
+
+.mic-icon {
+  font-size: 1.6rem;
+  margin-left: auto;
   cursor: pointer;
 }
 
@@ -229,7 +228,7 @@ a {
 }
 
 .react-select__control--is-focused {
-  border-color: var(--secondary-color) !important;
+  border-color: var(--button-color) !important;
   box-shadow: 0 0 0 2px var(--navbar-color) !important;
 }
 
@@ -247,7 +246,7 @@ a {
 }
 
 .react-select__option--is-selected {
-  background-color: var(--secondary-color) !important;
+  background-color: var(--button-color) !important;
 }
 
 .react-select__option:hover {
@@ -301,6 +300,11 @@ a {
   color: var(--text-color-active);
 }
 
+.navbar-links a:hover {
+  text-decoration: underline;
+  color: var(--text-color-active);
+}
+
 
 .navbar-button {
   display: inline-block;
@@ -322,9 +326,23 @@ a {
   padding: 2rem;
 }
 
+.page-link-word {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #6B63FF;
+  text-decoration: underline;
+}
 
 .forgot-password {
+  display: block;
   text-align: right;
+}
+
+.forgot-password.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .continue-guest {
@@ -339,7 +357,7 @@ a {
 }
 
 .error-message {
-  color: red;
+  color: var(--danger-color);
   text-align: center;
 }
 
@@ -382,24 +400,16 @@ a {
   gap: 1rem;
 }
 
-
-.mic-icon {
-  font-size: 1.6rem;
-  margin-left: auto;
-  cursor: pointer;
-}
-
 .upload-box {
   position: relative;
   height: 250px;
-  border: 2px dashed #bbb;
+  border: 2px dashed var(--navbar-color);
   border-radius: 10px;
   padding: 0.25rem 0.75rem 0.75rem;
-  background: #e7e3f0;
+  background: var(--content-color);
   display: flex;
   justify-content: center;
   align-items: stretch;
-  color: #555;
   font-size: 1rem;
   text-align: center;
   cursor: pointer;
@@ -409,7 +419,7 @@ a {
 }
 
 .upload-box:hover {
-  background: #ddd8eb;
+  filter: brightness(0.97);
 }
 
 .upload-text {
@@ -462,7 +472,7 @@ a {
   font-family: monospace;
   font-size: 0.85rem;
   white-space: pre-wrap;
-  background: #fff;
+  background: white;
 }
 
 .file-content.audio {
@@ -481,7 +491,7 @@ a {
 
 .change-file-btn {
   position: absolute;
-  top: 8px;
+  top: -8px;
   right: 8px;
   border: 1px solid #ccc;
   border-radius: 5px;
@@ -515,7 +525,7 @@ a {
 }
 
 .meeting-card {
-  background-color: var(--primary-color);
+  background-color: var(--section-color);
   border-radius: 8px;
   padding: 1rem 1.5rem;
   margin-bottom: 1rem;
@@ -590,14 +600,14 @@ a {
   margin-right: 0.5rem;
   width: 1.2rem;
   height: 1.2rem;
-  accent-color:var(--secondary-color);  
+  accent-color:var(--button-color);  
 }
 
 .checkbox-input {
   margin-right: 0.5rem;
   width: 1.2rem;
   height: 1.2rem;
-  accent-color:var(--secondary-color);  
+  accent-color:var(--button-color);  
 }
 
 
@@ -701,7 +711,7 @@ a {
   justify-content: space-between;
   gap: 12px;
   flex: 1;
-  background: #f9f9f9;
+  background:var(--section2-color);
   padding: 12px 16px;
   border-radius: 12px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
@@ -727,7 +737,7 @@ a {
 
 .searchInput:focus,
 .date-field input[type="date"]:focus {
-  border-color: var(--secondary-color);
+  border-color: var(--button-color);
   box-shadow: 0 0 0 3px var(--navbar-color);
 }
 
@@ -735,7 +745,7 @@ a {
 .typeDropdown,
 .sortDropdown {
   flex: 1;
-  background-color: #fff;
+  background-color: white;
   cursor: pointer;
 }
 
@@ -744,7 +754,7 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #f9f9f9;
+  background: var(--section2-color);;
   padding: 12px 16px;
   border-radius: 12px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
@@ -778,7 +788,7 @@ a {
   padding: 16px;
   box-sizing: border-box;
   border-radius: 8px;
-  background-color: var(--primary-color);
+  background-color: var(--section-color);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s, box-shadow 0.2s;
   cursor: pointer;
@@ -800,8 +810,8 @@ a {
 
 
 .type {
-  background-color: var(--secondary-color);
-  color: #fff;
+  background-color: var(--button-color);
+  color: white;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 12px;
@@ -869,7 +879,7 @@ a {
   margin: 0 10px 0 0;
   width: 18px;
   height: 18px;
-  accent-color: var(--secondary-color);
+  accent-color: var(--button-color);
 }
 
 .divider {
@@ -898,8 +908,8 @@ a {
   align-items: center;
   gap: 0.4rem;
   background-color: var(--navbar-color);
-  color: var(--secondary-color);
-  border: 1px solid var(--tertiary-color);
+  color: var(--button-color);
+  border: 1px solid var(--button-hover-color);
   border-radius: 9999px;
   padding: 0.25rem 0.6rem 0.25rem 0.75rem;
   font-size: 0.85rem;
@@ -909,33 +919,18 @@ a {
 }
 
 .participant-tag:hover {
-  background-color: var(--primary-color);
+  filter: brightness(0.9);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-.participant-tag button {
+.remove-participant {
   all: unset;
   cursor: pointer;
   font-size: 0.85rem;
-  color: #555;
-  transition: color 0.2s ease;
-}
-
-.participant-tag button:hover {
-  color: #d32f2f;
-}
-
-.remove-participant {
-  margin-left: 0.5rem;
-  border: none;
-  background: transparent;
-  color: #888;
-  font-size: 1rem;
-  cursor: pointer;
 }
 
 .remove-participant:hover {
-  color: #333;
+  color: var(--danger-color);
 }
 
 
@@ -953,13 +948,9 @@ a {
 }
 
 .add-button {
-  padding: 0 1rem;
   border-radius: 8px;
-  border: 1px solid #ccc;
-  background-color: #e0e0e0;
-  font-size: 1rem;
+  margin:0rem;
   cursor: pointer;
-  transition: all 0.2s ease;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -967,11 +958,6 @@ a {
   height: auto;
 }
 
-.add-button:hover {
-  background-color: #d5d5d5;
-}
-
 .input-error {
-  border: 1px solid #dc2626;
-  /* red border */
+  border: 1px solid var(--danger-color);
 }

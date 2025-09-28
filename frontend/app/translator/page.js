@@ -415,12 +415,7 @@ const handleDownload = async () => {
 
                     {/* Change File Button */}
                     <button
-                      className="change-file-btn"
-                      onClick={(e) => {
-                        e.stopPropagation(); // prevent triggering the box click
-                        clearDisplay();
-                        triggerFileInput();
-                      }}
+                      className="button change-file-btn"
                     >
                       Change File
                     </button>

@@ -167,7 +167,7 @@ export default function Signup() {
       </form>
 
       {errorMsg && (
-        <div className="error-message text-red-500">
+        <div className="error-message">
           {errorMsg.split("\n").map((line, idx) => (
             <div key={idx}>{line}</div>
           ))}

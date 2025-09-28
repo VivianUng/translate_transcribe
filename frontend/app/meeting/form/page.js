@@ -342,7 +342,7 @@ export default function MeetingFormPage() {
                         }}
                         placeholder="Add participant email"
                     />
-                    <button type="button" className="add-button" onClick={addParticipant} disabled={!emailInput || !isValidEmail}>
+                    <button type="button" className="button add-button" onClick={addParticipant} disabled={!emailInput || !isValidEmail}>
                         Add
                     </button>
                 </div>

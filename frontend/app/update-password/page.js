@@ -121,7 +121,7 @@ export default function UpdatePassword() {
       </form>
 
       {errorMsg && (
-        <div className="error-message text-red-500 whitespace-pre-line mt-2">
+        <div className="error-message">
           {errorMsg}
         </div>
       )}

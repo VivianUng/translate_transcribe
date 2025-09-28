@@ -22,16 +22,11 @@ export default function MeetingDetailsPage() {
     const searchParams = useSearchParams();
     const meetingId = searchParams.get("id");
 
-    const meetingIdRef = useRef(meetingId);
-    useEffect(() => {
-        meetingIdRef.current = meetingId;
-    }, [meetingId])
-
     const router = useRouter();
     const { languages } = useLanguages();
     const [loadingPage, setLoadingPage] = useState(true);
 
-    const [role, setRole] = useState(null); // "host" or "participant"
+    const [role, setRole] = useState("participant"); // "host" or "participant"
     const [status, setStatus] = useState(null); // "ongoing" or "past"
 
     const roleRef = useRef(role);
@@ -49,6 +44,11 @@ export default function MeetingDetailsPage() {
     const [record, setRecord] = useState(null);
     const [isSaved, setIsSaved] = useState(false); // track if meeting is saved (modify to aactually track if it exists in meeting_details_individual)
     const [autoSave, setAutoSave] = useState(false);
+
+    const autoSaveRef = useRef(autoSave);
+    useEffect(() => {
+        autoSaveRef.current = autoSave;
+    }, [autoSave])
 
     const [meetingName, setMeetingName] = useState("");
     const [meetingHost, setMeetingHost] = useState("");
@@ -77,9 +77,11 @@ export default function MeetingDetailsPage() {
     const isTextChanged = useMemo(() => {
         if (!record || !transcription) return false;
         return (
-            transcription !== record
+            transcription !== (record.transcription || "") ||
+            enSummary !== (record.en_summary || "") ||
+            summary !== (record.translated_summary || "")
         );
-    }, [record, transcription]);
+    }, [record, transcription, enSummary, summary]);
 
     // test data
     useEffect(() => {
@@ -124,11 +126,8 @@ export default function MeetingDetailsPage() {
             const fetchAll = async () => {
                 setLoadingPage(true);
                 try {
-                    if (meetingIdRef.current) {
-                        // from meeting_details
-                        await fetchMeetingInfo(meetingIdRef.current);
-                        await fetchMeetingDetails(meetingIdRef.current);
-                        await fetchRole(meetingIdRef.current);
+                    if (meetingId) {
+                        await fetchMeetingDetails(meetingId);
                     } else {
                         // Safety net: no valid params
                         throw new Error("No meetingId provided");
@@ -156,7 +155,7 @@ export default function MeetingDetailsPage() {
 
     // Host updates meeting_details in real-time
     useEffect(() => {
-        if (!meetingIdRef.current || role !== "host" || status !== "ongoing") return;
+        if (!meetingId || role !== "host" || status !== "ongoing") return;
 
         const updateRealtime = async () => {
             // Only update if content exists
@@ -172,7 +171,7 @@ export default function MeetingDetailsPage() {
             const { error } = await supabase
                 .from("meeting_details")
                 .update(updateData)
-                .eq("meeting_id", meetingIdRef.current);
+                .eq("meeting_id", meetingId);
 
             if (error) console.error("Host update error:", error);
         };
@@ -184,17 +183,16 @@ export default function MeetingDetailsPage() {
 
     // Participant get real-time data 
     useEffect(() => {
-        if (!meetingIdRef.current) return;
+        if (!meetingId) return;
 
         const channel = supabase
-            .channel(`meeting-${meetingIdRef.current}`)
+            .channel(`meeting-${meetingId}`)
             .on("postgres_changes", {
                 event: "UPDATE",
                 schema: "public",
                 table: "meeting_details",
-                filter: `meeting_id=eq.${meetingIdRef.current}`,
-            }, (payload) => {
-                console.log("Realtime payload:", payload);
+                filter: `meeting_id=eq.${meetingId}`,
+            }, async (payload) => {
                 // Only update if this user is a participant and meeting is ongoing
                 if (roleRef.current === "participant" && statusRef.current === "ongoing") {
                     const data = payload.new;
@@ -203,18 +201,17 @@ export default function MeetingDetailsPage() {
                     setEnSummary(data.en_summary || "");
                     setSummary(data.translated_summary || "");
 
-                    if (data.status === "past") {
+                    if (data.status === "past" && statusRef.current !== "past") {
                         toast('This meeting has ended');
-                        setStatus("past"); // update local state
-                        if (autoSave) { handleSaveMeeting(); }
+
+                        if (autoSaveRef.current) {
+                            await handleSaveMeeting();
+                        }
+                        setStatus("past"); // update local state   
+                        supabase.removeChannel(channel);
                     }
                 }
-            })
-            .subscribe((subStatus) => {
-                if (subStatus === "SUBSCRIBED") {
-                    fetchCurrentDetails();
-                }
-            });
+            }).subscribe();
 
         return () => {
             supabase.removeChannel(channel);
@@ -223,80 +220,9 @@ export default function MeetingDetailsPage() {
 
 
 
-
-    // fetch from meeting_details table
-    const fetchCurrentDetails = async () => {
-        try {
-            const token = session?.access_token;
-            const res = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingIdRef.current}/details`,
-                {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
-            );
-
-            if (!res.ok) {
-                const errData = await res.json();
-                console.error("Failed to fetch meeting details:", errData.detail);
-                return;
-            }
-
-            const data = await res.json();
-
-            setTranscription(data.transcription || "");
-            setTranscriptionLang(data.transcription_lang || "en");
-            setEnSummary(data.en_summary || "");
-            setSummary(data.translated_summary || "");
-        } catch (err) {
-            console.error("Error fetching meeting details:", err);
-        }
-    };
-
-
     // -----------------------
-    // Fetch functions accept meetingId as argument
+    // Fetch functions
     // -----------------------
-    const fetchRole = async (meetingId) => {
-        const token = session?.access_token;
-        if (!token) throw new Error("You must be logged in to check your role.");
-
-        const res = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/role`,
-            { method: "GET", headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        if (!res.ok) throw new Error("Failed to fetch role");
-
-        const data = await res.json();
-        setRole(data.role);
-    };
-
-
-    const fetchMeetingInfo = async (meetingId) => {
-        const token = session?.access_token;
-        if (!token) throw new Error("You must be logged in to view meetings.");
-
-        const res = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}`,
-            { method: "GET", headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        const data = await res.json();
-        const m = data.meeting;
-        if (!m) throw new Error("Meeting not found");
-
-        setMeetingName(m.name || "");
-        setMeetingHost(m.host_name || "");
-        setDate(formatDate(m.date) || "");
-        setStartTime(formatTime(m.start_time));
-        setEndTime(formatTime(m.end_time));
-        setStatus(m.status); // 'ongoing' or 'past'
-    };
-
     const fetchMeetingDetails = async (meetingId) => {
         if (!meetingId) return;
 
@@ -323,15 +249,31 @@ export default function MeetingDetailsPage() {
 
             const data = await res.json();
 
-            setRecord(data.transcription);
+            setMeetingName(data.name || "");
+            setMeetingHost(data.host_name || "");
+            setStatus(data.status); // 'ongoing' or 'past'
+
+            if (data.host_id === session.user.id) {
+                setMeetingHost("You are the host");
+                setRole("host");
+            } else { setRole("participant"); }
+
+            const normalized = {
+                transcription: data.transcription,
+                en_summary: data.en_summary,
+                translated_summary: data.translated_summary,
+            };
+            setRecord(normalized);
 
             // Update frontend state 
-            setStartTime(formatTimeFromTimestamp(data.actual_start_time));
-            setEndTime(formatTimeFromTimestamp(data.actual_end_time));
+            setStartTime(formatTimeFromTimestamp(data.actual_start_time) || "");
+            setEndTime(formatTimeFromTimestamp(data.actual_end_time) || "");
             setDate(formatDateFromTimestamp(data.actual_start_time) || "");
             // (modify accordingly)
             setTranscription(data.transcription || "");
-            setSummary(data.en_summary || "");
+            setTranscriptionLang(data.transcription_lang || "en");
+            setEnSummary(data.en_summary || "");
+            setSummary(data.translated_summary || "");
 
         } catch (err) {
             console.error("Error fetching meeting details:", err);
@@ -381,7 +323,7 @@ export default function MeetingDetailsPage() {
                 const data = await res.json();
 
                 // if host has auto-save on : trigger saveMeeting
-                if (autoSave) {
+                if (autoSaveRef.current) {
                     handleSaveMeeting();
                 }
 
@@ -474,7 +416,7 @@ export default function MeetingDetailsPage() {
                     },
                     body: JSON.stringify({
                         transcription,
-                        transcription_lang: translationLang, // modify this to store the actual language of transcription (can be more than one)
+                        transcription_lang: transcriptionLang, // modify this to store the actual language of transcription (can be more than one)
                         en_summary: summary, // to be modified to actually store the english summary 
                         translated_summary: summary, // to be modified to actually store the translated summary (same lang as translationLang)
                     }),
@@ -483,7 +425,14 @@ export default function MeetingDetailsPage() {
 
             const result = await res.json();
             if (!res.ok) throw new Error(result.detail || "Failed to update meeting");
-            else setRecord(transcription);
+            else { // update local record value
+                const normalized = {
+                    transcription: transcription,
+                    en_summary: enSummary,
+                    translated_summary: summary,
+                };
+                setRecord(normalized);
+            }
 
             toast.success("Meeting details updated successfully!");
         } catch (err) {
@@ -495,8 +444,6 @@ export default function MeetingDetailsPage() {
 
     // from past / ongoing meeting : save to individual records
     async function handleSaveMeeting() {
-
-        if (!isLoggedIn || !transcription) return;
 
         setSaving(true);
 
@@ -668,7 +615,7 @@ export default function MeetingDetailsPage() {
                         </div>
                         <StickyScrollBox
                             content={translation}
-                            placeholder="Waiting for translation..."
+                            placeholder="Translation will appear here..."
                             editable={(role === "host" && status === "past")}
                             onChange={setTranslation}
                         />
@@ -737,7 +684,7 @@ export default function MeetingDetailsPage() {
                                     <button
                                         className="button save-btn"
                                         onClick={handleSaveMeeting}
-                                        disabled={saving || isSaved}
+                                        disabled={saving || isSaved || !transcription}
                                     >
                                         {saving ? "Saving..." : isSaved ? "Saved" : "Save Meeting"}
                                     </button>

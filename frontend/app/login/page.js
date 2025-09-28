@@ -139,18 +139,17 @@ export default function Login() {
           </button>
         </div>
         {/* Forgot password link */}
-        <div className="page-link-word forgot-password">
-          <span
-            onClick={resetSent ? undefined : handleForgotPw}
-            style={{ opacity: resetSent ? 0.6 : 1, pointerEvents: resetSent ? "none" : "auto" }}
-          >
-            {resetLoading
-              ? "Sending reset email..."
-              : resetSent
-                ? "Reset Email Sent"
-                : "Forgot password"}
-          </span>
-        </div>
+        <span
+          className={`page-link-word forgot-password ${resetSent || resetLoading ? "disabled" : ""}`}
+          onClick={resetSent ? undefined : handleForgotPw}
+        >
+          {resetLoading
+            ? "Sending reset email..."
+            : resetSent
+              ? "Reset Email Sent"
+              : "Forgot password"}
+        </span>
+        
         <button
           className="button login-button"
           type="submit"

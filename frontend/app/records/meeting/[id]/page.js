@@ -104,7 +104,7 @@ export default function IndividualMeetingRecordPage() {
 
                 setTranscription(data.original_transcription || "");
                 setTranslation(data.translation || "");
-                setSummary(data.translated_summary || "");
+                setSummary(data.translated_summary || data.original_summary || "");
                 setTranslationLang(data.translated_lang || "en");
 
                 setCreatedAt(formatDateTimeFromTimestamp(data.created_at));
@@ -112,12 +112,18 @@ export default function IndividualMeetingRecordPage() {
 
                 // fetch host name if exists
                 if (data.host_id) {
-                    const hostRes = await fetch(
-                        `${process.env.NEXT_PUBLIC_BACKEND_URL}/hosts/names/${data.host_id}`,
-                        { headers: { Authorization: `Bearer ${session.access_token}` } }
-                    );
-                    const hostData = await hostRes.json();
-                    setMeetingHost(hostData.host.name || "");
+                    if (data.host_id === session.user.id) {
+                        setMeetingHost("You are the host");
+                    }
+                    else {
+                        const hostRes = await fetch(
+                            `${process.env.NEXT_PUBLIC_BACKEND_URL}/hosts/names/${data.host_id}`,
+                            { headers: { Authorization: `Bearer ${session.access_token}` } }
+                        );
+                        const hostData = await hostRes.json();
+                        setMeetingHost(hostData.host.name || "");
+                    }
+
                 } else { setMeetingHost("Unavailable"); } // if meeting hosts account no longer exists
 
                 // save original record for change detection
