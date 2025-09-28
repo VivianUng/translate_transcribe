@@ -17,6 +17,7 @@ export default function Meetings() {
     }
   }, [loading, session]);
 
+
   const fetchUserMeetings = async () => {
     try {
       setFetching(true);
@@ -27,7 +28,7 @@ export default function Meetings() {
         return;
       }
 
-      // 2. Fetch meetings from backend
+      // Fetch all meetings (already includes actual_start_time / actual_end_time)
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings`, {
         method: "GET",
         headers: {
@@ -44,8 +45,6 @@ export default function Meetings() {
         return;
       }
 
-      // 3. Filter meetings into ongoing, upcoming, and past
-      const now = new Date();
       const ongoing = [];
       const upcoming = [];
       const past = [];
@@ -53,89 +52,38 @@ export default function Meetings() {
       for (const meeting of data) {
         const isHost = meeting.host_id === session.user.id;
 
+        // Prefer actual times if available
+        const startTime = meeting.actual_start_time || `${meeting.date}T${meeting.start_time}`;
+        const endTime = meeting.actual_end_time || (meeting.status?.toLowerCase() !== "ongoing" ? `${meeting.date}T${meeting.end_time}` : "");
+
         const meetingData = {
           ...meeting,
           isHost,
           hostName: meeting.host_name || "Unknown",
-          formattedDate: formatDate(meeting.date),
-          formattedStartTime: formatTime(meeting.start_time),
-          formattedEndTime: formatTime(meeting.end_time),
+          formattedDate: meeting.actual_start_time
+            ? formatPrettyDateFromTimestamp(meeting.actual_start_time)
+            : formatDate(meeting.date),
+          formattedStartTime: meeting.actual_start_time
+            ? formatTimeFromTimestamp(meeting.actual_start_time)
+            : formatTime(meeting.start_time),
+          formattedEndTime: meeting.actual_end_time
+            ? formatTimeFromTimestamp(meeting.actual_end_time)
+            : formatTime(meeting.end_time),
+          startAt: new Date(startTime),
+          endAt: endTime ? new Date(endTime) : "",
         };
 
-        meetingData.startAt = new Date(`${meeting.date}T${meeting.start_time}`);
-        meetingData.endAt = new Date(`${meeting.date}T${meeting.end_time}`);
-
         const status = meeting.status?.toLowerCase();
-
-        if (status === "past") {
-          try {
-            const res = await fetch(
-              `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meeting.id}/details`,
-              {
-                method: "GET",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${session?.access_token}`,
-                },
-              }
-            );
-
-            const details = await res.json();
-
-            if (details.actual_start_time) {
-              meetingData.startAt = new Date(details.actual_start_time);
-              meetingData.formattedDate = formatPrettyDateFromTimestamp(details.actual_start_time);
-              meetingData.formattedStartTime = formatTimeFromTimestamp(details.actual_start_time);
-            }
-            if (details.actual_end_time) {
-              meetingData.endAt = new Date(details.actual_end_time);
-              meetingData.formattedEndTime = formatTimeFromTimestamp(details.actual_end_time);
-            }
-
-          } catch (err) {
-            console.error("Failed to fetch meeting details", err);
-          }
-          past.push(meetingData);
-        }
-        else if (status === "ongoing") {
-          try {
-            const res = await fetch(
-              `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meeting.id}/details`,
-              {
-                method: "GET",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${session?.access_token}`,
-                },
-              }
-            );
-
-            const details = await res.json();
-
-            if (details.actual_start_time) {
-              meetingData.startAt = new Date(details.actual_start_time);
-              meetingData.formattedDate = formatPrettyDateFromTimestamp(details.actual_start_time);
-              meetingData.formattedStartTime = formatTimeFromTimestamp(details.actual_start_time);
-            }
-            meetingData.endAt = "";
-            meetingData.formattedEndTime = "";
-
-          } catch (err) {
-            console.error("Failed to fetch meeting details", err);
-          }
-          ongoing.push(meetingData);
-        }
-        else if (status === "upcoming") {
-          upcoming.push(meetingData);
-        }
+        if (status === "past") past.push(meetingData);
+        else if (status === "ongoing") ongoing.push(meetingData);
+        else if (status === "upcoming") upcoming.push(meetingData);
       }
 
-      ongoing.sort((a, b) => a.startAt - b.startAt);    // soonest start first
-      upcoming.sort((a, b) => a.startAt - b.startAt);   // soonest start first
-      past.sort((a, b) => b.endAt - a.endAt);           // most recent ended first
+      // Sort meetings
+      ongoing.sort((a, b) => a.startAt - b.startAt);
+      upcoming.sort((a, b) => a.startAt - b.startAt);
+      past.sort((a, b) => b.endAt - a.endAt);
 
-
-      // 4. Update state
       setMeetings({ ongoing, upcoming, past });
     } catch (err) {
       console.error("Failed to fetch meetings:", err);
@@ -206,7 +154,7 @@ export default function Meetings() {
                 </div>
               </div>
               {title === "Upcoming Meetings" && meeting.isHost && (
-                <div className="button-group" style={{gap: "8px" }}>
+                <div className="button-group" style={{ gap: "8px" }}>
                   <button
                     className="button update-btn meeting-button"
                     onClick={() => router.push(`/meeting/form?mode=update&id=${meeting.id}`)}
@@ -233,14 +181,14 @@ export default function Meetings() {
 
               {/* === Past Meetings buttons === */}
               {title === "Past Meetings" && (
-                  <button
-                    className="button view-btn meeting-button"
-                    onClick={() =>
-                      router.push(`/meeting/details?id=${meeting.id}`)
-                    }
-                  >
-                    View
-                  </button>
+                <button
+                  className="button view-btn meeting-button"
+                  onClick={() =>
+                    router.push(`/meeting/details?id=${meeting.id}`)
+                  }
+                >
+                  View
+                </button>
               )}
 
             </div>

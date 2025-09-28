@@ -764,9 +764,24 @@ async def get_user_meetings(current_user=Depends(get_current_user)):
                 host = host_data["host"]
                 host_map[host["host_id"]] = host["name"]
 
-        # 5. Attach host_name to each meeting
+        # 5. Attach host_name and fetch meeting_details for past/ongoing
         for m in all_meetings:
             m["host_name"] = host_map.get(m["host_id"], "Unknown")
+
+            status = (m.get("status") or "").lower()
+            if status in ["past", "ongoing"]:
+                # Fetch actual times from meeting_details
+                detail_result = supabase.table("meeting_details")\
+                    .select("*")\
+                    .eq("meeting_id", m["id"])\
+                    .single()\
+                    .execute()
+                details = detail_result.data
+                if details:
+                    if details.get("actual_start_time"):
+                        m["actual_start_time"] = details["actual_start_time"]
+                    if status == "past" and details.get("actual_end_time"):
+                        m["actual_end_time"] = details["actual_end_time"]
 
         # 6. Sort meetings
         all_meetings.sort(key=lambda m: (m["date"], m["start_time"]))
