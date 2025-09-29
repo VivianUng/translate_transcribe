@@ -3,6 +3,8 @@ import numpy as np
 import whisper
 from fastapi import APIRouter, WebSocket
 
+from app.core.language_codes import LanguageConverter
+
 router = APIRouter()
 
 SAMPLE_RATE = 16000        # 16 kHz
@@ -17,6 +19,13 @@ model = whisper.load_model("base")
 @router.websocket("/ws/transcribe")
 async def websocket_transcribe(ws: WebSocket):
     await ws.accept()
+
+    # Read query param
+    input_lang = ws.query_params.get("lang", "en")  # default to English if not provided
+    print(f"WebSocket opened with input_lang={input_lang}")
+    # convert input_lang to iso639-1 
+    isoLang = LanguageConverter.from_libretranslate(input_lang)
+
     audio_buffer = b""
 
     try:
@@ -40,7 +49,21 @@ async def websocket_transcribe(ws: WebSocket):
                 chunk = audio_np[-CHUNK_SIZE:]
 
                 # Transcribe chunk
-                result = model.transcribe(chunk, language="en", fp16=False, verbose=True)
+                try:
+                    result = model.transcribe(
+                        chunk,
+                        language=isoLang if isoLang else None,  # use provided lang if not empty
+                        fp16=False,
+                        verbose=False
+                    )
+                except Exception as e:
+                    print(f"Language '{isoLang}' not supported, falling back to auto-detect. Error: {e}")
+                    result = model.transcribe(
+                        chunk,
+                        language=None,   # auto-detect mode
+                        fp16=False,
+                        verbose=False
+                    )
                 text = result.get("text", "").strip()
 
                 if text:

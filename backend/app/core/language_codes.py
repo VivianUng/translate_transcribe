@@ -16,6 +16,15 @@ LANGDETECT_EXCEPTIONS = {
     "no": "nb",   # langdetect sometimes outputs "no"
 }
 
+LIBRETRANSLATE_EXCEPTIONS = {
+    # LibreTranslate → ISO639-1 (or closest equivalent)
+    "zh-Hans": "zh",    # Simplified Chinese → zh
+    "zh-Hant": "zh",    # Traditional Chinese → zh
+    "pt-br": "pt",    # Brazilian Portuguese → pt
+    "nb": "no",       # Norwegian Bokmål → no
+    # You can add more overrides if needed
+}
+
 # Special mappings for PaddleOCR (custom set of names)
 # Reference: https://github.com/PaddlePaddle/PaddleOCR/blob/release/2.7/doc/doc_en/multi_languages_en.md
 PADDLE_EXCEPTIONS = {
@@ -81,6 +90,25 @@ class LanguageConverter:
 
         # Otherwise keep normalized BCP-47 (needed for zh-Hans, zh-Hant, pt-BR)
         return norm
+
+    @staticmethod
+    def from_libretranslate(code: str) -> str:
+        """
+        Convert a LibreTranslate language code into ISO639-1/Whisper-compatible code.
+        """
+        code = code.lower()
+        if code in LIBRETRANSLATE_EXCEPTIONS:
+            return LIBRETRANSLATE_EXCEPTIONS[code]
+
+        # Try to standardize using langcodes
+        try:
+            lang = langcodes.get(code)
+            if lang.language and len(lang.language) == 2:
+                return lang.language
+        except Exception:
+            pass
+
+        return code  # fallback (may already be ISO639-1)
 
     @staticmethod
     def to_bcp47(code: str) -> str:

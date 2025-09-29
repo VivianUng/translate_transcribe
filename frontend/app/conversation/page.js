@@ -148,23 +148,39 @@ export default function ConversationPage() {
   // Mic
   const handleMicStart = async () => {
     clearDisplay();
-    const session = await startMicStreaming({ setTranscription, setListening, setRecordingType });
+    const session = await startMicStreaming({ setTranscription, setListening, setRecordingType, inputLang });
     setMicSession(session);
   };
 
   // Screen (internal audio)
   const handleScreenStart = async () => {
     clearDisplay();
-    const session = await startScreenStreaming({ setTranscription, setListening, setRecordingType });
+    const session = await startScreenStreaming({ setTranscription, setListening, setRecordingType, inputLang });
     setScreenSession(session);
   };
 
   const handleStop = () => {
     if (recordingType === "mic") {
-      stopMicStreaming({ ...micSession, setListening, setRecordingType });
+      stopMicStreaming({
+        ...micSession,
+        setListening,
+        setRecordingType,
+        onAudioReady: (blob) => {
+          const url = URL.createObjectURL(blob);
+          setAudioURL(url);
+        }
+      });
       setMicSession(null);
     } else if (recordingType === "screen") {
-      stopScreenStreaming({ ...screenSession, setListening, setRecordingType });
+      stopScreenStreaming({
+        ...screenSession,
+        setListening,
+        setRecordingType,
+        onAudioReady: (blob) => {
+          const url = URL.createObjectURL(blob);
+          setAudioURL(url);
+        }
+      });
       setScreenSession(null);
     }
   };
