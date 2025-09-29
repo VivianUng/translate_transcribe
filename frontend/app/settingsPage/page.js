@@ -203,6 +203,7 @@ export default function SettingsPage() {
           <input
             type="text"
             value={formData.name}
+            maxLength={100}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             className="input-field"
           />

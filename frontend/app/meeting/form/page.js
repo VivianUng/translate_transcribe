@@ -143,23 +143,6 @@ export default function MeetingFormPage() {
         if (!startTime || value > startTime) setEndTime(value);
     };
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // strip time for accurate comparison
-
-    const handleDateChange = (e) => {
-        const selectedDate = e.target.value;
-
-        setDate(selectedDate);
-
-        if (selectedDate.length === 10) {
-            const selected = new Date(selectedDate);
-            if (selected < today) {
-                setDate(""); // clear only after full invalid date
-            } else {
-                setFormErrors((prev) => ({ ...prev, date: "" }));
-            }
-        }
-    };
 
 
     // Participant handlers
@@ -214,9 +197,24 @@ export default function MeetingFormPage() {
     const handleSubmit = async () => {
         const errors = {};
         if (!meetingName.trim()) errors.name = "Meeting name is required.";
-        if (!date) errors.date = "Date is required.";
+        if (!date) {
+            errors.date = "Date is required.";
+        } else {
+            // Validate date is not in the past
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // normalize to midnight
+            const selected = new Date(date);
+            selected.setHours(0, 0, 0, 0);
+
+            if (selected < today) {
+                errors.date = "Date cannot be earlier than today.";
+            }
+        }
         if (!startTime) errors.start = "Start time is required.";
         if (!endTime) errors.end = "End time is required.";
+        if (startTime && endTime && startTime >= endTime) {
+            errors.end = "End time must be later than start time.";
+        }
         setFormErrors(errors);
         if (Object.keys(errors).length > 0) return;
 
@@ -292,6 +290,7 @@ export default function MeetingFormPage() {
                     className={`input-field ${formErrors.name ? "input-error" : ""}`}
                     type="text"
                     value={meetingName}
+                    maxLength={100}
                     onChange={(e) => {
                         setMeetingName(e.target.value);
                         setFormErrors((prev) => ({ ...prev, name: "" }));
@@ -309,7 +308,6 @@ export default function MeetingFormPage() {
                             type="date"
                             min={new Date().toLocaleDateString("en-CA")}
                             value={date}
-                            // onChange={handleDateChange}
                             onChange={(e) => {
                                 setDate(e.target.value);
                                 setFormErrors((prev) => ({ ...prev, date: "" }));

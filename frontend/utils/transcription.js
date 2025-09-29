@@ -1,7 +1,9 @@
 //////////////////////
-// using python SpeechRecognition + recognise_google 
-// not real-time
-// works
+// using python SpeechRecognition + recognise_google (/transcribe)
+// recording : one-off transcription (still used in translator and summarizer page)
+//
+// using WebSocket + Whisper base model transcribe (websocket.py)
+// streaming : near-real-time (2s) (currently implemented in conversation page, to be added in meeting page)
 //////////////////////
 
 // utils/transcription.js
@@ -122,7 +124,7 @@ export function startScreenRecording({
 
       // Remove video track(s) so only audio remains
       stream.getVideoTracks().forEach(track => track.stop());
-      
+
       screenStreamRef.current = stream;
       const audioStream = new MediaStream(stream.getAudioTracks());
       screenRecorderRef.current = new MediaRecorder(audioStream);
@@ -198,4 +200,135 @@ export function stopRecording({
     setListening(false);
     setRecordingType(null);
   }
+}
+
+
+// --- Helper: convert Float32Array to 16-bit PCM ---
+export function float32To16BitPCM(float32Array) {
+  const buffer = new ArrayBuffer(float32Array.length * 2);
+  const view = new DataView(buffer);
+  let offset = 0;
+  for (let i = 0; i < float32Array.length; i++, offset += 2) {
+    let s = Math.max(-1, Math.min(1, float32Array[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return buffer;
+}
+
+// ---------------- MIC STREAMING ----------------
+export async function startMicStreaming({ setTranscription, setListening, setRecordingType }) {
+  const ws = new WebSocket("ws://localhost:10000/ws/transcribe");
+
+  ws.onopen = () => console.log("WebSocket connected (mic streaming)");
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.partial_text) {
+      setTranscription((prev) => {
+        if (!prev.endsWith(data.partial_text)) {
+          return prev + " " + data.partial_text;
+        }
+        return prev;
+      });
+    }
+    if (data.error) console.error("Transcription error:", data.error);
+  };
+  ws.onerror = (err) => console.error("WebSocket error:", err);
+  ws.onclose = () => console.log("WebSocket closed (mic streaming)");
+
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const audioContext = new AudioContext({ sampleRate: 16000 });
+  const source = audioContext.createMediaStreamSource(stream);
+
+  await audioContext.audioWorklet.addModule("/audio-processor.js");
+  const pcmNode = new AudioWorkletNode(audioContext, "pcm-processor");
+
+  pcmNode.port.onmessage = (event) => {
+    ws.send(float32To16BitPCM(event.data));
+  };
+
+  source.connect(pcmNode);
+  pcmNode.connect(audioContext.destination);
+
+  setListening(true);
+  setRecordingType("mic");
+
+  return { ws, stream, audioContext, source, pcmNode };
+}
+
+
+export function stopMicStreaming({ ws, stream, audioContext, source, pcmNode, setListening, setRecordingType }) {
+  if (ws) ws.close();
+  if (pcmNode) pcmNode.disconnect();
+  if (source) source.disconnect();
+  if (audioContext) audioContext.close();
+  if (stream) stream.getTracks().forEach(track => track.stop());
+
+  setListening(false);
+  setRecordingType(null);
+}
+
+
+// ---------------- SCREEN STREAMING ----------------
+export async function startScreenStreaming({ setTranscription, setListening, setRecordingType }) {
+  const ws = new WebSocket("ws://localhost:10000/ws/transcribe");
+
+  ws.onopen = () => console.log("WebSocket connected (screen streaming)");
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.partial_text) {
+      setTranscription((prev) => {
+        if (!prev.endsWith(data.partial_text)) {
+          return prev + " " + data.partial_text;
+        }
+        return prev;
+      });
+    }
+    if (data.error) console.error("Transcription error:", data.error);
+  };
+  ws.onerror = (err) => console.error("WebSocket error:", err);
+  ws.onclose = () => console.log("WebSocket closed (screen streaming)");
+
+  const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+  if (stream.getAudioTracks().length === 0) {
+    alert("No audio track detected. Internal audio capture may not be supported.");
+    return;
+  }
+
+  // Remove video tracks
+  stream.getVideoTracks().forEach(track => track.stop());
+
+  const audioContext = new AudioContext({ sampleRate: 16000 });
+  const source = audioContext.createMediaStreamSource(new MediaStream(stream.getAudioTracks()));
+
+  await audioContext.audioWorklet.addModule("/audio-processor.js");
+  const pcmNode = new AudioWorkletNode(audioContext, "pcm-processor");
+
+  pcmNode.port.onmessage = (event) => {
+    ws.send(float32To16BitPCM(event.data));
+  };
+
+  source.connect(pcmNode);
+  pcmNode.connect(audioContext.destination);
+
+  setListening(true);
+  setRecordingType("screen");
+
+  // Handle user clicking "Stop sharing"
+  stream.getTracks().forEach(track => {
+    track.onended = () => stopScreenStreaming({ ws, stream, audioContext, source, pcmNode, setListening, setRecordingType });
+  });
+
+  return { ws, stream, audioContext, source, pcmNode };
+}
+
+
+export function stopScreenStreaming({ ws, stream, audioContext, source, pcmNode, setListening, setRecordingType }) {
+  if (ws) ws.close();
+  if (pcmNode) pcmNode.disconnect();
+  if (source) source.disconnect();
+  if (audioContext) audioContext.close();
+  if (stream) stream.getTracks().forEach(track => track.stop());
+
+  setListening(false);
+  setRecordingType(null);
 }

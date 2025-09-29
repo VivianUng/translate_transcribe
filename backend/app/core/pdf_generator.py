@@ -17,7 +17,7 @@ font_files = {
     "NotoSans": "NotoSans-Regular.ttf",                # Latin, Cyrillic, Greek
     "NotoSansArabic": "NotoSansArabic-Regular.ttf",
     "NotoSansHebrew": "NotoSansHebrew-Regular.ttf",
-    "NotoSansDevanagari": "NotoSansDevanagari-Regular.ttf",
+    "NotoSansDevanagari": "NotoSansDevanagari-Regular.ttf", # Hindi
     "NotoSansBengali": "NotoSansBengali-Regular.ttf",
     "NotoSansThai": "NotoSansThai-Regular.ttf",
     "NotoSansCJKsc": "NotoSansSC-Regular.ttf",         # Simplified Chinese

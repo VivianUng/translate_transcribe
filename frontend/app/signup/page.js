@@ -118,6 +118,7 @@ export default function Signup() {
           type="text"
           placeholder="Enter your name"
           value={name}
+          maxLength={100}
           onChange={(e) => setName(e.target.value)}
           required
           className="input-field"
@@ -130,6 +131,7 @@ export default function Signup() {
           type="email"
           placeholder="Enter your email"
           value={email}
+          maxLength={150}
           onChange={(e) => { setEmail(e.target.value); setErrorMsg(""); }}
           required
           className="input-field"
@@ -143,6 +145,7 @@ export default function Signup() {
             type={showPassword ? "text" : "password"}
             placeholder="Enter your password"
             value={password}
+            maxLength={100}
             onChange={(e) => setPassword(e.target.value)}
             required
             className="input-field input-field"

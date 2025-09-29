@@ -7,9 +7,11 @@ import { useLanguages } from "@/contexts/LanguagesContext";
 import { translateText } from "@/utils/translation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
+import { generatePDF } from "@/utils/pdfGenerator";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { startMicRecording, startScreenRecording, stopRecording, } from "@/utils/transcription";
-import { generatePDF } from "@/utils/pdfGenerator";
+import { startMicStreaming, startScreenStreaming, stopMicStreaming, stopScreenStreaming } from "@/utils/transcription";
+
 
 
 export default function ConversationPage() {
@@ -41,6 +43,10 @@ export default function ConversationPage() {
   const screenRecorderRef = useRef(null);
   const screenStreamRef = useRef(null);
   const audioChunks = useRef([]);
+  const [micSession, setMicSession] = useState(null);
+  const [screenSession, setScreenSession] = useState(null);
+
+
   const [audioURL, setAudioURL] = useState(null); // for playback
 
   const [mounted, setMounted] = useState(false);
@@ -89,51 +95,78 @@ export default function ConversationPage() {
     setAudioURL(null);
   }
 
+  // For on-off transcriptions : 
   // ---------- Transcription ----------
-  const handleMicStart = () => {
+  // const handleMicStart = () => {
+  //   clearDisplay();
+  //   startMicRecording({
+  //     micRecorderRef,
+  //     audioChunks,
+  //     setListening,
+  //     setRecordingType,
+  //     onTranscription: setTranscription,
+  //     onAudioReady: (blob) => {
+  //       const url = URL.createObjectURL(blob);
+  //       setAudioURL(url);
+  //     },
+  //     inputLang,
+  //   });
+  // };
+
+  // const handleScreenStart = () => {
+  //   clearDisplay();
+  //   startScreenRecording({
+  //     screenStreamRef,
+  //     screenRecorderRef,
+  //     audioChunks,
+  //     setListening,
+  //     setRecordingType,
+  //     onTranscription: setTranscription,
+  //     onAudioReady: (blob) => {
+  //       const url = URL.createObjectURL(blob);
+  //       setAudioURL(url);
+  //     },
+  //     inputLang,
+  //   });
+  // };
+
+  // const handleStop = () => {
+  //   stopRecording({
+  //     recordingType,
+  //     micRecorderRef,
+  //     screenRecorderRef,
+  //     screenStreamRef,
+  //     setListening,
+  //     setRecordingType,
+  //   });
+  //   // show placeholder while waiting for transcription
+  //   setTranscription("Converting audio to text......");
+  // };
+
+
+  // For streaming audio chunks 2 seconds
+  // Mic
+  const handleMicStart = async () => {
     clearDisplay();
-    startMicRecording({
-      micRecorderRef,
-      audioChunks,
-      setListening,
-      setRecordingType,
-      onTranscription: setTranscription,
-      onAudioReady: (blob) => {
-        const url = URL.createObjectURL(blob);
-        setAudioURL(url);
-      },
-      inputLang,
-    });
+    const session = await startMicStreaming({ setTranscription, setListening, setRecordingType });
+    setMicSession(session);
   };
 
-  const handleScreenStart = () => {
+  // Screen (internal audio)
+  const handleScreenStart = async () => {
     clearDisplay();
-    startScreenRecording({
-      screenStreamRef,
-      screenRecorderRef,
-      audioChunks,
-      setListening,
-      setRecordingType,
-      onTranscription: setTranscription,
-      onAudioReady: (blob) => {
-        const url = URL.createObjectURL(blob);
-        setAudioURL(url);
-      },
-      inputLang,
-    });
+    const session = await startScreenStreaming({ setTranscription, setListening, setRecordingType });
+    setScreenSession(session);
   };
 
   const handleStop = () => {
-    stopRecording({
-      recordingType,
-      micRecorderRef,
-      screenRecorderRef,
-      screenStreamRef,
-      setListening,
-      setRecordingType,
-    });
-    // show placeholder while waiting for transcription
-    setTranscription("Converting audio to text......");
+    if (recordingType === "mic") {
+      stopMicStreaming({ ...micSession, setListening, setRecordingType });
+      setMicSession(null);
+    } else if (recordingType === "screen") {
+      stopScreenStreaming({ ...screenSession, setListening, setRecordingType });
+      setScreenSession(null);
+    }
   };
 
 
@@ -176,19 +209,19 @@ export default function ConversationPage() {
     }
   }
 
-const handleDownload = async () => {
-  try {
-    const data = {
-      Transcription: transcription,
-      Translation: translatedText,
-    };
+  const handleDownload = async () => {
+    try {
+      const data = {
+        Transcription: transcription,
+        Translation: translatedText,
+      };
 
-    await generatePDF(data);
-    setIsDownloaded(true);
-  } catch (error) {
-    console.error("PDF download failed:", error);
-  }
-};
+      await generatePDF(data);
+      setIsDownloaded(true);
+    } catch (error) {
+      console.error("PDF download failed:", error);
+    }
+  };
 
   async function handleSaveConversation(
     input_text = transcription,
@@ -305,17 +338,6 @@ const handleDownload = async () => {
         </div>
         <textarea className={`text-area ${!translatedText ? "placeholder" : ""}`}
           value={translatedText || "Translation will appear here...."} readOnly>
-          {/* {Added parts} */}
-          {/* {segments.length > 0 && (
-            <div className="segments">
-              {segments.map((seg, i) => (
-                <p key={i}>
-                  <strong>{seg.speaker}:</strong> {seg.text}
-                </p>
-              ))}
-            </div>
-          )} */}
-          {/* {Added parts} */}
         </textarea>
       </section>
 
@@ -329,14 +351,14 @@ const handleDownload = async () => {
         </button>
 
         {isLoggedIn && (
-            <button
-              className="button save-conversation-button"
-              onClick={() => handleSaveConversation(transcription, translatedText)}
-              disabled={saving || translating || isSaved || !transcription ||
-                transcription === "No speech detected."}
-            >
-              {saving ? "Saving..." : isSaved ? "Saved" : "Save Conversation"}
-            </button>
+          <button
+            className="button save-conversation-button"
+            onClick={() => handleSaveConversation(transcription, translatedText)}
+            disabled={saving || translating || isSaved || !transcription ||
+              transcription === "No speech detected."}
+          >
+            {saving ? "Saving..." : isSaved ? "Saved" : "Save Conversation"}
+          </button>
         )}
 
       </div>

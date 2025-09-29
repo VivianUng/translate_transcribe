@@ -2,7 +2,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 import httpx # libretranslate
 import pytesseract
-from paddleocr import PaddleOCR
+# from paddleocr import PaddleOCR
 import numpy as np
 import fitz # pdf
 import docx
@@ -361,7 +361,7 @@ async def generate_pdf_route(request: PDFRequest):
         return FileResponse(
             tmp_filename,
             media_type="application/pdf",
-            filename="generated_output.pdf",
+            filename="translation_output.pdf",
         )
 
     except Exception as e:

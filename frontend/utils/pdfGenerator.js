@@ -21,7 +21,7 @@ export async function generatePDF(content) {
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "generated_output.pdf";
+  a.download = "translation_output.pdf";
   document.body.appendChild(a);
   a.click();
   a.remove();
