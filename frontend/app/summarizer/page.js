@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import LanguageSelect from "@/components/LanguageSelect";
-import TextAreaCopy from "@/components/TextAreaCopy"
+import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
@@ -210,7 +210,7 @@ export default function Summarizer() {
             {listening ? "⏹️" : "🎙️"}
           </div>
         </div>
-        <TextAreaCopy
+        <StickyScrollCopyBox
           value={inputText}
           setValue={setInputText}
           onChangeExtra={() => setMessage("")}
@@ -244,7 +244,7 @@ export default function Summarizer() {
             {loading ? "Summarizing..." : "Summarize"}
           </button>
         </div>
-        <TextAreaCopy
+        <StickyScrollCopyBox
           value={summarizedText}
           setValue={() => { }}
           placeholder="Summary will appear here...."

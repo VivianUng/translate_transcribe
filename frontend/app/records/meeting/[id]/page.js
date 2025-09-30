@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import LanguageSelect from "@/components/LanguageSelect"
-import StickyScrollBox from "@/components/StickyScrollBox";
+import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import useAuthCheck from "@/hooks/useAuthCheck";
 import { formatDateFromTimestamp, formatTimeFromTimestamp, formatDateTimeFromTimestamp } from "@/utils/dateTime";
 import { summarizeText } from "@/utils/summarization";
@@ -352,10 +352,10 @@ export default function IndividualMeetingRecordPage() {
                             <div className="section-header">
                                 <span>Transcription</span>
                             </div>
-                            <StickyScrollBox
-                                content={transcription}
-                                editable={true}
-                                onChange={setTranscription}
+                            <StickyScrollCopyBox
+                                value={transcription}
+                                setValue={setTranscription}
+                                placeholder="Type your transcription..."
                             />
                         </div>
 
@@ -364,10 +364,9 @@ export default function IndividualMeetingRecordPage() {
                             <div className="section-header">
                                 <span>Translation</span>
                             </div>
-                            <StickyScrollBox
-                                content={translation}
-                                editable={true}
-                                onChange={setTranslation}
+                            <StickyScrollCopyBox
+                                value={translation}
+                                setValue={setTranslation}
                             />
                         </div>
 
@@ -380,10 +379,9 @@ export default function IndividualMeetingRecordPage() {
                             <div className="section-header">
                                 <span>Summary</span>
                             </div>
-                            <StickyScrollBox
-                                content={summary}
-                                editable={true}
-                                onChange={setSummary}
+                            <StickyScrollCopyBox
+                                value={summary}
+                                setValue={setSummary}
                             />
                         </div>
                     </div>

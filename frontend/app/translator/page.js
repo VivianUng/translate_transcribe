@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import LanguageSelect from "@/components/LanguageSelect"
-import TextAreaCopy from "@/components/TextAreaCopy"
+import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
@@ -327,7 +327,7 @@ export default function Translate() {
             </div>
 
             {/* Textarea */}
-            <TextAreaCopy
+            <StickyScrollCopyBox
               value={inputText}
               setValue={setInputText}
               onChangeExtra={() => setMessage("")}
@@ -455,7 +455,7 @@ export default function Translate() {
               {translating ? "Translating..." : "Translate"}
             </button>
           </div>
-          <TextAreaCopy
+          <StickyScrollCopyBox
             value={translatedText}
             setValue={() => { }}
             placeholder="Translation will appear here...."

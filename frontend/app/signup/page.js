@@ -121,7 +121,7 @@ export default function Signup() {
           maxLength={100}
           onChange={(e) => setName(e.target.value)}
           required
-          className="input-field"
+          className="input-field name-field"
         />
 
         <label className="input-label" htmlFor="email">Email address</label>
@@ -134,7 +134,7 @@ export default function Signup() {
           maxLength={150}
           onChange={(e) => { setEmail(e.target.value); setErrorMsg(""); }}
           required
-          className="input-field"
+          className="input-field email-field"
         />
 
         <div className="password-container" style={{ position: "relative" }}>
@@ -148,7 +148,7 @@ export default function Signup() {
             maxLength={100}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="input-field input-field"
+            className="input-field password-field"
           />
 
           <button

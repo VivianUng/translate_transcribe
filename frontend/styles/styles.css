@@ -136,7 +136,7 @@ a {
   flex-grow: 1;
   border-radius: 10px;
   padding: 1rem;
-  min-height: 220px;
+  min-height: 200px;
   font-size: 1rem;
   white-space: pre-wrap;
   line-height: 1.4;
@@ -151,17 +151,25 @@ a {
   outline: 2px solid var(--button-color);
 }
 
-/* Container for positioning the copy button */
+/* Container for positioning the copy button in textAreaCopy */
 .textarea-container {
   position: relative;
   height:100%;
+}
+
+.sticky-scroll-wrapper {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .textarea-copy {
   width: 100%;
   height : 100%;
   box-sizing: border-box;
-  padding-right: 2.5rem; 
+  padding-right: 2rem; 
 }
 
 .copy-wrapper {
@@ -174,7 +182,6 @@ a {
   color: var(--button-color);
   background: transparent;
   border: none;
-  font-size: 0.85rem;
   cursor: pointer;
   z-index: 2;
 }
@@ -195,6 +202,21 @@ a {
   white-space: nowrap;
   opacity: 0.9;
   z-index: 3;
+}
+
+.scroll-button {
+  position: absolute;
+  bottom:  0rem;
+  right: 10px;
+  color: var(--button-color);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.scroll-button:hover {
+  color: var(--button-hover-color);
 }
 
 /* styles for one-line input fields */
@@ -410,6 +432,10 @@ a {
 .signup-text {
   margin-top: 1rem;
   text-align: center;
+}
+
+.password-field{
+  padding-right: 2.5rem; 
 }
 
 .toggle-visibility {
@@ -691,27 +717,12 @@ a {
   min-height: 0;
 }
 
-.sticky-scroll-wrapper {
-  flex: 1;
-  min-height: 0;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
 
 /* Sections inside columns */
 .transcription-section,
 .translation-section,
 .summary-section {
   min-height: 0;
-}
-
-.scroll-button {
-  position: absolute;
-  bottom: 0rem;
-  right: 0.9rem;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.85rem;
 }
 
 /* Host-only recording indicator */

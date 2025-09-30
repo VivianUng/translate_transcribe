@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -114,7 +114,7 @@ export default function Login() {
           value={email}
           onChange={(e) => (setEmail(e.target.value), setErrorMsg(""))}
           required
-          className="input-field input-field"
+          className="input-field email-field"
         />
 
         <div className="password-container" style={{ position: "relative" }}>
@@ -127,7 +127,7 @@ export default function Login() {
             value={password}
             onChange={(e) => (setPassword(e.target.value), setErrorMsg(""))}
             required
-            className="input-field input-field"
+            className="input-field password-field"
           />
 
           <button

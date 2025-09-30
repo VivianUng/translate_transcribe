@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import LanguageSelect from "@/components/LanguageSelect"
-import TextAreaCopy from "@/components/TextAreaCopy"
+import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import { ArrowLeft } from "lucide-react";
 import { formatDateTimeFromTimestamp } from "@/utils/dateTime";
 import useAuthCheck from "@/hooks/useAuthCheck";
@@ -336,7 +336,7 @@ export default function RecordDetailsPage() {
                             />
                         )}
                     </div>
-                    <TextAreaCopy
+                    <StickyScrollCopyBox
                         value={formData.input_text}
                         setValue={(val) => setFormData({ ...formData, input_text: val })}
                     />
@@ -376,18 +376,10 @@ export default function RecordDetailsPage() {
                         )}
                     </div>
 
-                    <TextAreaCopy
+                    <StickyScrollCopyBox
                         value={formData.output_text}
                         setValue={(val) => setFormData({ ...formData, output_text: val })}
                     />
-
-                    {/* <textarea
-                        className="text-area"
-                        value={formData.output_text}
-                        onChange={(e) =>
-                            setFormData({ ...formData, output_text: e.target.value })
-                        }
-                    /> */}
                 </section>
 
                 {/* Meta info */}

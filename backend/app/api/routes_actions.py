@@ -1,5 +1,6 @@
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+import asyncio
 import httpx # libretranslate
 import pytesseract
 # from paddleocr import PaddleOCR
@@ -19,7 +20,7 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, T5ForConditionalG
 
 from app.core.pdf_generator import generate_pdf
 from app.core.image_preprocessing import process_image_for_ocr
-from app.core.audio_preprocessing import preprocess_audio
+# from app.core.audio_preprocessing import preprocess_audio
 from app.core.language_codes import LanguageConverter
 from app.models import DetectLangRequest, DetectLangResponse, OCRResponse, SummarizeRequest, SummarizeResponse, TranscribeResponse, TranslateRequest, TranslateResponse, PDFRequest
 
@@ -43,17 +44,33 @@ t5_model = T5ForConditionalGeneration.from_pretrained("t5-small")
 long_tokenizer = AutoTokenizer.from_pretrained("google/long-t5-tglobal-base")
 long_model = AutoModelForSeq2SeqLM.from_pretrained("google/long-t5-tglobal-base")
 
+LANG_MAP = None
+_LANGS_LOCK = asyncio.Lock()
+
+async def fetch_languages():
+    print("Getting Languages")
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{LIBRETRANSLATE_URL}/languages")
+        response.raise_for_status()
+        data = response.json()
+        # LibreTranslate returns [{"code": "en", "name": "English"}, ...]
+        # Map to {code, label}
+        return [{"code": lang["code"], "label": lang["name"]} for lang in data]
+
+async def get_supported_langs():
+    global LANG_MAP
+    if LANG_MAP is None:
+        async with _LANGS_LOCK:
+            if LANG_MAP is None:
+                LANG_MAP = await fetch_languages()
+    return LANG_MAP
+
 
 @router.get("/languages")
 async def get_languages():
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{LIBRETRANSLATE_URL}/languages")
-            response.raise_for_status()
-            data = response.json()
-            # LibreTranslate returns [{"code": "en", "name": "English"}, ...]
-            # Map to {code, label}
-            return [{"code": lang["code"], "label": lang["name"]} for lang in data]
+        langs = await get_supported_langs()   # returns cached LANG_MAP i favailable
+        return langs
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch languages: {str(e)}")
 
@@ -164,10 +181,10 @@ async def detect_language2(req: DetectLangRequest):
     except Exception:
         pass
     
-    SUPPORTED_LANGS = set(lang["code"] for lang in await get_languages())
+    supported_langs = set(lang["code"] for lang in await get_supported_langs())
     LANGDETECT_EXCEPTIONS = {"az", "eu", "eo", "gl", "ga", "ky", "ms"}
 
-    if langdetect_result and langdetect_result["lang"] not in SUPPORTED_LANGS:
+    if langdetect_result and langdetect_result["lang"] not in supported_langs:
         langdetect_result_unsupported = langdetect_result
         langdetect_result = None
 

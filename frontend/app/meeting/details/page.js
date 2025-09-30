@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
 import LanguageSelect from "@/components/LanguageSelect"
-import StickyScrollBox from "@/components/StickyScrollBox";
+import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import { formatTimeFromTimestamp, formatDateFromTimestamp } from "@/utils/dateTime";
 import { supabase } from "@/lib/supabaseClient";
 import { summarizeText } from "@/utils/summarization";
@@ -792,11 +792,12 @@ export default function MeetingDetailsPage() {
                                 <span className="recording-indicator">🔴 Recording</span>
                             )}
                         </div>
-                        <StickyScrollBox
-                            content={transcription}
+                        <StickyScrollCopyBox
+                            value={transcription}
+                            setValue={setTranscription}
                             placeholder="Waiting for transcription..."
-                            editable={(role === "host" && status === "past")}
-                            onChange={setTranscription}
+                            readOnly={!(role === "host" && status === "past")}
+                            autoScroll={!(role === "host" && status === "past")}
                         />
                     </div>
 
@@ -812,11 +813,12 @@ export default function MeetingDetailsPage() {
                                 />)}
 
                         </div>
-                        <StickyScrollBox
-                            content={translation}
+                        <StickyScrollCopyBox
+                            value={translation}
+                            setValue={setTranslation}
                             placeholder="Translation will appear here..."
-                            editable={(role === "host" && status === "past")}
-                            onChange={setTranslation}
+                            readOnly={!(role === "host" && status === "past")}
+                            autoScroll={!(role === "host" && status === "past")}
                         />
                     </div>
                 </div>
@@ -833,11 +835,12 @@ export default function MeetingDetailsPage() {
                                     onChange={(e) => setDoSummarization(e.target.checked)}
                                 />)}
                         </div>
-                        <StickyScrollBox
-                            content={summary}
+                        <StickyScrollCopyBox
+                            value={summary}
+                            setValue={setSummary}
                             placeholder="Summary will appear here..."
-                            editable={(role === "host" && status === "past")}
-                            onChange={setSummary}
+                            readOnly={!(role === "host" && status === "past")}
+                            autoScroll={!(role === "host" && status === "past")}
                         />
                     </div>
                 </div>
