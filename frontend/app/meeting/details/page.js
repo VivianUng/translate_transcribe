@@ -3,11 +3,10 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "react-hot-toast";
-import Select from "react-select";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useLanguages } from "@/contexts/LanguagesContext";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
+import LanguageSelect from "@/components/LanguageSelect"
 import StickyScrollBox from "@/components/StickyScrollBox";
 import { formatTimeFromTimestamp, formatDateFromTimestamp } from "@/utils/dateTime";
 import { supabase } from "@/lib/supabaseClient";
@@ -35,7 +34,6 @@ export default function MeetingDetailsPage() {
     const meetingId = searchParams.get("id");
 
     const router = useRouter();
-    const { languages } = useLanguages();
     const [loadingPage, setLoadingPage] = useState(true);
 
     const [role, setRole] = useState("participant"); // "host" or "participant"
@@ -733,11 +731,11 @@ export default function MeetingDetailsPage() {
             <div className="section global-controls">
                 <label>Translation Language:</label>
                 {mounted && (
-                    <Select
-                        options={languages.filter((l) => l.value !== "auto")}
-                        value={languages.find((opt) => opt.value === translationLang)}
-                        onChange={(opt) => setTranslationLang(opt.value)}
-                        classNamePrefix="react-select"
+                    <LanguageSelect
+                        mounted={mounted}
+                        value={translationLang}
+                        setValue={setTranslationLang}
+                        excludeAuto={true}
                     />
                 )}
 

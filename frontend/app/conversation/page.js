@@ -1,9 +1,9 @@
 "use client";
 
-import Select from "react-select";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { useLanguages } from "@/contexts/LanguagesContext";
+import LanguageSelect from "@/components/LanguageSelect"
+import TextAreaCopy from "@/components/TextAreaCopy"
 import { translateText } from "@/utils/translation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
@@ -23,7 +23,6 @@ export default function ConversationPage() {
   const [translatedText, setTranslatedText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("en");
-  const { languages, error } = useLanguages();
   const [autoSave, setAutoSave] = useState(false);
 
   const [isSaved, setIsSaved] = useState(false); // track if conversation is saved
@@ -312,11 +311,10 @@ export default function ConversationPage() {
         <div className="section-header">
           <span>Transcription</span>
           {mounted && (
-            <Select
-              options={languages}
-              value={languages.find(opt => opt.value === inputLang)}
-              onChange={(opt) => setInputLang(opt.value)}
-              classNamePrefix="react-select"
+            <LanguageSelect
+              mounted={mounted}
+              value={inputLang}
+              setValue={setInputLang}
             />
           )}
           {/* --- Audio Playback Container --- */}
@@ -325,10 +323,11 @@ export default function ConversationPage() {
           </div>
 
         </div>
-        <textarea
-          className={`text-area ${!transcription ? "placeholder" : ""}`}
-          value={transcription || "Transcription will appear here...."}
-          readOnly
+        <TextAreaCopy
+          value={transcription}
+          setValue={() => { }}
+          placeholder="Transcription will appear here...."
+          readOnly={true}
         />
       </section>
 
@@ -336,11 +335,11 @@ export default function ConversationPage() {
         <div className="section-header">
           <span>Translation</span>
           {mounted && (
-            <Select
-              options={languages.filter(opt => opt.value !== "auto")}
-              value={languages.find(opt => opt.value === targetLang)}
-              onChange={(opt) => setTargetLang(opt.value)}
-              classNamePrefix="react-select"
+            <LanguageSelect
+              mounted={mounted}
+              value={targetLang}
+              setValue={setTargetLang}
+              excludeAuto={true}
             />
           )}
           <button
@@ -352,9 +351,12 @@ export default function ConversationPage() {
             {translating ? "Translating..." : "Translate"}
           </button>
         </div>
-        <textarea className={`text-area ${!translatedText ? "placeholder" : ""}`}
-          value={translatedText || "Translation will appear here...."} readOnly>
-        </textarea>
+        <TextAreaCopy
+          value={translatedText}
+          setValue={() => { }}
+          placeholder="Translation will appear here...."
+          readOnly={true}
+        />
       </section>
 
       <div className="button-group">

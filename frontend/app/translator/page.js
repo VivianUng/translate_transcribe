@@ -1,9 +1,9 @@
 "use client";
 
-import Select from "react-select";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { useLanguages } from "@/contexts/LanguagesContext";
+import LanguageSelect from "@/components/LanguageSelect"
+import TextAreaCopy from "@/components/TextAreaCopy"
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
@@ -25,7 +25,6 @@ export default function Translate() {
   const [translating, setTranslating] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const { languages, error } = useLanguages();
   const [previewFile, setPreviewFile] = useState(null);
   const [autoSave, setAutoSave] = useState(false);
   const [isSaved, setIsSaved] = useState(false); // track if translation is saved
@@ -172,19 +171,19 @@ export default function Translate() {
     fileInputRef.current.click();
   }
 
-const handleDownload = async () => {
-  try {
-    const data = {
-      Input: inputText,
-      Translation: translatedText,
-    };
+  const handleDownload = async () => {
+    try {
+      const data = {
+        Input: inputText,
+        Translation: translatedText,
+      };
 
-    await generatePDF(data);
-    setIsDownloaded(true);
-  } catch (error) {
-    console.error("PDF download failed:", error);
-  }
-};
+      await generatePDF(data);
+      setIsDownloaded(true);
+    } catch (error) {
+      console.error("PDF download failed:", error);
+    }
+  };
 
   async function handleTranslate() {
     setTranslating(true);
@@ -311,11 +310,10 @@ const handleDownload = async () => {
             <div className="section-header">
               <span>Text / Mic</span>
               {mounted && (
-                <Select
-                  options={languages}
-                  value={languages.find((opt) => opt.value === inputLang)}
-                  onChange={(opt) => setInputLang(opt.value)}
-                  classNamePrefix="react-select"
+                <LanguageSelect
+                  mounted={mounted}
+                  value={inputLang}
+                  setValue={setInputLang}
                 />
               )}
               {/* Mic icon */}
@@ -329,13 +327,10 @@ const handleDownload = async () => {
             </div>
 
             {/* Textarea */}
-            <textarea
-              className="text-area"
+            <TextAreaCopy
               value={inputText}
-              onChange={(e) => {
-                setInputText(e.target.value);
-                setMessage(""); // reset message whenever text changes
-              }}
+              setValue={setInputText}
+              onChangeExtra={() => setMessage("")}
               placeholder="Type text to translate"
             />
 
@@ -350,11 +345,10 @@ const handleDownload = async () => {
             <div className="section-header">
               <span>File Upload</span>
               {mounted && (
-                <Select
-                  options={languages}
-                  value={languages.find((opt) => opt.value === fileLang)}
-                  onChange={(opt) => setFileLang(opt.value)}
-                  classNamePrefix="react-select"
+                <LanguageSelect
+                  mounted={mounted}
+                  value={fileLang}
+                  setValue={setFileLang}
                 />
               )}
             </div>
@@ -444,11 +438,11 @@ const handleDownload = async () => {
           <div className="section-header">
             <span>Translation</span>
             {mounted && (
-              <Select
-                options={languages.filter((opt) => opt.value !== "auto")}
-                value={languages.find((opt) => opt.value === targetLang)}
-                onChange={(opt) => setTargetLang(opt.value)}
-                classNamePrefix="react-select"
+              <LanguageSelect
+                mounted={mounted}
+                value={targetLang}
+                setValue={setTargetLang}
+                excludeAuto={true}
               />
             )}
             {/* Translate Button */}
@@ -461,10 +455,11 @@ const handleDownload = async () => {
               {translating ? "Translating..." : "Translate"}
             </button>
           </div>
-          <textarea
-            className={`text-area ${!translatedText ? "placeholder" : ""}`}
-            value={translatedText || "Translation will appear here...."}
-            readOnly
+          <TextAreaCopy
+            value={translatedText}
+            setValue={() => { }}
+            placeholder="Translation will appear here...."
+            readOnly={true}
           />
         </div>
 

@@ -1,9 +1,9 @@
 "use client";
 
-import Select from "react-select";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { useLanguages } from "@/contexts/LanguagesContext";
+import LanguageSelect from "@/components/LanguageSelect";
+import TextAreaCopy from "@/components/TextAreaCopy"
 import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
@@ -21,7 +21,6 @@ export default function Summarizer() {
   const [summarizedText, setSummarizedText] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const { languages, error } = useLanguages();
   const [autoSave, setAutoSave] = useState(false);
   const [isSaved, setIsSaved] = useState(false); // track if summary is saved
   const [saving, setSaving] = useState(false);
@@ -197,11 +196,10 @@ export default function Summarizer() {
         <div className="section-header">
           <span>Input Text / Mic</span>
           {mounted && (
-            <Select
-              options={languages}
-              value={languages.find((opt) => opt.value === inputLang)}
-              onChange={(opt) => setInputLang(opt.value)}
-              classNamePrefix="react-select"
+            <LanguageSelect
+              mounted={mounted}
+              value={inputLang}
+              setValue={setInputLang}
             />
           )}
           <div
@@ -212,14 +210,11 @@ export default function Summarizer() {
             {listening ? "⏹️" : "🎙️"}
           </div>
         </div>
-        <textarea
-          className="text-area"
+        <TextAreaCopy
           value={inputText}
-          onChange={(e) => {
-            setInputText(e.target.value);
-            setMessage("");   // reset message whenever text changes
-          }}
-          placeholder="Type text to sumarize"
+          setValue={setInputText}
+          onChangeExtra={() => setMessage("")}
+          placeholder="Type text to summarize"
         />
 
         {/* Message displayed below the box */}
@@ -233,11 +228,11 @@ export default function Summarizer() {
         <div className="section-header">
           <span>Summary</span>
           {mounted && (
-            <Select
-              options={languages.filter(opt => opt.value !== "auto")}
-              value={languages.find(opt => opt.value === targetLang)}
-              onChange={(opt) => setTargetLang(opt.value)}
-              classNamePrefix="react-select"
+            <LanguageSelect
+              mounted={mounted}
+              value={targetLang}
+              setValue={setTargetLang}
+              excludeAuto={true}
             />
           )}
           <button
@@ -249,10 +244,11 @@ export default function Summarizer() {
             {loading ? "Summarizing..." : "Summarize"}
           </button>
         </div>
-        <textarea
-          className={`text-area ${!summarizedText ? "placeholder" : ""}`}
-          value={summarizedText || "Summary will appear here...."}
-          readOnly
+        <TextAreaCopy
+          value={summarizedText}
+          setValue={() => { }}
+          placeholder="Summary will appear here...."
+          readOnly={true}
         />
       </section>
       <div className="button-group">

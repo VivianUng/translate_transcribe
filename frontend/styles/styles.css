@@ -136,7 +136,7 @@ a {
   flex-grow: 1;
   border-radius: 10px;
   padding: 1rem;
-  min-height: 180px;
+  min-height: 220px;
   font-size: 1rem;
   white-space: pre-wrap;
   line-height: 1.4;
@@ -149,6 +149,52 @@ a {
 
 .text-area:focus {
   outline: 2px solid var(--button-color);
+}
+
+/* Container for positioning the copy button */
+.textarea-container {
+  position: relative;
+  height:100%;
+}
+
+.textarea-copy {
+  width: 100%;
+  height : 100%;
+  box-sizing: border-box;
+  padding-right: 2.5rem; 
+}
+
+.copy-wrapper {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.copy-btn {
+  color: var(--button-color);
+  background: transparent;
+  border: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.copy-btn:hover {
+  color: var(--button-hover-color);
+}
+
+.copy-tooltip {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  background: var(--button-color);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  opacity: 0.9;
+  z-index: 3;
 }
 
 /* styles for one-line input fields */

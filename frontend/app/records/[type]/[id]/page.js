@@ -1,12 +1,12 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Select from "react-select";
 import toast from "react-hot-toast";
+import LanguageSelect from "@/components/LanguageSelect"
+import TextAreaCopy from "@/components/TextAreaCopy"
 import { ArrowLeft } from "lucide-react";
 import { formatDateTimeFromTimestamp } from "@/utils/dateTime";
 import useAuthCheck from "@/hooks/useAuthCheck";
-import { useLanguages } from "@/contexts/LanguagesContext";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { summarizeText } from "@/utils/summarization";
 import { translateText } from "@/utils/translation";
@@ -16,7 +16,6 @@ export default function RecordDetailsPage() {
     const { type, id } = useParams(); // dynamic route parameters
     const router = useRouter();
     const { session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
-    const { languages } = useLanguages();
 
     const [mounted, setMounted] = useState(false);
 
@@ -24,7 +23,7 @@ export default function RecordDetailsPage() {
     const [formData, setFormData] = useState(null);
     const [lastProcessed, setLastProcessed] = useState(null);
     const [isDownloaded, setIsDownloaded] = useState(false);
-    
+
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [processing, setProcessing] = useState(false);
@@ -327,21 +326,19 @@ export default function RecordDetailsPage() {
 
                         {/* Display input language (readonly dropdown style) */}
                         {mounted && (
-                            <Select
-                                options={languages.filter((opt) => opt.value !== "auto")}
-                                value={languages.find((opt) => opt.value === formData.input_lang)}
-                                isDisabled={true} // readonly
-                                classNamePrefix="react-select"
+                            <LanguageSelect
+                                mounted={mounted}
+                                value={formData.input_lang}
+                                setValue={() => { }}
+                                excludeAuto={true}
+                                isDisabled={true}
                                 className="flex-1"
                             />
                         )}
                     </div>
-                    <textarea
-                        className="text-area"
+                    <TextAreaCopy
                         value={formData.input_text}
-                        onChange={(e) =>
-                            setFormData({ ...formData, input_text: e.target.value })
-                        }
+                        setValue={(val) => setFormData({ ...formData, input_text: val })}
                     />
                 </section>
 
@@ -354,16 +351,11 @@ export default function RecordDetailsPage() {
                             (type === "conversation" ||
                                 type === "translation" ||
                                 type === "summary") && (
-                                <Select
-                                    options={languages.filter((opt) => opt.value !== "auto")}
-                                    value={languages.find(
-                                        (opt) => opt.value === formData.output_lang
-                                    )}
-                                    onChange={(opt) =>
-                                        setFormData({ ...formData, output_lang: opt.value })
-                                    }
-                                    classNamePrefix="react-select"
-                                    className="flex-1"
+                                <LanguageSelect
+                                    mounted={mounted}
+                                    value={formData.output_lang}
+                                    setValue={(val) => setFormData({ ...formData, output_lang: val })}
+                                    excludeAuto={true}
                                 />
                             )}
 
@@ -384,13 +376,18 @@ export default function RecordDetailsPage() {
                         )}
                     </div>
 
-                    <textarea
+                    <TextAreaCopy
+                        value={formData.output_text}
+                        setValue={(val) => setFormData({ ...formData, output_text: val })}
+                    />
+
+                    {/* <textarea
                         className="text-area"
                         value={formData.output_text}
                         onChange={(e) =>
                             setFormData({ ...formData, output_text: e.target.value })
                         }
-                    />
+                    /> */}
                 </section>
 
                 {/* Meta info */}

@@ -1,5 +1,5 @@
 "use client";
-import Select from "react-select";
+import LanguageSelect from "@/components/LanguageSelect"
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
@@ -120,11 +120,11 @@ export default function SettingsPage() {
       }
 
       const data = await res.json();
-    
+
       setProfile(formData);
       setFormData(formData);
 
-      toast.success(data.message ||"Profile updated successfully");
+      toast.success(data.message || "Profile updated successfully");
     } catch (err) {
       toast.error(err.message || "Error updating profile");
     } finally {
@@ -244,11 +244,11 @@ export default function SettingsPage() {
         <div className="input-group">
           <label className="input-label">Default Language</label>
           {mounted && (
-            <Select
-              options={languages.filter(opt => opt.value !== "auto")}
-              value={languages.find((opt) => opt.value === formData.default_language)}
-              onChange={(opt) => setFormData({ ...formData, default_language: opt.value })}
-              classNamePrefix="react-select"
+            <LanguageSelect
+              mounted={mounted}
+              value={formData.default_language}
+              setValue={(val) => setFormData({ ...formData, default_language: val })}
+              excludeAuto={true}
               className="react-select"
             />
           )}
