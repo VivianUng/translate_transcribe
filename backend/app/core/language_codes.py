@@ -1,157 +1,124 @@
 import langcodes
 import pycountry
 
-# Special mappings for Tesseract (ISO639-2 + custom names)
+# Libretranslate --> tesseract (ISO639-2 + custom names)
 TESSERACT_EXCEPTIONS = {
     "zh-Hans": "chi_sim",
     "zh-Hant": "chi_tra",
-    "nb": "nor",   # Norwegian Bokmål
-    "he": "heb",  # Hebrew
+    "nb": "nor",
 }
 
-# Special mappings for langdetect → BCP47
+# langdetect → libretranslate
 LANGDETECT_EXCEPTIONS = {
     "zh-cn": "zh-Hans",
     "zh-tw": "zh-Hant",
-    "no": "nb",   # langdetect sometimes outputs "no"
 }
 
+# LibreTranslate → ISO639-1
 LIBRETRANSLATE_EXCEPTIONS = {
-    # LibreTranslate → ISO639-1 (or closest equivalent)
-    "zh-Hans": "zh",    # Simplified Chinese → zh
-    "zh-Hant": "zh",    # Traditional Chinese → zh
-    "pt-br": "pt",    # Brazilian Portuguese → pt
-    "nb": "no",       # Norwegian Bokmål → no
-    # You can add more overrides if needed
+    "zh-Hans": "zh",    # Simplified Chinese 
+    "zh-Hant": "zh",    # Traditional Chinese
+    "pt-br": "pt",    # Brazilian Portuguese
+    "nb": "no",       # Norwegian 
 }
 
-# Special mappings for PaddleOCR (custom set of names)
-# Reference: https://github.com/PaddlePaddle/PaddleOCR/blob/release/2.7/doc/doc_en/multi_languages_en.md
+# ISO639-1 --> paddle (ISO639-1 + custom names)
 PADDLE_EXCEPTIONS = {
-    "en": "en",           # English
-    "ar": "arabic",       # Arabic
-    "bg": "cyrillic",     # Bulgarian (falls under cyrillic model)
-    "zh-Hans": "ch",      # Simplified Chinese
-    "zh-Hant": "chinese_cht", # Traditional Chinese
-    "hr": "latin",        # Croatian (latin-based)
-    "cs": "latin",        # Czech
-    "da": "latin",        # Danish
-    "nl": "latin",        # Dutch
-    "fi": "latin",        # Finnish
-    "fr": "french",       # French
     "de": "german",       # German
-    "el": "greek",        # Greek
-    "he": "hebrew",       # Hebrew
-    "hi": "hindi",        # Hindi
-    "hu": "latin",        # Hungarian
-    "id": "latin",        # Indonesian
-    "it": "italian",      # Italian
     "ja": "japan",        # Japanese
     "ko": "korean",       # Korean
-    "ms": "latin",        # Malay
-    "fa": "persian",      # Persian
-    "pl": "latin",        # Polish
-    "pt": "portuguese",   # Portuguese
-    "ro": "latin",        # Romanian
-    "ru": "cyrillic",     # Russian
-    "sr": "cyrillic",     # Serbian (latin also exists but OCR works better in cyrillic model)
-    "es": "spanish",      # Spanish
-    "sv": "latin",        # Swedish
-    "tl": "latin",        # Filipino/Tagalog (latin)
-    "tr": "turkish",      # Turkish
-    "uk": "cyrillic",     # Ukrainian
-    "ur": "urdu",         # Urdu
-    "vi": "latin",        # Vietnamese
-    # Add other LibreTranslate-supported codes mapped to closest OCR set
+    "zh": "ch",           # Chinese
 }
 
 
 class LanguageConverter:
     @staticmethod
     def normalize_bcp47(code: str) -> str:
-        """Normalize any code to canonical BCP-47 tag"""
         try:
             return langcodes.standardize_tag(code)
         except Exception:
             return code
 
+    # -------------------------
+    # LangDetect → LibreTranslate
+    # -------------------------
     @staticmethod
-    def to_libretranslate(code: str) -> str:
-        """
-        Convert any input code to a LibreTranslate-supported code.
-        Prefers ISO-639-1 when available, otherwise keeps BCP-47 (zh-Hans, pt-BR).
-        """
-        norm = LanguageConverter.normalize_bcp47(code)
-        lang = langcodes.get(norm)
+    def from_langdetect(code: str) -> str:
+        if code in LANGDETECT_EXCEPTIONS:
+            return LANGDETECT_EXCEPTIONS[code]
+        return LanguageConverter.normalize_bcp47(code)
 
-        # Prefer ISO639-1 if available
-        if lang.language and len(lang.language) == 2:
-            return lang.language
-
-        # Otherwise keep normalized BCP-47 (needed for zh-Hans, zh-Hant, pt-BR)
-        return norm
-
+    # -------------------------
+    # LibreTranslate → others
+    # -------------------------
     @staticmethod
-    def from_libretranslate(code: str) -> str:
-        """
-        Convert a LibreTranslate language code into ISO639-1/Whisper-compatible code.
-        """
-        code = code.lower()
+    def to_whisper(code: str) -> str:
+        # Whisper uses ISO639-1
         if code in LIBRETRANSLATE_EXCEPTIONS:
             return LIBRETRANSLATE_EXCEPTIONS[code]
-
-        # Try to standardize using langcodes
-        try:
-            lang = langcodes.get(code)
-            if lang.language and len(lang.language) == 2:
-                return lang.language
-        except Exception:
-            pass
-
-        return code  # fallback (may already be ISO639-1)
+        lang = langcodes.get(code)
+        return lang.language if lang.language else code
 
     @staticmethod
-    def to_bcp47(code: str) -> str:
-        """Ensure conversion to proper BCP-47 tag"""
-        return LanguageConverter.normalize_bcp47(code)
+    def to_paddleocr(code: str) -> str | None:
+        # Paddle uses ISO639-1/custom names
+        if code in LIBRETRANSLATE_EXCEPTIONS:
+            code = LIBRETRANSLATE_EXCEPTIONS[code]
+        lang = langcodes.get(code)
+        if code in PADDLE_EXCEPTIONS:
+            return PADDLE_EXCEPTIONS[code]
+        return PADDLE_EXCEPTIONS.get(lang.language)
 
     @staticmethod
     def to_tesseract(code: str) -> str | None:
-        """
-        Convert to a Tesseract-compatible language code.
-        Tries special cases first, then ISO-639-2.
-        """
-        bcp = LanguageConverter.normalize_bcp47(code)
-        if bcp in TESSERACT_EXCEPTIONS:
-            return TESSERACT_EXCEPTIONS[bcp]
-
+        if code in TESSERACT_EXCEPTIONS:
+            return TESSERACT_EXCEPTIONS[code]
+        if code in LIBRETRANSLATE_EXCEPTIONS:
+            code = LIBRETRANSLATE_EXCEPTIONS[code]
         try:
-            lang = langcodes.get(bcp)
-            if lang.language:
-                pyc_lang = pycountry.languages.get(alpha_2=lang.language)
-                return pyc_lang.alpha_3 if pyc_lang else None
+            lang = pycountry.languages.get(alpha_2=code)
+            return lang.alpha_3 if lang else None
         except Exception:
             return None
 
     @staticmethod
-    def from_langdetect(code: str) -> str:
-        """
-        Convert langdetect code to canonical BCP-47 first.
-        Example: zh-cn → zh-Hans, zh-tw → zh-Hant
-        """
-        if code in LANGDETECT_EXCEPTIONS:
-            return LANGDETECT_EXCEPTIONS[code]
+    def to_bcp47(code: str) -> str:
         return LanguageConverter.normalize_bcp47(code)
-    
+
+    # -------------------------
+    # Universal Convert
+    # -------------------------
     @staticmethod
-    def to_paddleocr(code: str) -> str | None:
+    def convert(code: str, input_source: str, output_source: str) -> str | None:
         """
-        Convert to a PaddleOCR-compatible language code.
-        Uses predefined mapping (PADDLE_EXCEPTIONS).
+        Convert language codes dynamically.
+        Pivot standard = LibreTranslate
+        Sources: libretranslate, langdetect, whisper, tesseract, paddleocr, bcp47
         """
-        bcp = LanguageConverter.normalize_bcp47(code)
-        if bcp in PADDLE_EXCEPTIONS:
-            return PADDLE_EXCEPTIONS[bcp]
-        # default fallback: try using base language only
-        lang = langcodes.get(bcp)
-        return PADDLE_EXCEPTIONS.get(lang.language)
+        # Step 1: Input → Libretranslate / BCP
+        if input_source == "langdetect":
+            libre = LanguageConverter.from_langdetect(code)
+        elif input_source == "libretranslate":
+            libre = LanguageConverter.normalize_bcp47(code)
+        elif input_source == "whisper":
+            libre = LanguageConverter.normalize_bcp47(code)
+        elif input_source == "paddleocr":
+            libre = LanguageConverter.normalize_bcp47(code)
+        elif input_source == "bcp47":
+            libre = LanguageConverter.normalize_bcp47(code)
+        else:
+            raise ValueError(f"Unsupported input source: {input_source}")
+
+        # Step 2: BCP → Output
+        if output_source == "libretranslate":
+            return libre
+        elif output_source == "whisper":
+            return LanguageConverter.to_whisper(libre)
+        elif output_source == "paddleocr":
+            return LanguageConverter.to_paddleocr(libre)
+        elif output_source == "tesseract":
+            return LanguageConverter.to_tesseract(libre)
+        elif output_source == "bcp47":
+            return LanguageConverter.to_bcp47(libre)
+        else:
+            raise ValueError(f"Unsupported output source: {output_source}")

@@ -8,6 +8,7 @@ import fitz # pdf
 import docx
 import speech_recognition as sr
 from langdetect import detect_langs
+import regex
 from PIL import Image, UnidentifiedImageError
 import imageio_ffmpeg as ffmpeg
 import io
@@ -78,14 +79,61 @@ async def detect_language(req: DetectLangRequest):
         )
 
 
+def detect_script(text: str):
+    if not text.strip():
+        return None  # empty/whitespace case
 
+    counts = {
+        "zh-Hans": len(regex.findall(r'\p{Han}', text)),
+        "ko": len(regex.findall(r'\p{Hangul}', text)),
+        "ja": len(regex.findall(r'\p{Hiragana}', text)) +
+              len(regex.findall(r'\p{Katakana}', text)),
+        "he": len(regex.findall(r'\p{Hebrew}', text)),
+        "ar": len(regex.findall(r'\p{Arabic}', text)),       # Arabic Script : Arabic, Urdu, Persian
+        "hi": len(regex.findall(r'\p{Devanagari}', text)),   # Hindi
+        "bn": len(regex.findall(r'\p{Bengali}', text)),
+        "th": len(regex.findall(r'\p{Thai}', text)),
+        "cyrl": len(regex.findall(r'\p{Cyrillic}', text)),   # Cyrillic Script : bg, ky, ru, uk
+        "el": len(regex.findall(r'\p{Greek}', text))
+    }
+
+    total = len(text)
+    if total == 0:
+        return None
+
+    # Calculate proportions
+    proportions = {k: v / total for k, v in counts.items() if total > 0}
+
+    # Pick the script with the highest proportion above threshold
+    best_lang, best_prop = max(proportions.items(), key=lambda x: x[1], default=(None, 0))
+
+    if best_prop > 0.6:
+        return best_lang
+
+    return "latin"
 
 @router.post("/detect-language2", response_model=DetectLangResponse)
 async def detect_language2(req: DetectLangRequest):
     libre_result = None
     langdetect_result = None
 
-    # 1. LibreTranslate detection
+    # 1. Script detection 
+    script_lang = detect_script(req.text)
+
+    if script_lang and script_lang != "latin":
+        if script_lang in {"ar", "cyrl"}:
+            # Special case: Arabic script could be Arabic, Urdu, or Persian
+            # Cyrillic script could be : bg, ky, ru, uk
+            # Proceed with normal detection but restrict output
+            pass
+        else:
+            # If clear script detected, return directly
+            return DetectLangResponse(
+                detected_lang=script_lang,
+                confidence=100.0
+            )
+
+    # 2. LibreTranslate detection
     try:
         async with httpx.AsyncClient() as client:
             detect_resp = await client.post(
@@ -104,42 +152,67 @@ async def detect_language2(req: DetectLangRequest):
     except Exception:
         pass
 
-    # 2. Langdetect detection
+    # 3. Langdetect detection
     try:
         candidates = detect_langs(req.text)
         if candidates:
             best = candidates[0]
             langdetect_result = {
-                "lang": LanguageConverter.to_libretranslate(
-                        LanguageConverter.from_langdetect(best.lang)),
+                "lang": LanguageConverter.convert(best.lang, "langdetect", "libretranslate"),
                 "confidence": best.prob * 100,
             }
     except Exception:
         pass
     
     SUPPORTED_LANGS = set(lang["code"] for lang in await get_languages())
-    # 3. Filter by supported languages
-    if libre_result and libre_result["lang"] not in SUPPORTED_LANGS:
-        libre_result = None
+    LANGDETECT_EXCEPTIONS = {"az", "eu", "eo", "gl", "ga", "ky", "ms"}
+
     if langdetect_result and langdetect_result["lang"] not in SUPPORTED_LANGS:
+        langdetect_result_unsupported = langdetect_result
         langdetect_result = None
 
     # 4. Decision logic
     chosen = None
     if libre_result and langdetect_result:
         if libre_result["lang"] == langdetect_result["lang"]:
+            # Same language → take higher confidence
             chosen = max([libre_result, langdetect_result], key=lambda x: x["confidence"])
         else:
-            if len(req.text.strip()) < 20:
+            # langdetect exception cases
+            if libre_result["lang"] in LANGDETECT_EXCEPTIONS :
+                # and libre_result["confidence"] >= langdetect_result["confidence"]:
+                chosen = libre_result
+            # Different language
+            elif libre_result["confidence"] > 85 and langdetect_result["confidence"] > 85:
+                # Both high confidence but disagree likely is garbage input
+                chosen = {"lang": "und", "confidence": 0}
+            elif len(req.text.strip()) < 20:
+                # For short input, trust langdetect more
                 chosen = langdetect_result
             else:
+                # Otherwise, trust libretranslate
                 chosen = libre_result
-    elif libre_result:
+
+    elif libre_result and libre_result.get("confidence", 0) > 0:
         chosen = libre_result
+
     elif langdetect_result:
         chosen = langdetect_result
+
+    elif langdetect_result_unsupported:
+        chosen = {"lang": langdetect_result_unsupported["lang"], "confidence": 0}
+
     else:
         raise HTTPException(status_code=400, detail="Could not detect language")
+    
+    # --- Special handling for Arabic/Urdu ---
+    if script_lang == "ar":
+        if chosen["lang"] not in {"ar", "ur", "fa"}:
+            chosen = {"lang": "ar", "confidence": -1}
+     # --- Special handling for Cyrillic ---
+    if script_lang == "cyrl":
+        if chosen["lang"] not in {"ru", "uk", "bg", "ky"}:
+            chosen = {"lang": "ru", "confidence": -1}
 
     return DetectLangResponse(
         detected_lang=chosen["lang"],
@@ -241,7 +314,7 @@ async def extract_text(
         raise HTTPException(status_code=400, detail="Empty file uploaded")
 
     try:
-        lang_tess = LanguageConverter.to_tesseract(input_language)
+        lang_tess = LanguageConverter.convert(input_language, "libretranslate", "tesseract")
 
         # -------------------- First Attempt: No preprocessing --------------------
         img_raw = Image.open(io.BytesIO(contents)).convert("RGB")
@@ -377,7 +450,7 @@ async def transcribe_audio(
     input_language: str = Form(...)
 ):
     # convert libretranslate code (iso-639) to recognize_google code(bcp-47)
-    input_language_bcp = LanguageConverter.to_bcp47(input_language)
+    input_language_bcp = LanguageConverter.convert(input_language, "libretranslate", "bcp47")
 
     # if language selected was auto-detect (for now default to english)
     recognizer = sr.Recognizer()

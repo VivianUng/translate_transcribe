@@ -146,7 +146,14 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
         detectedLang,
         filteredText,
         confidence: detectData.confidence,
-        message: `Input is not valid text\nDetected language: ${detectedLang} (confidence: ${detectData.confidence})`,
+        message:
+          detectedLang === "und"
+            ? "Could not detect a valid language from the input."
+            : detectData.confidence === 0
+              ? `Input language (${detectedLang}) is not supported by this system for translation.`
+              : detectData.confidence === -1
+                ? `Input language (${detectedLang}) was assumed based on script, but could not be confirmed.`
+                : `Input is not valid text\nDetected language: ${detectedLang} (confidence: ${detectData.confidence})`,
       };
     }
 

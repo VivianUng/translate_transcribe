@@ -4,7 +4,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-import unicodedata
+import regex
 
 # Path to current directory of this script
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -33,41 +33,6 @@ for name, file in font_files.items():
     else:
         print(f"[WARN] Font not found: {path}")
 
-# --- Unicode script detection using unicodedata ---
-def detect_script(text: str) -> str:
-    """
-    Detects the script type of the first character in the text using unicodedata.
-    Returns a simplified script code for font selection.
-    """
-    if not text:
-        return "LATIN"  # Default for empty text
-
-    for ch in text:
-        if ch.isspace() or ch.isdigit():
-            continue  # skip spaces and digits
-        name = unicodedata.name(ch, "")
-        if "ARABIC" in name:
-            return "AR"
-        elif "HEBREW" in name:
-            return "HE"
-        elif "DEVANAGARI" in name:
-            return "DEV"
-        elif "BENGALI" in name:
-            return "BN"
-        elif "THAI" in name:
-            return "TH"
-        elif "CJK UNIFIED IDEOGRAPH" in name:
-            return "CJK-SC"
-        elif "HIRAGANA" in name or "KATAKANA" in name:
-            return "JP"
-        elif "HANGUL" in name:
-            return "KR"
-        elif "CYRILLIC" in name:
-            return "LATIN"
-        elif "GREEK" in name:
-            return "LATIN"
-    # fallback if no script found
-    return "LATIN"
 
 # --- Font mapping ---
 font_map = {
@@ -82,6 +47,25 @@ font_map = {
     "KR": "NotoSansCJKkr",
     "LATIN": "NotoSans"
 }
+script_patterns = {
+    "AR": r"\p{Arabic}",
+    "HE": r"\p{Hebrew}",
+    "DEV": r"\p{Devanagari}",
+    "BN": r"\p{Bengali}",
+    "TH": r"\p{Thai}",
+    "CJK-SC": r"\p{Han}",
+    "JP": r"[\p{Hiragana}\p{Katakana}]",
+    "KR": r"\p{Hangul}",
+    "LATIN": r"\p{Cyrillic}",
+    "LATIN": r"\p{Greek}"
+}
+
+def detect_script(ch: str) -> str:
+    for script, pattern in script_patterns.items():
+        if regex.match(pattern, ch):
+            return script
+    return "LATIN"
+
 
 # --- Segment text into runs of same script ---
 def segment_text(text: str):

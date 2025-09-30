@@ -22,9 +22,9 @@ async def websocket_transcribe(ws: WebSocket):
 
     # Read query param
     input_lang = ws.query_params.get("lang", "en")  # default to English if not provided
-    print(f"WebSocket opened with input_lang={input_lang}")
     # convert input_lang to iso639-1 
-    isoLang = LanguageConverter.from_libretranslate(input_lang)
+    isoLang = LanguageConverter.convert(input_lang, "libretranslate", "whisper")
+    print(f"WebSocket opened with language={input_lang}")
 
     audio_buffer = b""
 
