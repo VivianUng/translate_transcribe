@@ -192,65 +192,67 @@ export default function Summarizer() {
     <div className="page-container">
       <h1 className="page-title">Summarizer</h1>
 
-      <div className="section summarize-section">
-        <div className="section-header">
-          <span>Input Text / Mic</span>
-          {mounted && (
-            <LanguageSelect
-              mounted={mounted}
-              value={inputLang}
-              setValue={setInputLang}
-            />
-          )}
-          <div
-            className="mic-icon"
-            title={listening ? "Stop Recording" : "Start Recording"}
-            onClick={handleMicInput}
-          >
-            {listening ? "⏹️" : "🎙️"}
+      <div className="summary-layout">
+        <div className="section input-section">
+          <div className="section-header">
+            <span>Input Text / Mic</span>
+            {mounted && (
+              <LanguageSelect
+                mounted={mounted}
+                value={inputLang}
+                setValue={setInputLang}
+              />
+            )}
+            <div
+              className="mic-icon"
+              title={listening ? "Stop Recording" : "Start Recording"}
+              onClick={handleMicInput}
+            >
+              {listening ? "⏹️" : "🎙️"}
+            </div>
+          </div>
+          <StickyScrollCopyBox
+            value={inputText}
+            setValue={setInputText}
+            onChangeExtra={() => setMessage("")}
+            placeholder="Type text to summarize"
+          />
+
+          {/* Message displayed below the box */}
+          <div className="message" role="alert" aria-live="assertive">
+            {message}
           </div>
         </div>
-        <StickyScrollCopyBox
-          value={inputText}
-          setValue={setInputText}
-          onChangeExtra={() => setMessage("")}
-          placeholder="Type text to summarize"
-        />
 
-        {/* Message displayed below the box */}
-        <div className="message" role="alert" aria-live="assertive">
-          {message}
-        </div>
+
+        <section className="section summary-section">
+          <div className="section-header">
+            <span>Summary</span>
+            {mounted && (
+              <LanguageSelect
+                mounted={mounted}
+                value={targetLang}
+                setValue={setTargetLang}
+                excludeAuto={true}
+              />
+            )}
+            <button
+              className="button sectionhead summarize-button"
+              onClick={handleSummarize}
+              disabled={loading || !inputText || !inputText.trim() ||
+                (inputText === lastSummarizedInput && targetLang === lastSummarizedLang)}
+            >
+              {loading ? "Summarizing..." : "Summarize"}
+            </button>
+          </div>
+          <StickyScrollCopyBox
+            value={summarizedText}
+            setValue={() => { }}
+            placeholder="Summary will appear here...."
+            readOnly={true}
+          />
+        </section>
       </div>
-
-
-      <section className="section summarize-section">
-        <div className="section-header">
-          <span>Summary</span>
-          {mounted && (
-            <LanguageSelect
-              mounted={mounted}
-              value={targetLang}
-              setValue={setTargetLang}
-              excludeAuto={true}
-            />
-          )}
-          <button
-            className="button sectionhead summarize-button"
-            onClick={handleSummarize}
-            disabled={loading || !inputText || !inputText.trim() ||
-              (inputText === lastSummarizedInput && targetLang === lastSummarizedLang)}
-          >
-            {loading ? "Summarizing..." : "Summarize"}
-          </button>
-        </div>
-        <StickyScrollCopyBox
-          value={summarizedText}
-          setValue={() => { }}
-          placeholder="Summary will appear here...."
-          readOnly={true}
-        />
-      </section>
       <div className="button-group">
         {/* Download PDF Button */}
         <button

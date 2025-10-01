@@ -306,7 +306,7 @@ export default function Translate() {
 
         <div className="translator-top-row">
           {/* Text / Mic Input */}
-          <div className="section">
+          <div className="section input-section">
             <div className="section-header">
               <span>Text / Mic</span>
               {mounted && (
@@ -341,7 +341,7 @@ export default function Translate() {
           </div>
 
           {/* File Upload */}
-          <div className="section">
+          <div className="section input-section">
             <div className="section-header">
               <span>File Upload</span>
               {mounted && (
@@ -434,7 +434,7 @@ export default function Translate() {
         </div>
 
         {/* Translation Output */}
-        <div className="section">
+        <div className="section translation-section">
           <div className="section-header">
             <span>Translation</span>
             {mounted && (

@@ -8,6 +8,7 @@ import LanguageSelect from "@/components/LanguageSelect"
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import useAuthCheck from "@/hooks/useAuthCheck";
 import { formatDateFromTimestamp, formatTimeFromTimestamp, formatDateTimeFromTimestamp } from "@/utils/dateTime";
+import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { summarizeText } from "@/utils/summarization";
 import { translateText } from "@/utils/translation";
 import { generatePDF } from "@/utils/pdfGenerator";
@@ -189,18 +190,32 @@ export default function IndividualMeetingRecordPage() {
 
         try {
             let result = "";
+            let filteredText = transcription;
 
             if (matchesRecord) {
                 result = recordData.summary;
             } else if (matchesLastSummary) {
                 result = lastProcessedSummary.output;
             } else {
-                result = await summarizeText(transcription, "en", translationLang);
+                const { valid, filteredText, message } =
+                    await detectAndValidateLanguage(
+                        "summary",
+                        transcription,
+                        "en"
+                    );
+
+                if (!valid) {
+                    toast.error(message || "Invalid input text for summarizing.");
+                    setProcessing(false);
+                    return;
+                }
+                setTranscription(filteredText);
+                result = await summarizeText(filteredText, "en", translationLang);
             }
 
             setSummary(result);
             setLastProcessedSummary({
-                input: transcription,
+                input: filteredText,
                 lang: translationLang,
                 output: result
             });
@@ -344,9 +359,9 @@ export default function IndividualMeetingRecordPage() {
                         {processing ? "Processing..." : "Resummarize"}
                     </button>
                 </div>
-                <div className="ongoing-meeting-layout">
+                <div className="meeting-layout">
                     {/* Left column */}
-                    <div className="ongoing-meeting-left">
+                    <div className="meeting-layout-left">
                         {/* Transcription */}
                         <div className="section transcription-section">
                             <div className="section-header">
@@ -373,7 +388,7 @@ export default function IndividualMeetingRecordPage() {
                     </div>
 
                     {/* Right column */}
-                    <div className="ongoing-meeting-right">
+                    <div className="meeting-layout-right">
                         {/* Summary */}
                         <div className="section summary-section">
                             <div className="section-header">

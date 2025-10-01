@@ -37,6 +37,7 @@ export default function StickyScrollCopyBox({
     <div className="sticky-scroll-wrapper">
       <textarea
         ref={ref}
+        dir="auto"
         className="text-area textarea-copy"
         value={value || ""}
         readOnly={readOnly}

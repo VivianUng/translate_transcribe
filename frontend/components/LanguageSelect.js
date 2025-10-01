@@ -13,7 +13,17 @@ export default function LanguageSelect({
   const { languages, error } = useLanguages();
 
   if (!mounted) return null;
-  if (error) return <p>Error loading languages</p>;
+  // if (error) return <p>Error loading languages</p>;
+  if (error) return (
+    <Select
+      options={[]}
+      value={null}
+      onChange={() => {}}
+      classNamePrefix="react-select"
+      className={className}
+      isDisabled={isDisabled}
+    />
+  )
   if (!languages) return null; // still loading
 
   const options = excludeAuto

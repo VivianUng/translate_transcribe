@@ -781,9 +781,9 @@ export default function MeetingDetailsPage() {
             </div>
 
 
-            <div className="ongoing-meeting-layout">
+            <div className="meeting-layout">
                 {/* Left column */}
-                <div className="ongoing-meeting-left">
+                <div className="meeting-layout-left">
                     {/* Transcription */}
                     <div className="section transcription-section">
                         <div className="section-header">
@@ -824,7 +824,7 @@ export default function MeetingDetailsPage() {
                 </div>
 
                 {/* Right column (Summary) */}
-                <div className="ongoing-meeting-right">
+                <div className="meeting-layout-right">
                     <div className="section summary-section">
                         <div className="section-header">
                             <span>Summary</span>

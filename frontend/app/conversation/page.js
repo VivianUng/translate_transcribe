@@ -306,58 +306,61 @@ export default function ConversationPage() {
           {recordingType === "screen" && listening ? "Stop Recording 🔊" : "Capture Internal Audio 🔊"}
         </button>
       </div>
+      <div className="conversation-layout">
+        <section className="section transcription-section">
+          <div className="section-header">
+            <span>Transcription</span>
+            {mounted && (
+              <LanguageSelect
+                mounted={mounted}
+                value={inputLang}
+                setValue={setInputLang}
+              />
+            )}
+            {/* --- Audio Playback Container --- */}
+            <div className="audio-container">
+              {audioURL && <audio controls src={audioURL}></audio>}
+            </div>
 
-      <section className="section conversation-section">
-        <div className="section-header">
-          <span>Transcription</span>
-          {mounted && (
-            <LanguageSelect
-              mounted={mounted}
-              value={inputLang}
-              setValue={setInputLang}
-            />
-          )}
-          {/* --- Audio Playback Container --- */}
-          <div className="audio-container">
-            {audioURL && <audio controls src={audioURL}></audio>}
           </div>
+          <StickyScrollCopyBox
+            value={transcription}
+            setValue={() => { }}
+            placeholder="Transcription will appear here...."
+            readOnly={true}
+          />
+        </section>
 
-        </div>
-        <StickyScrollCopyBox
-          value={transcription}
-          setValue={() => { }}
-          placeholder="Transcription will appear here...."
-          readOnly={true}
-        />
-      </section>
+        <section className="section translation-section">
+          <div className="section-header">
+            <span>Translation</span>
+            {mounted && (
+              <LanguageSelect
+                mounted={mounted}
+                value={targetLang}
+                setValue={setTargetLang}
+                excludeAuto={true}
+              />
+            )}
+            <button
+              className="button sectionhead translate-button"
+              onClick={handleTranslate}
+              disabled={translateDisabled}
+              title={translateDisabledReason}
+            >
+              {translating ? "Translating..." : "Translate"}
+            </button>
+          </div>
+          <StickyScrollCopyBox
+            value={translatedText}
+            setValue={() => { }}
+            placeholder="Translation will appear here...."
+            readOnly={true}
+          />
+        </section>
 
-      <section className="section translation-section">
-        <div className="section-header">
-          <span>Translation</span>
-          {mounted && (
-            <LanguageSelect
-              mounted={mounted}
-              value={targetLang}
-              setValue={setTargetLang}
-              excludeAuto={true}
-            />
-          )}
-          <button
-            className="button sectionhead translate-button"
-            onClick={handleTranslate}
-            disabled={translateDisabled}
-            title={translateDisabledReason}
-          >
-            {translating ? "Translating..." : "Translate"}
-          </button>
-        </div>
-        <StickyScrollCopyBox
-          value={translatedText}
-          setValue={() => { }}
-          placeholder="Translation will appear here...."
-          readOnly={true}
-        />
-      </section>
+      </div>
+
 
       <div className="button-group">
         <button

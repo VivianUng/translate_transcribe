@@ -370,8 +370,8 @@ export default function RecordDetailsPage() {
                                 {processing
                                     ? "Processing..."
                                     : type === "summary"
-                                        ? "Resummarize"
-                                        : "Retranslate"}
+                                        ? "Summarize"
+                                        : "Translate"}
                             </button>
                         )}
                     </div>
