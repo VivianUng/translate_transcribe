@@ -295,7 +295,7 @@ export default function ConversationPage() {
           className="button conversation-button"
           disabled={(recordingType === "screen" && listening) || isProcessingTranscription} // disable mic if screen recording
         >
-          {recordingType === "mic" && listening ? "Stop 🎙️" : "Start 🎙️"}
+          {recordingType === "mic" && listening ? "Stop ⏹️" : "Mic 🎙️"}
         </button>
 
         <button
@@ -303,7 +303,7 @@ export default function ConversationPage() {
           className="button conversation-button"
           disabled={(recordingType === "mic" && listening) || isProcessingTranscription} // disable screen if mic recording
         >
-          {recordingType === "screen" && listening ? "Stop Recording 🔊" : "Capture Internal Audio 🔊"}
+          {recordingType === "screen" && listening ? "Stop ⏹️" : "System 🔊"}
         </button>
       </div>
       <div className="conversation-layout">

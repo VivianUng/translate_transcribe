@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -9,10 +10,11 @@ import { supabase } from '../lib/supabaseClient';
 import logo from "./icons/main_icon.png";
 
 export default function NavBar() {
+  const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { isLoggedIn, loading } = useAuthCheck({ redirectIfNotAuth: false, returnSession: false });
-  
+
   const loggedInLinks = [
     { href: "/conversation", label: "Conversation" },
     { href: "/translator", label: "Translator" },
@@ -47,7 +49,7 @@ export default function NavBar() {
         <Image src={logo} alt="App Logo" width={48} height={48} />
       </div>
 
-      {/* Links */}
+      {/* Desktop links */}
       <div className="navbar-links">
         {links.map(({ href, label }) => (
           <Link
@@ -60,14 +62,52 @@ export default function NavBar() {
         ))}
       </div>
 
-      {/* Login/Logout button */}
+      {/* Desktop login/logout */}
       <button
-        className="button navbar-button"
+        className="button navbar-button desktop-only"
         onClick={handleLoginLogout}
         aria-label={isLoggedIn ? "Logout" : "Login"}
       >
         {isLoggedIn ? "Logout" : "Login"}
       </button>
+
+      {/* Hamburger (only visible on small width screens) */}
+      <button
+        className="navbar-menu-button"
+        onClick={() => setMenuOpen(!menuOpen)}
+      >
+        ☰
+      </button>
+
+      {/* Drawer menu (small width only) */}
+      {menuOpen && <div className="overlay" onClick={() => setMenuOpen(false)}></div>}
+      <div className={`navbar-menu ${menuOpen ? "open" : ""}`}>
+        <div className="navbar-menu-links">
+          {links.map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              className={pathname === href ? "active" : ""}
+              onClick={() => setMenuOpen(false)}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+
+        <div className="navbar-menu-footer">
+          <button
+            className="button navbar-button"
+            onClick={() => {
+              handleLoginLogout();
+              setMenuOpen(false);
+            }}
+            aria-label={isLoggedIn ? "Logout" : "Login"}
+          >
+            {isLoggedIn ? "Logout" : "Login"}
+          </button>
+        </div>
+      </div>
     </nav>
   );
 }

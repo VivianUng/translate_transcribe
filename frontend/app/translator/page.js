@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { Mic, StopCircle } from "lucide-react";
 import { toast } from "react-hot-toast";
 import LanguageSelect from "@/components/LanguageSelect"
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
@@ -322,7 +323,11 @@ export default function Translate() {
                 title={listening ? "Stop Recording" : "Start Recording"}
                 onClick={handleMicInput}
               >
-                {listening ? "⏹️" : "🎙️"}
+                {listening ? (
+                  <StopCircle size={25} className="stop-icon" />
+                ) : (
+                  <Mic size={25} />
+                )}
               </div>
             </div>
 

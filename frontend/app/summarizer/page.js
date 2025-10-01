@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { Mic, StopCircle } from "lucide-react";
 import LanguageSelect from "@/components/LanguageSelect";
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import useAuthCheck from "@/hooks/useAuthCheck";
@@ -195,7 +196,7 @@ export default function Summarizer() {
       <div className="summary-layout">
         <div className="section input-section">
           <div className="section-header">
-            <span>Input Text / Mic</span>
+            <span>Text / Mic</span>
             {mounted && (
               <LanguageSelect
                 mounted={mounted}
@@ -208,7 +209,11 @@ export default function Summarizer() {
               title={listening ? "Stop Recording" : "Start Recording"}
               onClick={handleMicInput}
             >
-              {listening ? "⏹️" : "🎙️"}
+                              {listening ? (
+                  <StopCircle size={25} className="stop-icon" />
+                ) : (
+                  <Mic size={25} />
+                )}
             </div>
           </div>
           <StickyScrollCopyBox
