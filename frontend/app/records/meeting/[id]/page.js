@@ -323,7 +323,7 @@ export default function IndividualMeetingRecordPage() {
                 <ArrowLeft size={20} />
             </button>
 
-            <h1 className="page-title">Individual Meeting Record</h1>
+            <h1 className="page-title">Meeting Record</h1>
 
             <div className="record-details">
                 <div className="meeting-details-row">
@@ -344,20 +344,22 @@ export default function IndividualMeetingRecordPage() {
                             excludeAuto={true}
                         />
                     )}
-                    <button
-                        className="button extra-action"
-                        disabled={processing}
-                        onClick={handleRetranslate}
-                    >
-                        {processing ? "Processing..." : "Retranslate"}
-                    </button>
-                    <button
-                        className="button extra-action"
-                        disabled={processing}
-                        onClick={handleResummarize}
-                    >
-                        {processing ? "Processing..." : "Resummarize"}
-                    </button>
+                    <div className="button-group" style={{ flex: 1, gap: 8, flexWrap: "nowrap" }}>
+                        <button
+                            className="button extra-action"
+                            disabled={processing}
+                            onClick={handleRetranslate}
+                        >
+                            {processing ? "Processing..." : "Retranslate"}
+                        </button>
+                        <button
+                            className="button extra-action"
+                            disabled={processing}
+                            onClick={handleResummarize}
+                        >
+                            {processing ? "Processing..." : "Resummarize"}
+                        </button>
+                    </div>
                 </div>
                 <div className="meeting-layout">
                     {/* Left column */}

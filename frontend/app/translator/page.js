@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Mic, StopCircle } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { TooltipProvider } from "@/components/TooltipProvider";
 import LanguageSelect from "@/components/LanguageSelect"
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
@@ -22,6 +23,7 @@ export default function Translate() {
   const [targetLang, setTargetLang] = useState("en");
   const [translatedText, setTranslatedText] = useState("");
   const [message, setMessage] = useState("");
+  const [langMessage, setLangMessage] = useState("");
   const [file_upload_message, setFileUploadMessage] = useState("");
   const [translating, setTranslating] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -45,7 +47,7 @@ export default function Translate() {
     if (processing) return "Text Extraction in progress...";
     if (translating) return "Currently translating...";
     if (!inputText || !inputText.trim()) return "Please enter some text to translate";
-    if (inputText === lastTranslatedInput && targetLang === lastTranslatedLang)
+    if (inputText === lastTranslatedInput && targetLang === lastTranslatedLang && translatedText)
       return "This text has already been translated to the selected language";
     if (inputLang === targetLang) return "Input language is the same as output language";
     return "";
@@ -62,6 +64,7 @@ export default function Translate() {
     setIsSaved(false);
     setIsDownloaded(false);
     setMessage("");
+    setLangMessage("");
   }, [inputText, targetLang]);
 
   const prefsAppliedRef = useRef(false);
@@ -82,6 +85,7 @@ export default function Translate() {
     setTranslating(false);
     setProcessing(false);
     setMessage("");
+    setLangMessage("");
     setFileUploadMessage("");
     setInputText("");
     setTranslatedText("");
@@ -189,6 +193,7 @@ export default function Translate() {
   async function handleTranslate() {
     setTranslating(true);
     setMessage("");
+    setLangMessage("");
     setFileUploadMessage("");
     setTranslatedText("");
 
@@ -198,15 +203,17 @@ export default function Translate() {
         inputLang,
         inputText
       );
-      setMessage(message);
 
-      if (!valid) return;
+      if (!valid){
+        setMessage(message);
+        return;
+      }
 
       setInputText(filteredText);
       setInputLang(detectedLang);
 
       if (detectedLang === targetLang) {
-        setMessage("Input language is same as Output Language");
+        setLangMessage("Input language is same as Output Language");
         return;
       }
 
@@ -219,7 +226,7 @@ export default function Translate() {
       }
 
     } catch (error) {
-      setMessage(error.message || "Unexpected error occurred.");
+      toast.error(error.message || "Unexpected error occurred.");
     } finally {
       setTranslating(false);
     }
@@ -228,7 +235,7 @@ export default function Translate() {
   async function handleMicInput() {
     clearDisplay();
     if (listening) {
-      setMessage("Processing....");
+      setInputText("Processing....");
       stopRecording({
         recordingType: "mic",
         micRecorderRef,
@@ -237,7 +244,6 @@ export default function Translate() {
       });
     } else {
       try {
-        setMessage("Recording....");
         await startMicRecording({
           micRecorderRef,
           audioChunks,
@@ -249,7 +255,7 @@ export default function Translate() {
         });
         setMessage("");
       } catch (err) {
-        setMessage(err.message || "Transcription failed.");
+        toast.error(err.message || "Transcription failed.");
       }
     }
   }
@@ -331,18 +337,15 @@ export default function Translate() {
               </div>
             </div>
 
-            {/* Textarea */}
-            <StickyScrollCopyBox
-              value={inputText}
-              setValue={setInputText}
-              onChangeExtra={() => setMessage("")}
-              placeholder="Type text to translate"
-            />
-
-            {/* Message */}
-            <div className="message" role="alert" aria-live="assertive">
-              {message}
-            </div>
+            <TooltipProvider
+              message={message} tooltipId="input-tooltip"
+              style={{ display: "flex", height: "100%", width: "100%" }}>
+              <StickyScrollCopyBox
+                value={inputText}
+                setValue={setInputText}
+                placeholder="Type text to translate"
+              />
+            </TooltipProvider>
           </div>
 
           {/* File Upload */}
@@ -366,72 +369,67 @@ export default function Translate() {
 
             {/* Custom upload box */}
             <div>
-              <div className="upload-box" onClick={() => {
-                clearDisplay();
-                triggerFileInput();
-              }}>
-                {previewFile ? (
-                  <div className="file-preview">
-                    <p className="file-name"><strong>{previewFile.name}</strong></p>
+              <TooltipProvider
+                message={file_upload_message} tooltipId="file-tooltip" place="bottom"
+                style={{ display: "flex", width: "100%" }}>
+                <div className="upload-box" style={{ width: "100%" }} onClick={() => {
+                  clearDisplay();
+                  triggerFileInput();
+                }}>
+                  {previewFile ? (
+                    <div className="file-preview">
+                      <p className="file-name"><strong>{previewFile.name}</strong></p>
 
-                    {/* Image */}
-                    {previewFile.type.startsWith("image/") && previewFile.url && (
-                      <img src={previewFile.url} alt="Preview" className="file-content image" />
-                    )}
-
-                    {/* PDF */}
-                    {previewFile.type === "application/pdf" && previewFile.url && (
-                      <iframe src={previewFile.url} title="PDF Preview" className="file-content pdf" />
-                    )}
-
-                    {/* TXT */}
-                    {previewFile.type === "text/plain" && previewFile.content && (
-                      <pre className="file-content text">{previewFile.content}</pre>
-                    )}
-
-                    {/* Audio */}
-                    {(previewFile.type.startsWith("audio/") || previewFile.type === "video/webm") && previewFile.url && (
-                      <audio controls src={previewFile.url} className="file-content audio">
-                        Your browser does not support the audio element.
-                      </audio>
-                    )}
-
-                    {/* DOCX explicitly no preview */}
-                    {previewFile.type ===
-                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" && (
-                        <p className="file-content unsupported">Preview not available for DOCX files</p>
+                      {/* Image */}
+                      {previewFile.type.startsWith("image/") && previewFile.url && (
+                        <img src={previewFile.url} alt="Preview" className="file-content image" />
                       )}
 
-                    {/* Fallback */}
-                    {!(
-                      previewFile.type.startsWith("image/") ||
-                      previewFile.type === "application/pdf" ||
-                      previewFile.type === "text/plain" ||
-                      (previewFile.type.startsWith("audio/") || previewFile.type === "video/webm") ||
-                      previewFile.type ===
-                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    ) && <p className="file-content unsupported">Preview not available for this file type</p>}
+                      {/* PDF */}
+                      {previewFile.type === "application/pdf" && previewFile.url && (
+                        <iframe src={previewFile.url} title="PDF Preview" className="file-content pdf" />
+                      )}
 
-                    {/* Change File Button */}
-                    <button
-                      className="button change-file-btn"
-                    >
-                      Change File
-                    </button>
-                  </div>
-                ) : (
-                  <span className="upload-text">Click to upload image, audio or document</span>
-                )}
-              </div>
+                      {/* TXT */}
+                      {previewFile.type === "text/plain" && previewFile.content && (
+                        <pre className="file-content text">{previewFile.content}</pre>
+                      )}
 
-              {/* Message displayed below the box */}
-              <div
-                className="message"
-                role="alert"
-                aria-live="assertive"
-              >
-                {file_upload_message}
-              </div>
+                      {/* Audio */}
+                      {(previewFile.type.startsWith("audio/") || previewFile.type === "video/webm") && previewFile.url && (
+                        <audio controls src={previewFile.url} className="file-content audio">
+                          Your browser does not support the audio element.
+                        </audio>
+                      )}
+
+                      {/* DOCX explicitly no preview */}
+                      {previewFile.type ===
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" && (
+                          <p className="file-content unsupported">Preview not available for DOCX files</p>
+                        )}
+
+                      {/* Fallback */}
+                      {!(
+                        previewFile.type.startsWith("image/") ||
+                        previewFile.type === "application/pdf" ||
+                        previewFile.type === "text/plain" ||
+                        (previewFile.type.startsWith("audio/") || previewFile.type === "video/webm") ||
+                        previewFile.type ===
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      ) && <p className="file-content unsupported">Preview not available for this file type</p>}
+
+                      {/* Change File Button */}
+                      <button
+                        className="button change-file-btn"
+                      >
+                        Change File
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="upload-text">Click to upload image, audio or document</span>
+                  )}
+                </div>
+              </TooltipProvider>
             </div>
 
 
@@ -442,14 +440,18 @@ export default function Translate() {
         <div className="section translation-section">
           <div className="section-header">
             <span>Translation</span>
-            {mounted && (
-              <LanguageSelect
-                mounted={mounted}
-                value={targetLang}
-                setValue={setTargetLang}
-                excludeAuto={true}
-              />
-            )}
+            {/* Tooltip wrapper */}
+            <TooltipProvider
+              message={langMessage} tooltipId="lang-tooltip" place="top">
+              {mounted && (
+                <LanguageSelect
+                  mounted={mounted}
+                  value={targetLang}
+                  setValue={setTargetLang}
+                  excludeAuto={true}
+                />
+              )}
+            </TooltipProvider>
             {/* Translate Button */}
             <button
               className="button sectionhead translate-button"

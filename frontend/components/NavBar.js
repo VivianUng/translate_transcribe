@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -71,12 +72,15 @@ export default function NavBar() {
         {isLoggedIn ? "Logout" : "Login"}
       </button>
 
-      {/* Hamburger (only visible on small width screens) */}
+
+      {/* Menu button (only visible on small width screens) */}
       <button
         className="navbar-menu-button"
         onClick={() => setMenuOpen(!menuOpen)}
+        aria-label={menuOpen ? "Close menu" : "Open menu"}
+        title={menuOpen ? "Close navigation" : "Open navigation"}
       >
-        ☰
+        {menuOpen ? <X size={25} /> : <Menu size={25} />}
       </button>
 
       {/* Drawer menu (small width only) */}

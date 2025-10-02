@@ -297,10 +297,10 @@ export default function History() {
 
                 {row.type === "Conversation" && (
                   <>
-                    <p className="card-subtitle"><strong>Input:</strong></p>
+                    <p className="card-subtitle"><strong>Transcription:</strong></p>
                     <p className="card-preview">{row.input || "No input text"}</p>
 
-                    <p className="card-subtitle"><strong>Response:</strong></p>
+                    <p className="card-subtitle"><strong>Translation:</strong></p>
                     <p className="card-preview">{row.output || "No response text"}</p>
                   </>
                 )}

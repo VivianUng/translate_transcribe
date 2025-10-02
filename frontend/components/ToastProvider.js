@@ -10,6 +10,7 @@ export default function ToastProvider() {
   const router = useRouter();
   const toastParam = searchParams.get("toast");
   const [mounted, setMounted] = useState(false);
+  const [toastTop, setToastTop] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -77,19 +78,36 @@ export default function ToastProvider() {
     return () => subscription.unsubscribe();
   }, [toastParam, router]);
 
+  useEffect(() => {
+    setMounted(true);
+
+    const navbar = document.querySelector(".navbar");
+    if (!navbar) return;
+
+    // Initial height
+    setToastTop(navbar.offsetHeight);
+
+    // Observe navbar size changes
+    const resizeObserver = new ResizeObserver(() => {
+      setToastTop(navbar.offsetHeight);
+    });
+
+    resizeObserver.observe(navbar);
+
+    return () => resizeObserver.disconnect();
+  }, []);
 
   return mounted ? (
     <Toaster
       position="top-center"
-      containerClassName="toast-container"
+      containerStyle={{ top: toastTop, zIndex: 11000 }}
       toastOptions={{
-        className: "toast-message",
         duration: 3000,
         success: {
-          className: "toast-message toast-success",
+          className: "toast-success",
         },
         error: {
-          className: "toast-message toast-error",
+          className: "toast-error",
         },
       }}
     />

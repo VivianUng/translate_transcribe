@@ -162,7 +162,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
       detectedLang,
       filteredText,
       confidence: detectData.confidence,
-      message: `Detected language: ${detectedLang} (confidence: ${detectData.confidence})`,
+      // message: `Detected language: ${detectedLang} (confidence: ${detectData.confidence})`,
     };
   }
 
@@ -172,6 +172,5 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
     detectedLang: inputLang,
     filteredText,
     confidence: 100,
-    message: `Source language: ${inputLang}`,
   };
 }

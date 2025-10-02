@@ -762,20 +762,22 @@ export default function MeetingDetailsPage() {
                 )}
                 {status === "past" && (
                     <>
-                        <button
-                            className="button extra-action"
-                            disabled={processing}
-                            onClick={handleRetranslate}
-                        >
-                            {processing ? "Processing..." : "Retranslate"}
-                        </button>
-                        <button
-                            className="button extra-action"
-                            disabled={processing}
-                            onClick={handleResummarize}
-                        >
-                            {processing ? "Processing..." : "Resummarize"}
-                        </button>
+                        <div className="button-group" style={{ flex: 1, gap: 8, flexWrap: "nowrap" }}>
+                            <button
+                                className="button extra-action"
+                                disabled={processing}
+                                onClick={handleRetranslate}
+                            >
+                                {processing ? "Processing..." : "Retranslate"}
+                            </button>
+                            <button
+                                className="button extra-action"
+                                disabled={processing}
+                                onClick={handleResummarize}
+                            >
+                                {processing ? "Processing..." : "Resummarize"}
+                            </button>
+                        </div>
                     </>
                 )}
             </div>

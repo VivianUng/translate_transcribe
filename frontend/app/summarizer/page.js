@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { Mic, StopCircle } from "lucide-react";
+import { TooltipProvider } from "@/components/TooltipProvider";
 import LanguageSelect from "@/components/LanguageSelect";
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import useAuthCheck from "@/hooks/useAuthCheck";
@@ -89,7 +90,7 @@ export default function Summarizer() {
           inputLang,
         });
       } catch (err) {
-        setMessage(err.message || "Transcription failed.");
+        toast.error(err.message || "Transcription failed.");
       }
     }
   }
@@ -138,7 +139,7 @@ export default function Summarizer() {
 
 
     } catch (error) {
-      setMessage(error.message || "Unexpected error occurred.");
+      toast.error(error.message || "Unexpected error occurred.");
     } finally {
       setLoading(false);
     }
@@ -209,24 +210,21 @@ export default function Summarizer() {
               title={listening ? "Stop Recording" : "Start Recording"}
               onClick={handleMicInput}
             >
-                              {listening ? (
-                  <StopCircle size={25} className="stop-icon" />
-                ) : (
-                  <Mic size={25} />
-                )}
+              {listening ? (
+                <StopCircle size={25} className="stop-icon" />
+              ) : (
+                <Mic size={25} />
+              )}
             </div>
           </div>
-          <StickyScrollCopyBox
-            value={inputText}
-            setValue={setInputText}
-            onChangeExtra={() => setMessage("")}
-            placeholder="Type text to summarize"
-          />
-
-          {/* Message displayed below the box */}
-          <div className="message" role="alert" aria-live="assertive">
-            {message}
-          </div>
+            <TooltipProvider
+              message={message} tooltipId="input-tooltip">
+            <StickyScrollCopyBox
+              value={inputText}
+              setValue={setInputText}
+              placeholder="Type text to summarize"
+            />
+          </TooltipProvider>
         </div>
 
 

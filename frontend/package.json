@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.56.0",
+    "@tippyjs/react": "^4.2.6",
     "concurrently": "^9.2.1",
     "jspdf": "^3.0.3",
     "lucide-react": "^0.544.0",
@@ -18,7 +19,8 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hot-toast": "^2.6.0",
-    "react-select": "^5.10.2"
+    "react-select": "^5.10.2",
+    "react-tooltip": "^5.29.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

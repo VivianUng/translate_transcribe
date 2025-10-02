@@ -18,7 +18,7 @@ export default function RootLayout({ children }) {
           <ToastProvider />
           <main
             style={{
-              padding: "1rem", // padding between navbar and page content
+              padding: "0 1rem", // 0 for top/bottom, 1rem for left/right
             }}
           >
 

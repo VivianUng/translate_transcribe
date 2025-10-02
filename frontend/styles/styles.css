@@ -14,10 +14,15 @@
   --danger-color: #e53e3e;
 }
 
+html {
+  overflow-y: scroll;
+}
+
 body {
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: white;
+  min-width: 400px;
 }
 
 /* Reset link styles */
@@ -27,27 +32,31 @@ a {
 }
 
 /* Toast styles */
-.toast-container {
-  top: 4.5rem !important;
-  right: 1rem !important;
-  z-index: 11000 !important;
-}
-
-.toast-message {
-  border-radius: 8px !important;
-  padding: 12px !important;
-}
-
-/* Error toast */
 .toast-error {
   background-color: var(--danger-color) !important;
   color: white !important;
+}
+
+.tooltip-custom {
+  background-color: var(--button-color) !important;
+  color: var(--section-color) !important;
+  padding: 8px 14px !important;
+  border-radius: 8px !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  line-height: 1.4 !important;
+  letter-spacing: 0.2px !important;
+  opacity: 0.95 !important;
+  max-width: 250px !important;
+  text-align: center !important;
 }
 
 /* Main container for page */
 .page-container {
   position: relative;
   max-width: 900px;
+  min-width:400px;
   margin: 1rem auto;
   font-family: Arial, sans-serif;
 }
@@ -138,26 +147,12 @@ a {
   font-weight: 600;
 }
 
-.error-tooltip {
-  display: none;
-  background-color: var(--danger-color);
-  color: white;
-  padding: 8px 12px;
-  border-radius: 4px;
-  position: absolute;
-  z-index: 1;
-}
-
-.text-area:invalid+.error-tooltip {
-  display: block;
-}
-
 .text-area {
   background: var(--content-color);
   flex-grow: 1;
   border-radius: 10px;
   padding: 1rem;
-  min-height: 200px;
+  min-height: 220px;
   font-size: 1rem;
   white-space: pre-wrap;
   line-height: 1.4;
@@ -277,7 +272,6 @@ a {
 
 .back-button {
   position: absolute;
-  top: 0.1rem;
   background: transparent;
   border: none;
   color: var(--button-hover-color);
@@ -359,8 +353,8 @@ a {
   position: sticky;
   top: 0;
   width: 100%;
+  min-width:430px;
   z-index: 10000;
-  /* higher than react-select menu */
   box-sizing: border-box;
 }
 
@@ -413,7 +407,7 @@ a {
 }
 
 /* Small screen width */
-@media (max-width: 800px) {
+@media (max-width: 560px) {
   .overlay {
     position: fixed;
     top: 0;
@@ -433,7 +427,6 @@ a {
     display: block;
     background: none;
     border: none;
-    font-size: 1.8rem;
     color: var(--text-color);
     z-index: 10001;
   }
@@ -829,6 +822,7 @@ a {
 
 .meeting-details-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2rem;
   margin-bottom: 1rem;
@@ -951,7 +945,6 @@ a {
   align-items: center;
   gap: 12px;
   background: var(--section2-color);
-  ;
   padding: 12px 16px;
   border-radius: 12px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
@@ -976,6 +969,13 @@ a {
   color: #777;
   font-size: 0.9rem;
   margin: auto 0;
+}
+
+/* When wrapping (container too narrow), take full width */
+@media (max-width: 650px) {
+  .date-filters {
+    flex: 1 1 100%;
+  }
 }
 
 
