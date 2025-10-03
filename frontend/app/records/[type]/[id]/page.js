@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import {confirmDeletion} from "@/components/ConfirmBox"
 import LanguageSelect from "@/components/LanguageSelect"
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import { ArrowLeft } from "lucide-react";
@@ -184,7 +185,9 @@ export default function RecordDetailsPage() {
     // Delete record
     const handleDelete = async () => {
         if (!id) return;
-        if (!confirm(`Are you sure you want to delete this ${type}?`)) return;
+
+        const confirmed = await confirmDeletion(`Are you sure you want to delete this ${type}?`);
+        if (!confirmed) return;
 
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/records/${getEndpoint(type)}/${id}`, {

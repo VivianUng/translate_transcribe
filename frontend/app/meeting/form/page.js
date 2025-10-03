@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { confirmDeletion } from "@/components/ConfirmBox"
 import { useRouter, useSearchParams } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 
@@ -109,7 +110,8 @@ export default function MeetingFormPage() {
 
     // Delete handler
     const handleDelete = async () => {
-        if (!confirm("Are you sure you want to delete this meeting? This cannot be undone.")) return;
+        const confirmed = await confirmDeletion(`Are you sure you want to delete this meeting?`);
+        if (!confirmed) return;
 
         try {
             const token = session.access_token;
@@ -316,27 +318,29 @@ export default function MeetingFormPage() {
                         {formErrors.date && <p className="error-message">{formErrors.date}</p>}
                     </div>
 
-                    <div>
-                        <label className="input-label">Start Time</label>
-                        <input
-                            className={`input-field ${formErrors.start ? "input-error" : ""}`}
-                            type="time"
-                            value={startTime}
-                            onChange={handleStartChange}
-                        />
-                        {formErrors.start && <p className="error-message">{formErrors.start}</p>}
-                    </div>
+                    <div className="time-grid">
+                        <div>
+                            <label className="input-label">Start Time</label>
+                            <input
+                                className={`input-field ${formErrors.start ? "input-error" : ""}`}
+                                type="time"
+                                value={startTime}
+                                onChange={handleStartChange}
+                            />
+                            {formErrors.start && <p className="error-message">{formErrors.start}</p>}
+                        </div>
 
-                    <div>
-                        <label className="input-label">End Time</label>
-                        <input
-                            className={`input-field ${formErrors.end ? "input-error" : ""}`}
-                            type="time"
-                            min={startTime || undefined}
-                            value={endTime}
-                            onChange={handleEndChange}
-                        />
-                        {formErrors.end && <p className="error-message">{formErrors.end}</p>}
+                        <div>
+                            <label className="input-label">End Time</label>
+                            <input
+                                className={`input-field ${formErrors.end ? "input-error" : ""}`}
+                                type="time"
+                                min={startTime || undefined}
+                                value={endTime}
+                                onChange={handleEndChange}
+                            />
+                            {formErrors.end && <p className="error-message">{formErrors.end}</p>}
+                        </div>
                     </div>
                 </div>
                 <hr className="divider" />

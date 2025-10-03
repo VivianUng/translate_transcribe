@@ -4,8 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router as api_router
-from app.api.websocket import websocket_transcribe
-# from app.api.websocket2 import websocket_transcribe
+from app.api.websocket_routes import router as websocket_router
 
 app = FastAPI()
 
@@ -23,7 +22,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# HTTP routes
 app.include_router(api_router, prefix="/api")
 
-# WebSocket
-app.add_api_websocket_route("/ws/transcribe", websocket_transcribe)
+# WebSocket routes
+app.include_router(websocket_router, prefix="/ws")

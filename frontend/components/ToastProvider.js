@@ -102,12 +102,13 @@ export default function ToastProvider() {
       position="top-center"
       containerStyle={{ top: toastTop, zIndex: 11000 }}
       toastOptions={{
+        className: "custom-toast",
         duration: 3000,
         success: {
-          className: "toast-success",
+          className: "custom-toast toast-success",
         },
         error: {
-          className: "toast-error",
+          className: "custom-toast toast-error",
         },
       }}
     />

@@ -6,6 +6,7 @@ import { toast } from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
+import { confirmDeletion } from "@/components/ConfirmBox"
 import LanguageSelect from "@/components/LanguageSelect"
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import { formatTimeFromTimestamp, formatDateFromTimestamp } from "@/utils/dateTime";
@@ -13,6 +14,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { summarizeText } from "@/utils/summarization";
 import { translateText } from "@/utils/translation";
 import { generatePDF } from "@/utils/pdfGenerator";
+import { useTranslateWebSocket } from "@/utils/translateWebSocket";
 
 function throttle(fn, limit) {
     let inThrottle = false;
@@ -89,12 +91,16 @@ export default function MeetingDetailsPage() {
     const [doSummarization, setDoSummarization] = useState(false);
     const [processing, setProcessing] = useState(false);
 
-    const lastTranslatedIndex = useRef(0);
+    useTranslateWebSocket(transcriptionLang, translationLang, transcription, doTranslation, setTranslation);
+    useTranslateWebSocket(
+        "en", // always English source for host summary
+        translationLangRef.current,
+        enSummary, // this is what changes when host provides a new summary
+        doSummarization && role === "participant",
+        setSummary
+    );
+
     const lastSummarizedIndex = useRef(0);
-    const lastTranslatedSummaryIndex = useRef(0);
-    const chunkCounter = useRef(0);
-    const CHUNK_THRESHOLD = 5; // after 5 small chunks
-    const LARGE_CHUNK_SIZE = 40; // retranslate last 40 words
     const THROTTLE_MS = 1000;
 
     // Recording indicator (host only)
@@ -277,43 +283,7 @@ export default function MeetingDetailsPage() {
     }, [meetingId, session]);
 
 
-    // real-time translations : 
-    const throttledTranslate = useMemo(
-        () =>
-            throttle(async (newWords, words) => {
-                try {
-                    let result = newWords.join(" ")
-                    if (transcriptionLangRef.current !== translationLangRef) {
-                        result = await translateText(
-                            newWords.join(" "),
-                            transcriptionLangRef.current,
-                            translationLangRef.current
-                        );
-                    }
-
-                    setTranslation((prev) => (prev ? prev + " " + result : result));
-                    lastTranslatedIndex.current = words.length;
-                } catch (err) {
-                    console.error(err);
-                    toast.error("Incremental translation failed.");
-                }
-            }, THROTTLE_MS),
-        []
-    );
-
-    useEffect(() => {
-        if (!doTranslation || !transcription) return;
-
-        const words = transcription.split(/\s+/);
-        if (words.length <= lastTranslatedIndex.current) return;
-
-        const newWords = words.slice(lastTranslatedIndex.current);
-        throttledTranslate(newWords, words);
-    }, [transcription, doTranslation, throttledTranslate]);
-
-
-
-    // real-time summaries (host) : 
+    // real-time summaries (host, and participant if host doesn't enabme summarization) : 
     const throttledSummarize = useMemo(
         () =>
             throttle(async (words) => {
@@ -363,47 +333,18 @@ export default function MeetingDetailsPage() {
     }, [transcription, doSummarization, throttledSummarize]);
 
 
-    // real-time translate summmary (participant)
-    const throttledTranslateSummary = useMemo(
-        () =>
-            throttle(async (words) => {
-                try {
-                    let translatedResult = words.join(" ");
-                    if (translationLangRef.current !== "en") {
-                        // Take the full English summary and translate
-                        translatedResult = await translateText(
-                            words.join(" "),
-                            "en",
-                            translationLangRef.current
-                        );
-                    }
-                    setSummary(translatedResult);
-                    lastTranslatedSummaryIndex.current = words.length;
-                } catch (err) {
-                    console.error(err);
-                    toast.error("Summary translation failed.");
-                }
-            }, THROTTLE_MS),
-        []
-    );
 
     useEffect(() => {
         if (!doSummarization || role !== "participant") return;
 
-        if (enSummary) {
-            // host provided summary → just translate it
-            const words = enSummary.split(/\s+/);
-            if (words.length <= lastTranslatedSummaryIndex.current) return;
-
-            throttledTranslateSummary(words);
-        } else if (transcription) {
-            // no host summary → fall back to own summarization
+        if (!enSummary && transcription) {
+            // No host summary → fall back to own summarization
             const words = transcription.split(/\s+/);
             if (words.length - lastSummarizedIndex.current < 50) return;
 
             throttledSummarize(words);
         }
-    }, [enSummary, transcription, doSummarization, role, throttledTranslateSummary, throttledSummarize]);
+    }, [enSummary, transcription, doSummarization, role, throttledSummarize]);
 
 
 
@@ -462,9 +403,6 @@ export default function MeetingDetailsPage() {
             setTranscriptionLang(data.transcription_lang || "en");
             setEnSummary(data.en_summary || "");
 
-            // if (summary === "") { // check to prevent overwrite participant in meeting that just ended
-            //     setSummary(data.translated_summary || "");
-            // }
             setSummary((prev) => {
                 if (prev && prev !== "") {
                     return prev; // keep existing summary
@@ -562,7 +500,8 @@ export default function MeetingDetailsPage() {
         try {
             if (role !== "host") return;
 
-            if (!confirm("Are you sure you want to delete this meeting?")) return;
+            const confirmed = await confirmDeletion(`Are you sure you want to delete this meeting?`);
+            if (!confirmed) return;
             const token = session?.access_token;
             if (!token) {
                 toast.error("You must be logged in to end meetings.");
@@ -917,8 +856,6 @@ export default function MeetingDetailsPage() {
                     )}
 
                 </div>
-
-
             </div>
         </div>
     );

@@ -11,6 +11,7 @@ import { generatePDF } from "@/utils/pdfGenerator";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { startMicRecording, startScreenRecording, stopRecording, } from "@/utils/transcription";
 import { startMicStreaming, startScreenStreaming, stopMicStreaming, stopScreenStreaming } from "@/utils/transcription";
+import { useTranslateWebSocket } from "@/utils/translateWebSocket";
 
 
 
@@ -35,6 +36,9 @@ export default function ConversationPage() {
 
   const [translating, setTranslating] = useState(false); // for translation
   const [saving, setSaving] = useState(false);   // for saving conversation
+
+  const [doTranslation, setDoTranslation] = useState(false);
+  useTranslateWebSocket(inputLang, targetLang, transcription, doTranslation, setTranslatedText);
 
   const [segments, setSegments] = useState([]); // store diarized segments
 
@@ -350,6 +354,15 @@ export default function ConversationPage() {
             >
               {translating ? "Translating..." : "Translate"}
             </button>
+            <label>
+              <input
+                className="checkbox-input"
+                type="checkbox"
+                checked={doTranslation}
+                onChange={(e) => setDoTranslation(e.target.checked)}
+              />
+              Real-Time Translate
+            </label>
           </div>
           <StickyScrollCopyBox
             value={translatedText}

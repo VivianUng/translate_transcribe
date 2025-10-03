@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import { supabase } from '../../lib/supabaseClient';
-import { useLanguages } from "@/contexts/LanguagesContext";
 import toast from 'react-hot-toast';
+import {confirmDeletion} from "@/components/ConfirmBox"
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -15,7 +15,6 @@ export default function SettingsPage() {
   const [updating, setUpdating] = useState(false);
   const [loadingSendEmail, setLoadingSendEmail] = useState(false);
   const [pwRequested, setPwRequested] = useState(false);
-  const { languages, error } = useLanguages();
   const [mounted, setMounted] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -153,11 +152,13 @@ export default function SettingsPage() {
       return;
     }
 
+    toast("📩 Password reset email sent! Check your inbox.");
     setMessage("📩 Password reset email sent! Check your inbox.");
   };
 
   const deleteAccount = async () => {
-    if (!confirm("Are you sure you want to delete your account? This is irreversible!")) return;
+    const confirmed = await confirmDeletion(`Are you sure you want to delete your account? \nThis is irreversible!`);
+    if (!confirmed) return;
 
     try {
       // 1. Get Supabase JWT token

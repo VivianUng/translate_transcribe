@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
+import {confirmDeletion} from "@/components/ConfirmBox"
 import LanguageSelect from "@/components/LanguageSelect"
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import useAuthCheck from "@/hooks/useAuthCheck";
@@ -196,12 +197,14 @@ export default function IndividualMeetingRecordPage() {
                 result = recordData.summary;
             } else if (matchesLastSummary) {
                 result = lastProcessedSummary.output;
-            } else {
+            }
+            // checking for if transcription differs from original one, if not, then just translate
+            else {
                 const { valid, filteredText, message } =
                     await detectAndValidateLanguage(
                         "summary",
-                        transcription,
-                        "en"
+                        "en",
+                        transcription
                     );
 
                 if (!valid) {
@@ -292,7 +295,9 @@ export default function IndividualMeetingRecordPage() {
 
     // Delete individual meeting record
     const handleDelete = async () => {
-        if (!confirm("Are you sure you want to delete this record?")) return;
+        
+        const confirmed = await confirmDeletion(`Are you sure you want to delete this meeting?`);
+        if (!confirmed) return;
 
         try {
             const res = await fetch(

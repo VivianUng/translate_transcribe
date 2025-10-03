@@ -59,7 +59,7 @@ export async function transcribeAudio2(blob, language = "auto") {
 
 
 // --- MIC RECORDING LOGIC ---
-export function startMicRecording({
+export async function startMicRecording({
   micRecorderRef,
   audioChunks,
   setListening,
@@ -68,45 +68,68 @@ export function startMicRecording({
   onAudioReady,
   inputLang,
 }) {
-  return navigator.mediaDevices.getUserMedia({ audio: true })
-    .then((stream) => {
-      micRecorderRef.current = new MediaRecorder(stream);
-      audioChunks.current = [];
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      micRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) audioChunks.current.push(event.data);
-      };
+    // Check if any audio tracks exist
+    if (!stream.getAudioTracks().length) {
+      toast.error("No microphone detected or available.");
+      stream.getTracks().forEach(track => track.stop());
+      return;
+    }
 
-      micRecorderRef.current.onstart = () => {
-        setListening(true);
-        setRecordingType("mic");
-        if (onTranscription) onTranscription(""); // clear transcription
-      };
+    micRecorderRef.current = new MediaRecorder(stream);
+    audioChunks.current = [];
 
-      micRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
-        if (onAudioReady) onAudioReady(audioBlob); // pass audio back
-        try {
-          const text = await transcribeAudio(audioBlob, inputLang);
-          if (onTranscription) onTranscription(text || "No speech detected.");
-        } catch (err) {
-          console.error("Mic transcription error:", err);
-          if (onTranscription) onTranscription("Transcription failed.");
-        }
-        setListening(false);
-        setRecordingType(null);
-      };
+    micRecorderRef.current.ondataavailable = (event) => {
+      if (event.data.size > 0) audioChunks.current.push(event.data);
+    };
 
-      micRecorderRef.current.start();
-    })
-    .catch((err) => {
-      console.error("Microphone error:", err);
-      toast.error("Unable to access microphone.");
-    });
+    micRecorderRef.current.onstart = () => {
+      setListening(true);
+      setRecordingType("mic");
+      if (onTranscription) onTranscription(""); // clear transcription
+    };
+
+    micRecorderRef.current.onstop = async () => {
+      const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
+      if (onAudioReady) onAudioReady(audioBlob);
+
+      try {
+        const text = await transcribeAudio(audioBlob, inputLang);
+        if (onTranscription) onTranscription(text || "No speech detected.");
+      } catch (err) {
+        console.warn("Mic transcription error:", err);
+        if (onTranscription) onTranscription("Transcription failed.");
+      }
+
+      setListening(false);
+      setRecordingType(null);
+
+      // Stop all tracks when done
+      stream.getTracks().forEach(track => track.stop());
+    };
+
+    micRecorderRef.current.start();
+
+  } catch (err) {
+    // Stop any partially obtained tracks
+    if (stream) stream.getTracks().forEach(track => track.stop());
+
+    if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
+      toast.error("Permission required for Microphone");
+    } else if (err.name === 'NotFoundError') {
+      toast.error("No microphone device found");
+    } else {
+      console.warn("Unexpected microphone error:", err);
+    }
+  }
 }
 
+
 // --- SCREEN RECORDING LOGIC ---
-export function startScreenRecording({
+export async function startScreenRecording({
   screenStreamRef,
   screenRecorderRef,
   audioChunks,
@@ -116,66 +139,84 @@ export function startScreenRecording({
   onAudioReady,
   inputLang,
 }) {
-  return navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
-    .then((stream) => {
-      if (stream.getAudioTracks().length === 0) {
-        toast.error("No audio track detected. Internal audio capture may not be supported.");
-        return;
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+
+    // Check if audio track exists
+    if (stream.getAudioTracks().length === 0) {
+      toast.error("No audio track detected. Internal audio capture may not be supported.");
+      stream.getTracks().forEach(track => track.stop());
+      return;
+    }
+
+    // Remove video tracks so only audio remains
+    stream.getVideoTracks().forEach(track => track.stop());
+
+    screenStreamRef.current = stream;
+    const audioStream = new MediaStream(stream.getAudioTracks());
+    screenRecorderRef.current = new MediaRecorder(audioStream);
+    audioChunks.current = [];
+
+    screenRecorderRef.current.ondataavailable = (event) => {
+      if (event.data.size > 0) audioChunks.current.push(event.data);
+    };
+
+    screenRecorderRef.current.onstart = () => {
+      setListening(true);
+      setRecordingType("screen");
+      if (onTranscription) onTranscription(""); // clear previous transcription
+    };
+
+    screenRecorderRef.current.onstop = async () => {
+      const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
+      if (onAudioReady) onAudioReady(audioBlob);
+
+      try {
+        const transcription = await transcribeAudio(audioBlob, inputLang);
+        if (onTranscription) onTranscription(transcription || "No speech detected.");
+      } catch (err) {
+        console.warn("Screen transcription error:", err);
+        if (onTranscription) onTranscription("Transcription failed.");
       }
 
-      // Remove video track(s) so only audio remains
-      stream.getVideoTracks().forEach(track => track.stop());
+      setListening(false);
+      setRecordingType(null);
 
-      screenStreamRef.current = stream;
-      const audioStream = new MediaStream(stream.getAudioTracks());
-      screenRecorderRef.current = new MediaRecorder(audioStream);
-      audioChunks.current = [];
+      // Stop all tracks when done
+      stream.getTracks().forEach(track => track.stop());
+    };
 
-      screenRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) audioChunks.current.push(event.data);
+    // Handle user clicking "Stop sharing"
+    stream.getTracks().forEach((track) => {
+      track.onended = () => {
+        console.log("User stopped screen sharing.");
+        stopRecording({
+          recordingType: "screen",
+          screenRecorderRef,
+          screenStreamRef,
+          setListening,
+          setRecordingType,
+        });
       };
-
-      screenRecorderRef.current.onstart = () => {
-        setListening(true);
-        setRecordingType("screen");
-        if (onTranscription) onTranscription(""); // clear previous transcription
-      };
-
-      screenRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
-        if (onAudioReady) onAudioReady(audioBlob);
-        try {
-          const transcription = await transcribeAudio(audioBlob, inputLang);
-          if (onTranscription) onTranscription(transcription || "No speech detected.");
-        } catch (err) {
-          console.error("Screen transcription error:", err);
-          if (onTranscription) onTranscription("Transcription failed.");
-        }
-        setListening(false);
-        setRecordingType(null);
-      };
-
-      // --- Handle user clicking "Stop sharing" ---
-      stream.getTracks().forEach((track) => {
-        track.onended = () => {
-          console.log("User stopped screen sharing.");
-          stopRecording({
-            recordingType: "screen",
-            screenRecorderRef,
-            screenStreamRef,
-            setListening,
-            setRecordingType,
-          });
-        };
-      });
-
-      screenRecorderRef.current.start();
-    })
-    .catch((err) => {
-      console.error("Screen recording error:", err);
-      toast.error("Unable to start screen recording. Allow screen/audio permissions.");
     });
+
+    screenRecorderRef.current.start();
+
+  } catch (err) {
+    // Stop any partially obtained tracks
+    if (stream) stream.getTracks().forEach(track => track.stop());
+
+    if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
+      toast.error("Permission required to share screen and audio.");
+    } else if (err.name === 'NotFoundError') {
+      toast.error("No display or audio device found.");
+    } else {
+      console.warn("Unexpected screen recording error:", err);
+    }
+  }
 }
+
 
 // --- STOP HELPERS ---
 export function stopScreenSharing(screenStreamRef) {
@@ -227,13 +268,31 @@ let pendingChunks = [];
 // ---------------- MIC STREAMING ----------------
 export async function startMicStreaming({ setTranscription, setListening, setRecordingType, inputLang }) {
   // Step 1: Ask for mic stream first
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    .catch(err => {
-      console.error("getUserMedia error:", err);
-      return null;
-    });
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-  if (!stream) return; // user denied or error
+    // Check if any tracks exist (just in case)
+    if (!stream || stream.getAudioTracks().length === 0) {
+      toast.error("No microphone detected or available");
+      // Stop any tracks if somehow partially active
+      stream?.getTracks().forEach(track => track.stop());
+      return;
+    }
+
+  } catch (err) {
+    // Stop any partially obtained tracks
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
+    if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
+      // User denied permission or insecure context
+      toast.error("Permission required for Microphone");
+    } else {
+      console.warn("Unexpected getUserMedia error:", err);
+    }
+    return; // stop further execution
+  }
 
   // Step 2: create WebSocket
   const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WEBSOCKET_URL}/transcribe?lang=${encodeURIComponent(inputLang)}`);
@@ -337,16 +396,32 @@ let screenChunks = [];
 // ---------------- SCREEN STREAMING ----------------
 export async function startScreenStreaming({ setTranscription, setListening, setRecordingType, inputLang }) {
   // Step 1: Ask for screen + audio
-  const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
-    .catch(err => {
-      console.error("getDisplayMedia error:", err);
-      return null;
-    });
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
 
-  if (!stream) return; // user cancelled / error
-  if (stream.getAudioTracks().length === 0) {
-    toast.error("No audio track detected. Internal audio capture may not be supported.");
-    return;
+    // Check if audio track exists
+    if (stream.getAudioTracks().length === 0) {
+      toast.error("No audio track detected. Internal audio capture may not be supported.");
+      // Stop the stream if any tracks exist
+      stream.getTracks().forEach(track => track.stop());
+      return;
+    }
+
+  } catch (err) {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
+
+    if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
+      // User denied permission or insecure context
+      toast.error("Permission required to share screen and audio");
+    } else if (err.name === 'NotFoundError') {
+      toast.error("No display or audio device found");
+    } else {
+      console.warn("Unexpected getDisplayMedia error:", err);
+    }
+    return; // stop execution
   }
 
   // Remove video tracks (only keep audio)

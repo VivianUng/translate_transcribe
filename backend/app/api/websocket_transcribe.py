@@ -1,4 +1,4 @@
-#backend/app/api/websocket.py
+#backend/app/api/websocket_transcribe.py
 import json
 import numpy as np
 import whisper
@@ -17,7 +17,7 @@ CHUNK_SIZE = int(SAMPLE_RATE * CHUNK_DURATION_SEC)
 OVERLAP_SIZE = int(SAMPLE_RATE * OVERLAP_DURATION_SEC)
 
 model = whisper.load_model("base")
-@router.websocket("/ws/transcribe")
+@router.websocket("/transcribe")
 async def websocket_transcribe(ws: WebSocket):
     await ws.accept()
 
@@ -110,7 +110,7 @@ async def websocket_transcribe(ws: WebSocket):
 #     translate=False     # set True to auto-translate to English
 # )
 
-# @router.websocket("/ws/transcribe")
+# @router.websocket("/transcribe")
 # async def websocket_transcribe(ws: WebSocket):
 #     await ws.accept()
 

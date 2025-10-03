@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from 'next/navigation';
 import { Eye, EyeOff } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function Login() {
   const router = useRouter();
@@ -86,6 +87,7 @@ export default function Login() {
       return;
     }
 
+    toast("📩 Password reset email sent! Check your inbox.");
     setErrorMsg("📩 Password reset email sent! Check your inbox.");
     setResetSent(true); // disable after successful send
 
@@ -103,7 +105,7 @@ export default function Login() {
           Please confirm your email before logging in.
         </p>
       )}
-      <p>Enter your credentials to access your account</p>
+      <p style={{textAlign:"center"}}>Enter your credentials to access your account</p>
       <form onSubmit={handleLogin}>
         <label className="input-label" htmlFor="email">Email address</label>
         <br />
