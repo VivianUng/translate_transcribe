@@ -124,7 +124,7 @@ export default function MeetingFormPage() {
             router.push("/meeting?toast=deleteMeetingSuccess");
         } catch (err) {
             console.error(err);
-            alert(err.message || "Failed to delete meeting.");
+            toast.error(err.message || "Failed to delete meeting.");
         }
     };
 
@@ -222,7 +222,7 @@ export default function MeetingFormPage() {
             setIsSubmitting(true);
             const token = session?.access_token;
             if (!token) {
-                alert("You must be logged in.");
+                toast.error("You must be logged in.");
                 return;
             }
 
@@ -268,7 +268,7 @@ export default function MeetingFormPage() {
             }
         } catch (err) {
             console.error(err);
-            alert(err.message || "Something went wrong.");
+            toast.error(err.message || "Something went wrong.");
         } finally {
             setIsSubmitting(false);
         }

@@ -249,7 +249,7 @@ export default function ConversationPage() {
     try {
       const token = session?.access_token;
       if (!token) {
-        alert("You must be logged in to save conversations.");
+        toast.error("You must be logged in to save conversations.");
         return;
       }
 

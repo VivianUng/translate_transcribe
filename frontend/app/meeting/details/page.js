@@ -493,7 +493,7 @@ export default function MeetingDetailsPage() {
             if (role === "host") {
                 const token = session?.access_token;
                 if (!token) {
-                    alert("You must be logged in to end meetings.");
+                    toast.error("You must be logged in to end meetings.");
                     return;
                 }
 
@@ -513,7 +513,7 @@ export default function MeetingDetailsPage() {
                 if (!res.ok) {
                     const errorData = await res.json();
                     console.error("Failed to update meeting status:", errorData.detail || errorData);
-                    alert("Failed to end meeting.");
+                    toast.error("Failed to end meeting.");
                     return;
                 }
 
@@ -532,7 +532,7 @@ export default function MeetingDetailsPage() {
 
         } catch (err) {
             console.error("Error ending meeting:", err);
-            alert("An error occurred while ending the meeting.");
+            toast.error("An error occurred while ending the meeting.");
         } finally {
             setEnding(false); // re-enable
         }
@@ -547,7 +547,7 @@ export default function MeetingDetailsPage() {
             if (summary) data.Summary = summary;
 
             if (Object.keys(data).length === 0) {
-                alert("Nothing to download!");
+                toast.error("Nothing to download!");
                 return;
             }
 
@@ -565,7 +565,7 @@ export default function MeetingDetailsPage() {
             if (!confirm("Are you sure you want to delete this meeting?")) return;
             const token = session?.access_token;
             if (!token) {
-                alert("You must be logged in to end meetings.");
+                toast.error("You must be logged in to end meetings.");
                 return;
             }
             const res = await fetch(
@@ -579,27 +579,27 @@ export default function MeetingDetailsPage() {
             if (!res.ok) {
                 const errData = await res.json();
                 console.error("Failed to delete meeting:", errData);
-                alert("Failed to delete meeting.");
+                toast.error("Failed to delete meeting.");
                 return;
             }
 
             router.push("/meeting?toast=deleteMeetingSuccess");
         } catch (err) {
             console.error("Error deleting meeting:", err);
-            alert("An error occurred while deleting the meeting.");
+            toast.error("An error occurred while deleting the meeting.");
         }
     }
 
     // host only : update meeting_details table (for past meeting) (only if transcription was updated)
     async function handleUpdateMeeting() {
         if (!isLoggedIn) {
-            alert("You must be logged in as host to update the meeting.");
+            toast.error("You must be logged in as host to update the meeting.");
             return;
         }
 
         const token = session?.access_token;
         if (!token) {
-            alert("Missing authentication token.");
+            toast.error("Missing authentication token.");
             return;
         }
 
@@ -649,7 +649,7 @@ export default function MeetingDetailsPage() {
         try {
             const token = session?.access_token;
             if (!token) {
-                alert("You must be logged in to save meetings.");
+                toast.error("You must be logged in to save meetings.");
                 return;
             }
 

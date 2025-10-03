@@ -145,7 +145,7 @@ export default function History() {
     try {
       const token = session?.access_token;
       if (!token) {
-        alert("You must be logged in to view history.");
+        toast.error("You must be logged in to view history.");
         return { translations: [], conversations: [], summaries: [], meetings: [] };
       }
 

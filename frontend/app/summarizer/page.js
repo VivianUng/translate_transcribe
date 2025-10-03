@@ -158,7 +158,7 @@ export default function Summarizer() {
     try {
       const token = session?.access_token;
       if (!token) {
-        alert("You must be logged in to save summaries.");
+        toast.error("You must be logged in to save summaries.");
         return;
       }
 

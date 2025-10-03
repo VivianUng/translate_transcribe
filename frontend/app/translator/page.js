@@ -275,7 +275,7 @@ export default function Translate() {
     try {
       const token = session?.access_token;
       if (!token) {
-        alert("You must be logged in to save translations.");
+        toast.error("You must be logged in to save translations.");
         return;
       }
 

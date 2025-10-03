@@ -236,7 +236,7 @@ export default function IndividualMeetingRecordPage() {
             if (summary) data.Summary = summary;
 
             if (Object.keys(data).length === 0) {
-                alert("Nothing to download!");
+                toast.error("Nothing to download!");
                 return;
             }
 

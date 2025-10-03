@@ -7,6 +7,7 @@
 //////////////////////
 
 // utils/transcription.js
+import { toast } from "react-hot-toast";
 
 //--- Helper: convert Blob to File ---
 function blobToFile(blob, filename) {
@@ -100,7 +101,7 @@ export function startMicRecording({
     })
     .catch((err) => {
       console.error("Microphone error:", err);
-      alert("Unable to access microphone.");
+      toast.error("Unable to access microphone.");
     });
 }
 
@@ -118,7 +119,7 @@ export function startScreenRecording({
   return navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
     .then((stream) => {
       if (stream.getAudioTracks().length === 0) {
-        alert("No audio track detected. Internal audio capture may not be supported.");
+        toast.error("No audio track detected. Internal audio capture may not be supported.");
         return;
       }
 
@@ -172,7 +173,7 @@ export function startScreenRecording({
     })
     .catch((err) => {
       console.error("Screen recording error:", err);
-      alert("Unable to start screen recording. Allow screen/audio permissions.");
+      toast.error("Unable to start screen recording. Allow screen/audio permissions.");
     });
 }
 
@@ -202,6 +203,9 @@ export function stopRecording({
   }
 }
 
+/////////////////////////////////////////////////////
+// Using streaming (websocket) with Whisper 
+///////////////////////////////////////////////////
 
 // --- Helper: convert Float32Array to 16-bit PCM ---
 export function float32To16BitPCM(float32Array) {
@@ -232,7 +236,7 @@ export async function startMicStreaming({ setTranscription, setListening, setRec
   if (!stream) return; // user denied or error
 
   // Step 2: create WebSocket
-  const ws = new WebSocket(`ws://localhost:10000/ws/transcribe?lang=${encodeURIComponent(inputLang)}`);
+  const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WEBSOCKET_URL}/transcribe?lang=${encodeURIComponent(inputLang)}`);
 
   ws.onopen = () => {
     console.log("WebSocket connected (mic streaming)");
@@ -341,7 +345,7 @@ export async function startScreenStreaming({ setTranscription, setListening, set
 
   if (!stream) return; // user cancelled / error
   if (stream.getAudioTracks().length === 0) {
-    alert("No audio track detected. Internal audio capture may not be supported.");
+    toast.error("No audio track detected. Internal audio capture may not be supported.");
     return;
   }
 
@@ -349,7 +353,7 @@ export async function startScreenStreaming({ setTranscription, setListening, set
   stream.getVideoTracks().forEach(track => track.stop());
 
   // Step 2: Setup WebSocket
-  const ws = new WebSocket(`ws://localhost:10000/ws/transcribe?lang=${encodeURIComponent(inputLang)}`);
+  const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WEBSOCKET_URL}/transcribe?lang=${encodeURIComponent(inputLang)}`);
 
   ws.onopen = () => console.log("WebSocket connected (screen streaming)");
   ws.onmessage = (event) => {

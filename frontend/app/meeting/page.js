@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import { formatDate, formatTime, formatPrettyDateFromTimestamp, formatTimeFromTimestamp } from "@/utils/dateTime";
@@ -24,7 +25,7 @@ export default function Meetings() {
 
       const token = session?.access_token;
       if (!token) {
-        alert("You must be logged in to view meetings.");
+        toast.error("You must be logged in to view meetings.");
         return;
       }
 
@@ -41,7 +42,7 @@ export default function Meetings() {
 
       if (!res.ok) {
         console.error("Failed to fetch meetings:", data);
-        alert(data.detail || "Failed to fetch meetings.");
+        toast.error(data.detail || "Failed to fetch meetings.");
         return;
       }
 
@@ -97,7 +98,7 @@ export default function Meetings() {
 
       const token = session?.access_token;
       if (!token) {
-        alert("You must be logged in to view meetings.");
+        toast.error("You must be logged in to view meetings.");
         return;
       }
       const res = await fetch(

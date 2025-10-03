@@ -12,6 +12,7 @@ export default function SettingsPage() {
   const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [loadingSendEmail, setLoadingSendEmail] = useState(false);
   const [pwRequested, setPwRequested] = useState(false);
   const { languages, error } = useLanguages();
@@ -97,9 +98,9 @@ export default function SettingsPage() {
 
 
   const updateProfile = async () => {
-    setLoading(true);
+    setUpdating(true);
     if (!formData.name) {
-      setLoading(false);
+      setUpdating(false);
       return toast.error("Name cannot be empty.")
     }
 
@@ -128,7 +129,7 @@ export default function SettingsPage() {
     } catch (err) {
       toast.error(err.message || "Error updating profile");
     } finally {
-      setLoading(false);
+      setUpdating(false);
     }
   };
 
@@ -259,9 +260,9 @@ export default function SettingsPage() {
           <button
             className="button updateProfile-button"
             onClick={updateProfile}
-            disabled={loading || !isChanged}
+            disabled={loading || updating || !isChanged}
           >
-            {loading ? 'Updating...' : 'Update Profile'}
+            {loading ? 'Loading...' : (updating ? 'Updating...' : 'Update Profile')}
           </button>
         </div>
       </section>

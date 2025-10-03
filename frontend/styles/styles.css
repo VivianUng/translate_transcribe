@@ -495,6 +495,7 @@ a {
 .signup-container,
 .updatePw-container {
   max-width: 400px;
+  min-width: calc(400px - 4rem);
   margin: auto;
   padding: 2rem;
 }
@@ -553,6 +554,18 @@ a {
   cursor: pointer;
 }
 
+.password-checklist {
+  margin-bottom: 1rem;
+  margin-top: -1rem;
+  font-size: 0.9rem;
+}
+.password-checklist .valid {
+  color: green;
+}
+.password-checklist .invalid {
+  color: red;
+}
+
 
 /* ==========================
    Conversation & Summarize Page Styles
@@ -604,7 +617,8 @@ a {
 
 .upload-box {
   position: relative;
-  height: 250px;
+  min-height: 250px;
+  flex: 1;
   border: 2px dashed var(--navbar-color);
   border-radius: 10px;
   padding: 0.25rem 0.75rem 0.75rem;
