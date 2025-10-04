@@ -9,8 +9,7 @@ import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { generatePDF } from "@/utils/pdfGenerator";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
-import { startMicRecording, startScreenRecording, stopRecording, } from "@/utils/transcription";
-import { startMicStreaming, startScreenStreaming, stopMicStreaming, stopScreenStreaming } from "@/utils/transcription";
+import { startAudioStreaming, stopAudioStreaming} from "@/utils/transcription";
 import { useTranslateWebSocket } from "@/utils/translateWebSocket";
 
 
@@ -40,15 +39,8 @@ export default function ConversationPage() {
   const [doTranslation, setDoTranslation] = useState(false);
   useTranslateWebSocket(inputLang, targetLang, transcription, doTranslation, setTranslatedText);
 
-  const [segments, setSegments] = useState([]); // store diarized segments
-
-  const micRecorderRef = useRef(null);
-  const screenRecorderRef = useRef(null);
-  const screenStreamRef = useRef(null);
-  const audioChunks = useRef([]);
   const [micSession, setMicSession] = useState(null);
   const [screenSession, setScreenSession] = useState(null);
-
 
   const [audioURL, setAudioURL] = useState(null); // for playback
 
@@ -98,73 +90,35 @@ export default function ConversationPage() {
     setAudioURL(null);
   }
 
-  // For on-off transcriptions : 
-  // ---------- Transcription ----------
-  // const handleMicStart = () => {
-  //   clearDisplay();
-  //   startMicRecording({
-  //     micRecorderRef,
-  //     audioChunks,
-  //     setListening,
-  //     setRecordingType,
-  //     onTranscription: setTranscription,
-  //     onAudioReady: (blob) => {
-  //       const url = URL.createObjectURL(blob);
-  //       setAudioURL(url);
-  //     },
-  //     inputLang,
-  //   });
-  // };
-
-  // const handleScreenStart = () => {
-  //   clearDisplay();
-  //   startScreenRecording({
-  //     screenStreamRef,
-  //     screenRecorderRef,
-  //     audioChunks,
-  //     setListening,
-  //     setRecordingType,
-  //     onTranscription: setTranscription,
-  //     onAudioReady: (blob) => {
-  //       const url = URL.createObjectURL(blob);
-  //       setAudioURL(url);
-  //     },
-  //     inputLang,
-  //   });
-  // };
-
-  // const handleStop = () => {
-  //   stopRecording({
-  //     recordingType,
-  //     micRecorderRef,
-  //     screenRecorderRef,
-  //     screenStreamRef,
-  //     setListening,
-  //     setRecordingType,
-  //   });
-  //   // show placeholder while waiting for transcription
-  //   setTranscription("Converting audio to text......");
-  // };
-
-
-  // For streaming audio chunks 2 seconds
-  // Mic
+    // For streaming audio chunks 2 seconds
   const handleMicStart = async () => {
     clearDisplay();
-    const session = await startMicStreaming({ setTranscription, setListening, setRecordingType, inputLang });
-    setMicSession(session);
+    const micSession = await startAudioStreaming({
+      sourceType: "mic",
+      setTranscription,
+      setListening,
+      setRecordingType,
+      inputLang,
+    });
+    setMicSession(micSession);
   };
 
   // Screen (internal audio)
   const handleScreenStart = async () => {
     clearDisplay();
-    const session = await startScreenStreaming({ setTranscription, setListening, setRecordingType, inputLang });
-    setScreenSession(session);
+    const screenSession = await startAudioStreaming({
+      sourceType: "screen",
+      setTranscription,
+      setListening,
+      setRecordingType,
+      inputLang,
+    });
+    setScreenSession(screenSession);
   };
 
   const handleStop = () => {
     if (recordingType === "mic") {
-      stopMicStreaming({
+      stopAudioStreaming({
         ...micSession,
         setListening,
         setRecordingType,
@@ -175,7 +129,7 @@ export default function ConversationPage() {
       });
       setMicSession(null);
     } else if (recordingType === "screen") {
-      stopScreenStreaming({
+      stopAudioStreaming({
         ...screenSession,
         setListening,
         setRecordingType,

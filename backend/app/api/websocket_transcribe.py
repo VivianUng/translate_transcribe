@@ -16,7 +16,7 @@ OVERLAP_DURATION_SEC = 0.1
 CHUNK_SIZE = int(SAMPLE_RATE * CHUNK_DURATION_SEC)
 OVERLAP_SIZE = int(SAMPLE_RATE * OVERLAP_DURATION_SEC)
 
-model = whisper.load_model("base")
+model = whisper.load_model("base") # "tiny", "base", "small", "medium"
 @router.websocket("/transcribe")
 async def websocket_transcribe(ws: WebSocket):
     await ws.accept()

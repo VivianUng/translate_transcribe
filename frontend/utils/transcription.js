@@ -208,7 +208,7 @@ export async function startScreenRecording({
     if (stream) stream.getTracks().forEach(track => track.stop());
 
     if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
-      toast.error("Permission required to share screen and audio.");
+      toast.error("Permission required to share system audio.");
     } else if (err.name === 'NotFoundError') {
       toast.error("No display or audio device found.");
     } else {
@@ -260,279 +260,152 @@ export function float32To16BitPCM(float32Array) {
   return buffer;
 }
 
-let micRecorder;
-let micChunks = [];
+
+// ---------------- COMMON AUDIO STREAMING ----------------
+
+let recorder;
+let chunks = [];
 let pendingChunks = [];
 
-
-// ---------------- MIC STREAMING ----------------
-export async function startMicStreaming({ setTranscription, setListening, setRecordingType, inputLang }) {
-  // Step 1: Ask for mic stream first
+/**
+ * Start either mic or screen streaming
+ */
+export async function startAudioStreaming({
+  sourceType, // 'mic' | 'screen'
+  setTranscription,
+  setListening,
+  setRecordingType,
+  inputLang,
+}) {
   let stream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-    // Check if any tracks exist (just in case)
-    if (!stream || stream.getAudioTracks().length === 0) {
-      toast.error("No microphone detected or available");
-      // Stop any tracks if somehow partially active
-      stream?.getTracks().forEach(track => track.stop());
-      return;
+    // STEP 1: get media
+    if (sourceType === "screen") {
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      if (stream.getAudioTracks().length === 0) {
+        toast.error("No system audio detected. Screen capture may not support audio.");
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+      // discard video track
+      stream.getVideoTracks().forEach(t => t.stop());
+    } 
+    else { // mic stream
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (stream.getAudioTracks().length === 0) {
+        toast.error("No microphone detected or available.");
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
     }
-
   } catch (err) {
-    // Stop any partially obtained tracks
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
+    stream?.getTracks().forEach(t => t.stop());
     if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
-      // User denied permission or insecure context
-      toast.error("Permission required for Microphone");
+      toast.error(`Permission required for ${sourceType === 'screen' ? 'screen audio' : 'microphone'}.`);
+    } else if (err.name === 'NotFoundError') {
+      toast.error(`No ${sourceType === 'screen' ? 'display or audio device' : 'microphone'} found.`);
     } else {
-      console.warn("Unexpected getUserMedia error:", err);
+      console.warn("Unexpected media error:", err);
     }
-    return; // stop further execution
+    return;
   }
 
-  // Step 2: create WebSocket
+  // STEP 2: setup WebSocket
   const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WEBSOCKET_URL}/transcribe?lang=${encodeURIComponent(inputLang)}`);
 
   ws.onopen = () => {
-    console.log("WebSocket connected (mic streaming)");
-    // Flush buffered PCM chunks
-    pendingChunks.forEach(chunk => ws.send(chunk));
-    pendingChunks = [];
+    console.log(`WebSocket connected (${sourceType} streaming)`);
+    while (pendingChunks.length > 0) ws.send(pendingChunks.shift());
   };
 
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
     if (data.partial_text) {
-      setTranscription((prev) => {
-        // append safely without overwriting
-        if (!prev.endsWith(data.partial_text)) {
-          return prev + " " + data.partial_text;
-        }
-        return prev;
-      });
+      setTranscription(prev => prev.endsWith(data.partial_text) ? prev : prev + " " + data.partial_text);
     }
     if (data.error) console.error("Transcription error:", data.error);
   };
 
   ws.onerror = (err) => console.error("WebSocket error:", err);
-  ws.onclose = () => console.log("WebSocket closed (mic streaming)");
+  ws.onclose = () => console.log(`WebSocket closed (${sourceType} streaming)`);
 
+  // STEP 3: AudioContext + Worklet
   const audioContext = new AudioContext({ sampleRate: 16000 });
   const source = audioContext.createMediaStreamSource(stream);
-
   await audioContext.audioWorklet.addModule("/audio-processor.js");
   const pcmNode = new AudioWorkletNode(audioContext, "pcm-processor");
 
   pcmNode.port.onmessage = (event) => {
     const chunk = float32To16BitPCM(event.data);
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(chunk);
-    } else {
-      // Buffer until ready
-      pendingChunks.push(chunk);
-    }
+    if (ws.readyState === WebSocket.OPEN) ws.send(chunk);
+    else pendingChunks.push(chunk);
   };
 
   source.connect(pcmNode);
   pcmNode.connect(audioContext.destination);
 
-  // --- recorder setup for playback
-  micRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-  micChunks = [];
-  micRecorder.ondataavailable = (e) => e.data.size > 0 && micChunks.push(e.data);
-  micRecorder.start();
+  // STEP 4: recorder setup
+  recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+  chunks = [];
+  recorder.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data);
+  recorder.start();
 
-  setListening(true);
-  setRecordingType("mic");
-
-  return { ws, stream, audioContext, source, pcmNode };
-}
-
-
-// ---------------- STOP MIC STREAMING ----------------
-export function stopMicStreaming({ ws, stream, audioContext, source, pcmNode, setListening, setRecordingType, onAudioReady }) {
-  // Graceful shutdown:
-  // 1. Stop audio pipeline
-  if (pcmNode) pcmNode.disconnect();
-  if (source) source.disconnect();
-  if (audioContext) audioContext.close();
-  if (stream) stream.getTracks().forEach(track => track.stop());
-
-  // 2. Stop recorder & send audio blob for playback
-  if (micRecorder && micRecorder.state !== "inactive") {
-    micRecorder.onstop = () => {
-      const blob = new Blob(micChunks, { type: "audio/webm" });
-      if (onAudioReady) onAudioReady(blob);
-    };
-    micRecorder.stop();
-  }
-
-  // 3. Close WebSocket only after flushing pending messages
-  if (ws) {
-    if (pendingChunks.length > 0 && ws.readyState === WebSocket.OPEN) {
-      pendingChunks.forEach(chunk => ws.send(chunk));
-      pendingChunks = [];
-    }
-
-    // Give server a moment to respond with final transcription before closing
-    setTimeout(() => {
-      ws.close();
-      setListening(false);
-      setRecordingType(null);
-    }, 300); // small grace period
-  } else {
-    setListening(false);
-    setRecordingType(null);
-  }
-}
-
-let screenRecorder;
-let screenChunks = [];
-
-// ---------------- SCREEN STREAMING ----------------
-export async function startScreenStreaming({ setTranscription, setListening, setRecordingType, inputLang }) {
-  // Step 1: Ask for screen + audio
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-
-    // Check if audio track exists
-    if (stream.getAudioTracks().length === 0) {
-      toast.error("No audio track detected. Internal audio capture may not be supported.");
-      // Stop the stream if any tracks exist
-      stream.getTracks().forEach(track => track.stop());
-      return;
-    }
-
-  } catch (err) {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
-
-    if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
-      // User denied permission or insecure context
-      toast.error("Permission required to share screen and audio");
-    } else if (err.name === 'NotFoundError') {
-      toast.error("No display or audio device found");
-    } else {
-      console.warn("Unexpected getDisplayMedia error:", err);
-    }
-    return; // stop execution
-  }
-
-  // Remove video tracks (only keep audio)
-  stream.getVideoTracks().forEach(track => track.stop());
-
-  // Step 2: Setup WebSocket
-  const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WEBSOCKET_URL}/transcribe?lang=${encodeURIComponent(inputLang)}`);
-
-  ws.onopen = () => console.log("WebSocket connected (screen streaming)");
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data.partial_text) {
-      setTranscription((prev) => {
-        if (!prev.endsWith(data.partial_text)) {
-          return prev + " " + data.partial_text;
-        }
-        return prev;
+  // handle stop event for screen manually (user presses "Stop sharing")
+  if (sourceType === "screen") {
+    stream.getTracks().forEach(track => {
+      track.onended = () => stopAudioStreaming({
+        ws,
+        stream,
+        audioContext,
+        source,
+        pcmNode,
+        setListening,
+        setRecordingType,
       });
-    }
-    if (data.error) console.error("Transcription error:", data.error);
-  };
-  ws.onerror = (err) => console.error("WebSocket error:", err);
-  ws.onclose = () => console.log("WebSocket closed (screen streaming)");
-
-  const audioContext = new AudioContext({ sampleRate: 16000 });
-  const source = audioContext.createMediaStreamSource(new MediaStream(stream.getAudioTracks()));
-
-  await audioContext.audioWorklet.addModule("/audio-processor.js");
-  const pcmNode = new AudioWorkletNode(audioContext, "pcm-processor");
-
-  // buffer messages until ws is ready
-  const pendingFrames = [];
-  pcmNode.port.onmessage = (event) => {
-    const frame = float32To16BitPCM(event.data);
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(frame);
-    } else {
-      pendingFrames.push(frame);
-    }
-  };
-
-  ws.onopen = () => {
-    console.log("WebSocket connected (screen streaming)");
-    // flush pending frames
-    while (pendingFrames.length > 0) {
-      ws.send(pendingFrames.shift());
-    }
-  };
-
-  source.connect(pcmNode);
-  pcmNode.connect(audioContext.destination);
-
-  // --- recorder setup
-  screenRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-  screenChunks = [];
-  screenRecorder.ondataavailable = (e) => e.data.size > 0 && screenChunks.push(e.data);
-  screenRecorder.start();
+    });
+  }
 
   setListening(true);
-  setRecordingType("screen");
-
-  // Handle user clicking "Stop sharing" directly
-  stream.getTracks().forEach(track => {
-    track.onended = () => stopScreenStreaming({
-      ws,
-      stream,
-      audioContext,
-      source,
-      pcmNode,
-      setListening,
-      setRecordingType
-    });
-  });
+  setRecordingType(sourceType);
 
   return { ws, stream, audioContext, source, pcmNode };
 }
 
-// ---------------- STOP SCREEN STREAMING ----------------
-export function stopScreenStreaming({ ws, stream, audioContext, source, pcmNode, setListening, setRecordingType, onAudioReady }) {
-  console.log("Stopping screen streaming...");
+/**
+ * Stop streaming (both mic or screen)
+ */
+export function stopAudioStreaming({
+  ws,
+  stream,
+  audioContext,
+  source,
+  pcmNode,
+  setListening,
+  setRecordingType,
+  onAudioReady
+}) {
+  console.log("Stopping audio streaming...");
 
-  // 1. finalize transcription (flush last frames)
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    try {
-      ws.send(JSON.stringify({ event: "end" })); // signal backend to finalize
-    } catch (err) {
-      console.warn("WS finalization error:", err);
-    }
-  }
+  // 1. stop audio graph
+  pcmNode?.disconnect();
+  source?.disconnect();
+  audioContext?.close();
+  stream?.getTracks().forEach(track => track.stop());
 
-  // 2. clean up audio graph
-  if (pcmNode) pcmNode.disconnect();
-  if (source) source.disconnect();
-  if (audioContext) audioContext.close();
-
-  // 3. stop tracks
-  if (stream) stream.getTracks().forEach(track => track.stop());
-
-  // 4. finalize recorder
-  if (screenRecorder && screenRecorder.state !== "inactive") {
-    screenRecorder.onstop = () => {
-      const blob = new Blob(screenChunks, { type: "audio/webm" });
-      if (onAudioReady) onAudioReady(blob); // playback / download
+  // 2. finalize recorder
+  if (recorder && recorder.state !== "inactive") {
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: "audio/webm" });
+      onAudioReady?.(blob);
     };
-    screenRecorder.stop();
+    recorder.stop();
   }
 
-  // 5. close websocket after giving it a moment to flush
-  setTimeout(() => {
-    if (ws) ws.close();
-  }, 500);
+  // 3. finalize websocket
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ event: "end" }));
+    setTimeout(() => ws.close(), 500);
+  }
 
   setListening(false);
   setRecordingType(null);
