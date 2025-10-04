@@ -15,6 +15,7 @@ import { summarizeText } from "@/utils/summarization";
 import { translateText } from "@/utils/translation";
 import { generatePDF } from "@/utils/pdfGenerator";
 import { useTranslateWebSocket } from "@/utils/translateWebSocket";
+import { startAudioStreaming, stopAudioStreaming } from "@/utils/transcription";
 
 function throttle(fn, limit) {
     let inThrottle = false;
@@ -50,6 +51,11 @@ export default function MeetingDetailsPage() {
     useEffect(() => {
         statusRef.current = status;
     }, [status])
+
+    const [listening, setListening] = useState(false);
+    const [recordingType, setRecordingType] = useState(null); // "mic" or "screen"
+    const [micSession, setMicSession] = useState(null);
+    const [screenSession, setScreenSession] = useState(null);
 
     const [saving, setSaving] = useState(false);
     const [ending, setEnding] = useState(false);
@@ -95,7 +101,7 @@ export default function MeetingDetailsPage() {
     useTranslateWebSocket(
         "en", // always English source for host summary
         translationLangRef.current,
-        enSummary, // this is what changes when host provides a new summary
+        enSummary,
         doSummarization && role === "participant",
         setSummary
     );
@@ -103,8 +109,6 @@ export default function MeetingDetailsPage() {
     const lastSummarizedIndex = useRef(0);
     const THROTTLE_MS = 1000;
 
-    // Recording indicator (host only)
-    const [recording, setRecording] = useState(false);
     const [mounted, setMounted] = useState(false);
 
     const toastShownRef = useRef(false);
@@ -117,57 +121,6 @@ export default function MeetingDetailsPage() {
             summary !== (record.translated_summary || "")
         );
     }, [record, transcription, enSummary, summary]);
-
-    // test transcription simulation
-    useEffect(() => {
-        if (status !== "ongoing" || role !== "host") return; // only run for ongoing meetings host only
-
-        // Example transcription text
-        const sampleText = `
-            Good morning everyone, and thank you for joining today’s project alignment meeting. 
-            I’d like to start by reviewing our progress from the last sprint. The development team 
-            has successfully completed the authentication module, including the integration with 
-            our single sign-on provider. QA has reported only minor issues, which are currently being addressed. 
-            Overall, we’re on track with the initial milestones, but a few tasks were slightly delayed 
-            due to unexpected dependency updates.
-
-            Moving on to the marketing update, the launch campaign draft is ready, and the design team 
-            has produced initial visuals for the website. Feedback from stakeholders was positive, though 
-            there’s still a need to refine the messaging to better highlight our unique selling points. 
-            The social media plan is also being finalized, and the team expects to begin pre-launch 
-            promotions within two weeks.
-
-            Finally, we need to discuss the risks. The supply chain delays may affect hardware 
-            availability for some of our demo units, and we should prepare a contingency plan. 
-            Additionally, we’ve noticed some scope creep in the client requests, which may impact 
-            delivery if not managed carefully. I’d like everyone to document these risks clearly, 
-            and we’ll assign owners for mitigation in our next session. 
-            Thank you again for your hard work, and let’s keep the momentum going.
-        `;
-
-        const words = sampleText
-            .replace(/\s+/g, " ") // normalize whitespace
-            .trim()
-            .split(" ");
-
-        let index = 0;
-
-        const timer = setInterval(() => {
-            const word = words[index];
-            if (!word) {
-                // reached end → restart from beginning
-                index = 0;
-                return;
-            }
-
-            // Append word-by-word
-            setTranscription((prev) => (prev ? prev + " " : "") + word);
-
-            index++;
-        }, 500); // every 0.5s, push next word
-
-        return () => clearInterval(timer); // cleanup
-    }, [status, role]);
 
 
 
@@ -205,16 +158,6 @@ export default function MeetingDetailsPage() {
         }
     }, [loading, session]);
 
-
-    // set indicator of recording for if user is host and meeting is ongoing
-    // will put the recording logic here
-    useEffect(() => {
-        if (!loading && session) {
-            if (role === 'host' && status === 'ongoing') {
-                setRecording(true);
-            }
-        }
-    }, [role, status]);
 
     // Host updates meeting_details in real-time
     useEffect(() => {
@@ -346,6 +289,51 @@ export default function MeetingDetailsPage() {
         }
     }, [enSummary, transcription, doSummarization, role, throttledSummarize]);
 
+    // -----------------------
+    // Recording functions (host only)
+    // -----------------------
+    // For streaming audio chunks 2 seconds
+    const handleMicStart = async () => {
+        const micSession = await startAudioStreaming({
+            sourceType: "mic",
+            setTranscription,
+            setListening,
+            setRecordingType,
+            inputLang: transcriptionLang,
+        });
+        setMicSession(micSession);
+    };
+
+    // Screen (internal audio)
+    const handleScreenStart = async () => {
+        const screenSession = await startAudioStreaming({
+            sourceType: "screen",
+            setTranscription,
+            setListening,
+            setRecordingType,
+            inputLang: transcriptionLang,
+        });
+        setScreenSession(screenSession);
+    };
+
+    const handleStop = () => {
+        if (recordingType === "mic") {
+            stopAudioStreaming({
+                ...micSession,
+                setListening,
+                setRecordingType,
+            });
+            setMicSession(null);
+        } else if (recordingType === "screen") {
+            stopAudioStreaming({
+                ...screenSession,
+                setListening,
+                setRecordingType,
+            });
+            setScreenSession(null);
+        }
+    };
+
 
 
     // -----------------------
@@ -435,6 +423,29 @@ export default function MeetingDetailsPage() {
                     return;
                 }
 
+                // 1. stop audio stream if still active
+                if (micSession && recordingType === "mic") {
+                    stopAudioStreaming({
+                        ...micSession,
+                        setListening,
+                        setRecordingType,
+                    });
+                    setMicSession(null);
+                }
+                else if (screenSession && recordingType === "screen") {
+                    stopAudioStreaming({
+                        ...screenSession,
+                        setListening,
+                        setRecordingType,
+                    });
+                    setScreenSession(null);
+                }
+
+                // 2. stop translation and summarization
+                setDoTranslation(false);
+                setDoSummarization(false);
+
+
                 // 2. Update meeting status → "past"
                 const res = await fetch(
                     `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/status`,
@@ -464,7 +475,6 @@ export default function MeetingDetailsPage() {
 
                 toast.success("Meeting Ended");
                 setEndTime(formatTimeFromTimestamp(new Date().toISOString()));
-                setRecording(false);
                 setStatus("past");
             }
 
@@ -667,6 +677,27 @@ export default function MeetingDetailsPage() {
                 </p>
             </div>
 
+            {status == "ongoing" && role == "host" && (
+                <div className="button-group" style={{ marginTop: "-20px", marginBottom: "-20px" }}>
+                    <button
+                        onClick={recordingType === "mic" && listening ? handleStop : handleMicStart}
+                        className="button conversation-button"
+                        disabled={(recordingType === "screen" && listening)} // disable mic if screen recording
+                    >
+                        {recordingType === "mic" && listening ? "Stop ⏹️" : "Mic 🎙️"}
+                    </button>
+
+                    <button
+                        onClick={recordingType === "screen" && listening ? handleStop : handleScreenStart}
+                        className="button conversation-button"
+                        disabled={(recordingType === "mic" && listening)} // disable screen if mic recording
+                    >
+                        {recordingType === "screen" && listening ? "Stop ⏹️" : "System 🔊"}
+                    </button>
+                </div>
+            )}
+
+
             <div className="section global-controls">
                 <label>Translation Language:</label>
                 {mounted && (
@@ -721,7 +752,6 @@ export default function MeetingDetailsPage() {
                 )}
             </div>
 
-
             <div className="meeting-layout">
                 {/* Left column */}
                 <div className="meeting-layout-left">
@@ -729,7 +759,7 @@ export default function MeetingDetailsPage() {
                     <div className="section transcription-section">
                         <div className="section-header">
                             <span>Transcription</span>
-                            {role === "host" && recording && (
+                            {role === "host" && listening && (
                                 <span className="recording-indicator">🔴 Recording</span>
                             )}
                         </div>

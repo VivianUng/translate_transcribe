@@ -4,7 +4,7 @@ import json
 import os
 import httpx
 from dotenv import load_dotenv
-from fastapi import APIRouter, WebSocket
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 load_dotenv()
 router = APIRouter()
@@ -24,7 +24,8 @@ async def websocket_translate(ws: WebSocket):
             while True:
                 try:
                     message = await ws.receive_text()
-                except Exception:
+                except WebSocketDisconnect:
+                    print("Client disconnected.")
                     break
 
                 try:
@@ -52,13 +53,15 @@ async def websocket_translate(ws: WebSocket):
                     translated_text = resp.json().get("translatedText", "")
 
                     # Send back via websocket
-                    await ws.send_text(json.dumps({
-                        "translated_text": translated_text,
-                        "mode": mode,
-                    }))
+                    if ws.client_state.name == "CONNECTED":
+                        await ws.send_text(json.dumps({
+                            "translated_text": translated_text,
+                            "mode": mode,
+                        }))
 
                 except Exception as e:
-                    await ws.send_text(json.dumps({"error": str(e)}))
+                    if ws.client_state.name == "CONNECTED":
+                        await ws.send_text(json.dumps({"error": str(e)}))
 
     except Exception as e:
         print("WebSocket error:", e)

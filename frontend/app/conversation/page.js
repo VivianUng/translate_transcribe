@@ -9,7 +9,7 @@ import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { generatePDF } from "@/utils/pdfGenerator";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
-import { startAudioStreaming, stopAudioStreaming} from "@/utils/transcription";
+import { startAudioStreaming, stopAudioStreaming } from "@/utils/transcription";
 import { useTranslateWebSocket } from "@/utils/translateWebSocket";
 
 
@@ -90,7 +90,7 @@ export default function ConversationPage() {
     setAudioURL(null);
   }
 
-    // For streaming audio chunks 2 seconds
+  // For streaming audio chunks 2 seconds
   const handleMicStart = async () => {
     clearDisplay();
     const micSession = await startAudioStreaming({
@@ -140,6 +140,7 @@ export default function ConversationPage() {
       });
       setScreenSession(null);
     }
+    setDoTranslation(false); // close translate websocket if it was open
   };
 
 
@@ -247,7 +248,7 @@ export default function ConversationPage() {
     <div className="page-container">
       <h1 className="page-title">Conversation</h1>
 
-      <div className="button-group">
+      <div className="button-group" style={{ marginTop: "-20px" }}>
         <button
           onClick={recordingType === "mic" && listening ? handleStop : handleMicStart}
           className="button conversation-button"
@@ -286,6 +287,7 @@ export default function ConversationPage() {
             setValue={() => { }}
             placeholder="Transcription will appear here...."
             readOnly={true}
+            autoScroll={true}
           />
         </section>
 
@@ -323,6 +325,7 @@ export default function ConversationPage() {
             setValue={() => { }}
             placeholder="Translation will appear here...."
             readOnly={true}
+            autoScroll={true}
           />
         </section>
 
