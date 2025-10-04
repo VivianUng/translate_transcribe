@@ -65,21 +65,27 @@ export const formatPrettyDateFromTimestamp = (timestamp) => {
 
 /**
  * Format a full timestamp (created_at) into local time
- * Example: "2025-09-24T13:45:30.000Z" → "9:45:30 PM"
+ * Example: "2025-09-24T13:45:30.000Z" → "9:45 PM"
  */
 export const formatTimeFromTimestamp = (timestamp) => {
   if (!timestamp) return "";
-  return new Date(timestamp).toLocaleTimeString();
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 /**
  * Format a full timestamp into en-GB date and local time
- * Example: "2025-09-24T13:45:30.000Z" → "24/09/2025 9:45:30 PM"
+ * Example: "2025-09-24T13:45:30.000Z" → "24/09/2025 9:45 PM"
  */
 export const formatDateTimeFromTimestamp = (timestamp) => {
   if (!timestamp) return "";
   const date = new Date(timestamp);
   const formattedDate = date.toLocaleDateString("en-GB");
-  const formattedTime = date.toLocaleTimeString();
+  const formattedTime = date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
   return `${formattedDate}, ${formattedTime}`;
 };

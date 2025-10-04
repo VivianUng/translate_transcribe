@@ -300,6 +300,7 @@ export default function ConversationPage() {
                 value={targetLang}
                 setValue={setTargetLang}
                 excludeAuto={true}
+                isDisabled={doTranslation}
               />
             )}
             <button

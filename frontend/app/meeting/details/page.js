@@ -84,6 +84,9 @@ export default function MeetingDetailsPage() {
 
     const transcriptionLangRef = useRef(transcriptionLang);
     const translationLangRef = useRef(translationLang);
+    const transcriptionRef = useRef(transcription);
+    const translationRef = useRef(translation);
+    const summaryRef = useRef(summary);
 
     useEffect(() => {
         transcriptionLangRef.current = transcriptionLang;
@@ -92,6 +95,18 @@ export default function MeetingDetailsPage() {
     useEffect(() => {
         translationLangRef.current = translationLang;
     }, [translationLang]);
+
+    useEffect(() => {
+        transcriptionRef.current = transcription;
+    }, [transcription]);
+
+    useEffect(() => {
+        translationRef.current = translation;
+    }, [translation]);
+
+    useEffect(() => {
+        summaryRef.current = summary;
+    }, [summary]);
 
     const [doTranslation, setDoTranslation] = useState(false);
     const [doSummarization, setDoSummarization] = useState(false);
@@ -610,9 +625,9 @@ export default function MeetingDetailsPage() {
                 },
                 body: JSON.stringify({
                     meeting_id: meetingId,
-                    translation,
-                    translated_lang: translationLang,
-                    translated_summary: summary,
+                    translation: translationRef.current,
+                    translated_lang: translationLangRef.current,
+                    translated_summary: summaryRef.current,
                 }),
             });
 
@@ -706,6 +721,7 @@ export default function MeetingDetailsPage() {
                         value={translationLang}
                         setValue={setTranslationLang}
                         excludeAuto={true}
+                        isDisabled={doTranslation}
                     />
                 )}
 
@@ -759,6 +775,17 @@ export default function MeetingDetailsPage() {
                     <div className="section transcription-section">
                         <div className="section-header">
                             <span>Transcription</span>
+                            {role === "host" && status === "ongoing" && (
+                                <>
+                                    {mounted && (
+                                        <LanguageSelect
+                                            mounted={mounted}
+                                            value={transcriptionLang}
+                                            setValue={setTranscriptionLang}
+                                        />
+                                    )}
+                                </>
+                            )}
                             {role === "host" && listening && (
                                 <span className="recording-indicator">🔴 Recording</span>
                             )}
@@ -830,59 +857,58 @@ export default function MeetingDetailsPage() {
                     </div>
                 )}
                 <div className="button-group">
-                    {/* Download PDF Button */}
-                    <button
-                        className="button download-pdf-button"
-                        onClick={handleDownload}
-                        disabled={!transcription}
-                    >
-                        Download PDF
-                    </button>
 
-                    {/* Host actions */}
-                    {role === "host" && (
+                    {/* Host actions during meeting */}
+                    {role === "host" && status === "ongoing" && (
+                        <button
+                            className="button delete"
+                            onClick={handleEndMeeting}
+                            disabled={ending}
+                        >
+                            {ending ? "Ending..." : "End Meeting"}
+                        </button>
+                    )}
+
+                    {/* Common actions after meeting ends */}
+                    {status === "past" && (
                         <>
-                            {status === "ongoing" && (
-                                <button
-                                    className="button delete"
-                                    onClick={handleEndMeeting}
-                                    disabled={ending}
-                                >
-                                    {ending ? "Ending..." : "End Meeting"}
-                                </button>
-                            )}
+                            {/* Download PDF Button */}
+                            <button
+                                className="button download-pdf-button"
+                                onClick={handleDownload}
+                                disabled={!transcription}
+                            >
+                                Download PDF
+                            </button>
 
-                            {status === "past" && (
+                            {/* Save Meeting button */}
+                            <button
+                                className="button save-btn"
+                                onClick={handleSaveMeeting}
+                                disabled={saving || isSaved || !transcription}
+                            >
+                                {saving ? "Saving..." : isSaved ? "Saved" : "Save Meeting"}
+                            </button>
+
+                            {/* Host-only extra actions */}
+                            {role === "host" && (
                                 <>
                                     <button
-                                        className="button save-btn"
-                                        onClick={handleSaveMeeting}
-                                        disabled={saving || isSaved || !transcription}
-                                    >
-                                        {saving ? "Saving..." : isSaved ? "Saved" : "Save Meeting"}
-                                    </button>
-                                    <button className="button update-btn"
+                                        className="button update-btn"
                                         onClick={handleUpdateMeeting}
-                                        disabled={!isTextChanged}>
+                                        disabled={!isTextChanged}
+                                    >
                                         {saving ? "Saving..." : "Update Meeting"}
                                     </button>
-                                    <button className="button delete" onClick={handleDeleteMeeting}>
+                                    <button
+                                        className="button delete"
+                                        onClick={handleDeleteMeeting}
+                                    >
                                         Delete
                                     </button>
                                 </>
                             )}
                         </>
-                    )}
-
-                    {/* Participant actions */}
-                    {role === "participant" && status === "past" && (
-                        <button
-                            className="button save-btn"
-                            onClick={handleSaveMeeting}
-                            disabled={saving || isSaved}
-                        >
-                            {saving ? "Saving..." : isSaved ? "Saved" : "Save Meeting"}
-                        </button>
                     )}
 
                 </div>

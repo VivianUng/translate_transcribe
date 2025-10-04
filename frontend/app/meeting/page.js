@@ -151,7 +151,8 @@ export default function Meetings() {
                   {meeting.isHost ? "You are the host" : `Host: ${meeting.host_name || meeting.host_id}`}
                 </div>
                 <div className="meeting-time">
-                  {meeting.formattedDate} {meeting.formattedStartTime} - {meeting.formattedEndTime}
+                  <span>{meeting.formattedDate}</span><br />
+                  <span>{meeting.formattedStartTime} - {meeting.formattedEndTime}</span>
                 </div>
               </div>
               {title === "Upcoming Meetings" && meeting.isHost && (

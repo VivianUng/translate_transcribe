@@ -111,6 +111,7 @@ a {
   gap: 1rem;
   margin-bottom: 0.5rem;
   font-weight: 600;
+  flex-wrap: wrap;
 }
 
 .message {
@@ -650,7 +651,7 @@ a {
 }
 
 /* Switch to side-by-side ONLY if short AND wide */
-@media (max-height: 599px) and (min-width: 750px) {
+@media (max-height: 600px) and (min-width: 750px) {
 
   .conversation-layout,
   .summary-layout {
@@ -669,7 +670,7 @@ a {
 }
 
 /* stack vertically if screen smaller than 600px */
-@media (max-width: 600px) {
+@media (max-width: 690px) {
   .translator-top-row {
     flex-direction: column;
     gap: 0rem;
@@ -819,30 +820,30 @@ a {
   overflow: hidden;
 }
 
-.meeting-name {
+.meeting-info .meeting-name,
+.meeting-info .meeting-host,
+.meeting-info .meeting-time {
+  font-size: 0.9rem;
+  color: #6b6b6b;
+  margin-bottom: 0.2rem;
+}
+
+.meeting-info .meeting-name,
+.meeting-info .meeting-host {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meeting-info .meeting-time {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.meeting-info .meeting-name {
   font-weight: 600;
   font-size: 1rem;
-  margin-bottom: 0.2rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.meeting-host {
-  font-size: 0.9rem;
-  color: #6b6b6b;
-  margin-bottom: 0.2rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.meeting-time {
-  font-size: 0.9rem;
-  color: #6b6b6b;
-  display: flex;
-  align-items: center;
-  white-space: nowrap;
+  color: black;
 }
 
 
