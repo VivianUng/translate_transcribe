@@ -22,3 +22,25 @@ export function confirmDeletion(message) {
     });
   });
 }
+
+export function confirmExit(message) {
+  return new Promise((resolve) => {
+
+    confirmAlert({
+      title: 'Confirm Exit',
+      message,
+      buttons: [
+        {
+          label: 'Leave',
+          onClick: () => resolve(true)
+        },
+        {
+          label: 'Cancel',
+          onClick: () => resolve(false)
+        }
+      ],
+      closeOnEscape: true,
+      closeOnClickOutside: true
+    });
+  });
+}

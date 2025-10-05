@@ -6,7 +6,7 @@ import { toast } from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
-import { confirmDeletion } from "@/components/ConfirmBox"
+import { confirmDeletion, confirmExit } from "@/components/ConfirmBox"
 import LanguageSelect from "@/components/LanguageSelect"
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import { formatTimeFromTimestamp, formatDateFromTimestamp } from "@/utils/dateTime";
@@ -82,6 +82,8 @@ export default function MeetingDetailsPage() {
     const [enSummary, setEnSummary] = useState("");
     const [summary, setSummary] = useState("");
 
+    const [detectedLang, setDetectedLang] = useState("en");
+
     const transcriptionLangRef = useRef(transcriptionLang);
     const translationLangRef = useRef(translationLang);
     const transcriptionRef = useRef(transcription);
@@ -112,10 +114,11 @@ export default function MeetingDetailsPage() {
     const [doSummarization, setDoSummarization] = useState(false);
     const [processing, setProcessing] = useState(false);
 
-    useTranslateWebSocket(transcriptionLang, translationLang, transcription, doTranslation, setTranslation);
+    useTranslateWebSocket(transcriptionLang, detectedLang, translationLang, transcription, doTranslation, setTranslation);
     useTranslateWebSocket(
         "en", // always English source for host summary
-        translationLangRef.current,
+        "en",
+        translationLang,
         enSummary,
         doSummarization && role === "participant",
         setSummary
@@ -315,6 +318,7 @@ export default function MeetingDetailsPage() {
             setListening,
             setRecordingType,
             inputLang: transcriptionLang,
+            setDetectedLang,
         });
         setMicSession(micSession);
     };
@@ -327,6 +331,7 @@ export default function MeetingDetailsPage() {
             setListening,
             setRecordingType,
             inputLang: transcriptionLang,
+            setDetectedLang,
         });
         setScreenSession(screenSession);
     };
@@ -674,12 +679,26 @@ export default function MeetingDetailsPage() {
         }
     };
 
+    const handleBackClick = async () => {
+        if (listening) {
+            const confirmed = await confirmExit(
+                "You are currently in a meeting. Are you sure you want to leave? This end the meeting."
+            );
+            if (!confirmed) return; // Stop if user cancels
+
+            await handleEndMeeting();
+        }
+
+        // --- Navigate after cleanup ---
+        router.push("/meeting");
+    };
+
     if (loadingPage) return <p>Loading...</p>;
 
     return (
         <div className="page-container">
             <button className="back-button"
-                onClick={() => router.push("/meeting")}>
+                onClick={handleBackClick}>
                 <ArrowLeft size={20} />
             </button>
             <h1 className="page-title">{getPageTitle()}</h1>
@@ -721,7 +740,6 @@ export default function MeetingDetailsPage() {
                         value={translationLang}
                         setValue={setTranslationLang}
                         excludeAuto={true}
-                        isDisabled={doTranslation}
                     />
                 )}
 
@@ -782,6 +800,7 @@ export default function MeetingDetailsPage() {
                                             mounted={mounted}
                                             value={transcriptionLang}
                                             setValue={setTranscriptionLang}
+                                            isDisabled={listening}
                                         />
                                     )}
                                 </>

@@ -16,8 +16,8 @@ LANGDETECT_EXCEPTIONS = {
 
 # LibreTranslate → ISO639-1
 LIBRETRANSLATE_EXCEPTIONS = {
-    "zh-Hans": "zh",    # Simplified Chinese 
     "zh-Hant": "zh",    # Traditional Chinese
+    "zh-Hans": "zh",    # Simplified Chinese 
     "pt-br": "pt",    # Brazilian Portuguese
     "nb": "no",       # Norwegian 
 }
@@ -51,6 +51,22 @@ class LanguageConverter:
     # -------------------------
     # LibreTranslate → others
     # -------------------------
+    @staticmethod
+    def to_libre(code: str) -> str:
+        """
+        Convert from other formats (e.g., Whisper, ISO639-1) to LibreTranslate format (BCP47).
+        Handles reverse mappings of LIBRETRANSLATE_EXCEPTIONS.
+        """
+        # Reverse lookup: e.g. zh -> zh-Hans, pt -> pt-br
+        reverse_exceptions = {v: k for k, v in LIBRETRANSLATE_EXCEPTIONS.items()}
+
+        # Check for direct match first
+        if code in reverse_exceptions:
+            return reverse_exceptions[code]
+
+        # Normalize any valid BCP47 tags
+        return LanguageConverter.normalize_bcp47(code)
+
     @staticmethod
     def to_whisper(code: str) -> str:
         # Whisper uses ISO639-1
@@ -111,7 +127,7 @@ class LanguageConverter:
 
         # Step 2: BCP → Output
         if output_source == "libretranslate":
-            return libre
+            return LanguageConverter.to_libre(libre)
         elif output_source == "whisper":
             return LanguageConverter.to_whisper(libre)
         elif output_source == "paddleocr":

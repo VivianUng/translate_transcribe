@@ -2,8 +2,8 @@
 // using python SpeechRecognition + recognise_google (/transcribe)
 // recording : one-off transcription (still used in translator and summarizer page)
 //
-// using WebSocket + Whisper base model transcribe (websocket.py)
-// streaming : near-real-time (2s) (currently implemented in conversation page, to be added in meeting page)
+// using WebSocket + Whisper base model transcribe
+// streaming : near-real-time (2s) (implemented in conversation and ongoing meeting page)
 //////////////////////
 
 // utils/transcription.js
@@ -276,6 +276,7 @@ export async function startAudioStreaming({
   setListening,
   setRecordingType,
   inputLang,
+  setDetectedLang,
 }) {
   let stream;
   try {
@@ -322,6 +323,11 @@ export async function startAudioStreaming({
     const data = JSON.parse(event.data);
     if (data.partial_text) {
       setTranscription(prev => prev.endsWith(data.partial_text) ? prev : prev + " " + data.partial_text);
+    }
+    if (data.detected_lang) {
+      if (inputLang === "auto"){
+        setDetectedLang(prev => prev !== data.detected_lang ? data.detected_lang : prev);
+      }
     }
     if (data.error) console.error("Transcription error:", data.error);
   };

@@ -23,8 +23,12 @@ export default function ConversationPage() {
   const [translatedText, setTranslatedText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("en");
-  const [autoSave, setAutoSave] = useState(false);
+  const [detectedLang, setDetectedLang] = useState("en");
 
+  const [doTranslation, setDoTranslation] = useState(false);
+  useTranslateWebSocket(inputLang, detectedLang, targetLang, transcription, doTranslation, setTranslatedText);
+
+  const [autoSave, setAutoSave] = useState(false);
   const [isSaved, setIsSaved] = useState(false); // track if conversation is saved
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [lastTranslatedInput, setLastTranslatedInput] = useState("");
@@ -35,9 +39,6 @@ export default function ConversationPage() {
 
   const [translating, setTranslating] = useState(false); // for translation
   const [saving, setSaving] = useState(false);   // for saving conversation
-
-  const [doTranslation, setDoTranslation] = useState(false);
-  useTranslateWebSocket(inputLang, targetLang, transcription, doTranslation, setTranslatedText);
 
   const [micSession, setMicSession] = useState(null);
   const [screenSession, setScreenSession] = useState(null);
@@ -99,6 +100,7 @@ export default function ConversationPage() {
       setListening,
       setRecordingType,
       inputLang,
+      setDetectedLang,
     });
     setMicSession(micSession);
   };
@@ -112,6 +114,7 @@ export default function ConversationPage() {
       setListening,
       setRecordingType,
       inputLang,
+      setDetectedLang,
     });
     setScreenSession(screenSession);
   };
@@ -274,7 +277,11 @@ export default function ConversationPage() {
                 mounted={mounted}
                 value={inputLang}
                 setValue={setInputLang}
+                isDisabled={listening}
               />
+            )}
+            {listening && (
+              <span className="recording-indicator">🔴 Recording</span>
             )}
             {/* --- Audio Playback Container --- */}
             <div className="audio-container">
@@ -300,7 +307,6 @@ export default function ConversationPage() {
                 value={targetLang}
                 setValue={setTargetLang}
                 excludeAuto={true}
-                isDisabled={doTranslation}
               />
             )}
             <button
@@ -337,7 +343,7 @@ export default function ConversationPage() {
         <button
           className="button download-pdf-button"
           onClick={handleDownload}
-          disabled={!transcription || !translatedText || isDownloaded}
+          disabled={!transcription || !translatedText || isDownloaded || listening}
         >
           Download PDF
         </button>
@@ -346,7 +352,7 @@ export default function ConversationPage() {
           <button
             className="button save-conversation-button"
             onClick={() => handleSaveConversation(transcription, translatedText)}
-            disabled={saving || translating || isSaved || !transcription ||
+            disabled={saving || translating || listening || isSaved || !transcription ||
               transcription === "No speech detected."}
           >
             {saving ? "Saving..." : isSaved ? "Saved" : "Save Conversation"}

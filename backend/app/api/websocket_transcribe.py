@@ -2,7 +2,9 @@
 import json
 import numpy as np
 import whisper
-from fastapi import APIRouter, WebSocket
+import asyncio
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 
 from app.core.language_codes import LanguageConverter
 
@@ -17,6 +19,26 @@ CHUNK_SIZE = int(SAMPLE_RATE * CHUNK_DURATION_SEC)
 OVERLAP_SIZE = int(SAMPLE_RATE * OVERLAP_DURATION_SEC)
 
 model = whisper.load_model("base") # "tiny", "base", "small", "medium"
+
+async def transcribe_chunk(chunk: np.ndarray, isoLang: str | None):
+    """Run blocking Whisper transcription in a separate thread."""
+    return await asyncio.to_thread(
+        model.transcribe,
+        chunk,
+        language=isoLang if isoLang else None,
+        fp16=False,
+        verbose=False
+    )
+
+async def safe_send(ws: WebSocket, message: dict):
+    """Send message only if the websocket is still connected."""
+    if ws.application_state == WebSocketState.CONNECTED:
+        try:
+            await ws.send_text(json.dumps(message))
+        except (RuntimeError, WebSocketDisconnect, ConnectionResetError):
+            # Client may have disconnected mid-send
+            pass
+
 @router.websocket("/transcribe")
 async def websocket_transcribe(ws: WebSocket):
     await ws.accept()
@@ -36,8 +58,11 @@ async def websocket_transcribe(ws: WebSocket):
         while True:
             try:
                 data = await ws.receive_bytes()
-            except Exception:
-                # client disconnected
+            except WebSocketDisconnect:
+                print("Client disconnected.")
+                break
+            except Exception as e:
+                print("Receive error:", e)
                 break
 
             audio_buffer += data
@@ -54,12 +79,7 @@ async def websocket_transcribe(ws: WebSocket):
 
                 # Transcribe chunk
                 try:
-                    result = model.transcribe(
-                        chunk,
-                        language=isoLang if isoLang else None,  # use provided lang if not empty
-                        fp16=False,
-                        verbose=False
-                    )
+                    result = await transcribe_chunk(chunk, isoLang)
                 except Exception as e:
                     print(f"Language {isoLang} not supported, falling back to auto-detect. Error: {e}")
                     result = model.transcribe(
@@ -69,10 +89,13 @@ async def websocket_transcribe(ws: WebSocket):
                         verbose=False
                     )
                 text = result.get("text", "").strip()
+                detected_lang = result.get("language") 
 
                 if text:
                     try:
-                        await ws.send_text(json.dumps({"partial_text": text}))
+                        libreLang = LanguageConverter.convert(detected_lang, "whisper", "libretranslate")
+                        # await ws.send_text(json.dumps({"partial_text": text, "detected_lang": libreLang}))
+                        await safe_send(ws, {"partial_text": text, "detected_lang": libreLang})
                     except RuntimeError:
                         break
 
@@ -85,73 +108,9 @@ async def websocket_transcribe(ws: WebSocket):
 
     except Exception as e:
         print("Error:", e)
-        if ws.client_state.name == "CONNECTED":
-            await ws.send_text(json.dumps({"error": str(e)}))
+        await safe_send(ws, {"error": str(e)})
 
     finally:
-        if ws.client_state.name == "CONNECTED":
+        if ws.application_state == WebSocketState.CONNECTED:
             await ws.close()
-
-
-## try using whisper_live so that don't need custom chunking
-# import json
-# from fastapi import APIRouter, WebSocket
-# from whisper_live.client import TranscriptionClient
-# from app.core.language_codes import LanguageConverter
-
-# router = APIRouter()
-
-# # Initialize the streaming client (connect to a running whisper_live server)
-# client = TranscriptionClient(
-#     host="localhost",
-#     port=9090,
-#     multilingual=True,
-#     language="en",      # target language for transcription
-#     translate=False     # set True to auto-translate to English
-# )
-
-# @router.websocket("/transcribe")
-# async def websocket_transcribe(ws: WebSocket):
-#     await ws.accept()
-
-#     # Optional: read language query param and convert to Whisper format
-#     input_lang = ws.query_params.get("lang", "en")
-#     if input_lang != "auto":
-#         isoLang = LanguageConverter.convert(input_lang, "libretranslate", "whisper")
-#     else:
-#         isoLang = None
-#     print(f"WebSocket opened with language={isoLang}")
-
-#     try:
-#         # The TranscriptionClient exposes a streaming callback interface
-#         def on_partial(text):
-#             # send partial transcription back to frontend
-#             if text:
-#                 try:
-#                     ws.send_text(json.dumps({"partial_text": text}))
-#                 except RuntimeError:
-#                     pass  # client disconnected
-
-#         # Start streaming from the websocket
-#         while True:
-#             try:
-#                 data = await ws.receive_bytes()
-#             except Exception:
-#                 break  # client disconnected
-
-#             # Feed audio bytes directly to whisper_live
-#             # whisper_live accepts PCM int16 or float32 (16 kHz)
-#             client.feed_audio(data, language=isoLang or "en", callback=on_partial)
-
-#     except Exception as e:
-#         print("Error:", e)
-#         if ws.client_state.name == "CONNECTED":
-#             await ws.send_text(json.dumps({"error": str(e)}))
-
-#     finally:
-#         if ws.client_state.name == "CONNECTED":
-#             await ws.close()
-
-
-
-
+        print("WebSocket closed.")
