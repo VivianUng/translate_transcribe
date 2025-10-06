@@ -89,6 +89,7 @@ export default function RecordDetailsPage() {
                             "Content-Type": "application/json",
                             Authorization: `Bearer ${session.access_token}`,
                         },
+                        credentials: 'include',
                     }
                 );
 
@@ -161,6 +162,7 @@ export default function RecordDetailsPage() {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${session?.access_token}`,
                 },
+                credentials: 'include',
                 body: JSON.stringify({
                     input_text: formData.input_text,
                     output_text: formData.output_text,
@@ -196,6 +198,7 @@ export default function RecordDetailsPage() {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${session?.access_token}`,
                 },
+                credentials: 'include',
             });
             if (!res.ok) throw new Error("Failed to delete record");
             toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted.`);

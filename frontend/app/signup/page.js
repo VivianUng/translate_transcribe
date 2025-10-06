@@ -82,6 +82,7 @@ export default function Signup() {
           email,
           password,
           full_name: name,
+          origin: window.location.origin
         }),
       });
 

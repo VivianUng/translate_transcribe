@@ -16,6 +16,7 @@ import { translateText } from "@/utils/translation";
 import { generatePDF } from "@/utils/pdfGenerator";
 import { useTranslateWebSocket } from "@/utils/translateWebSocket";
 import { startAudioStreaming, stopAudioStreaming } from "@/utils/transcription";
+import { useListening } from "@/contexts/ListeningContext";
 
 function throttle(fn, limit) {
     let inThrottle = false;
@@ -52,7 +53,8 @@ export default function MeetingDetailsPage() {
         statusRef.current = status;
     }, [status])
 
-    const [listening, setListening] = useState(false);
+    // const [listening, setListening] = useState(false);
+    const { listening, setListening } = useListening();
     const [recordingType, setRecordingType] = useState(null); // "mic" or "screen"
     const [micSession, setMicSession] = useState(null);
     const [screenSession, setScreenSession] = useState(null);
@@ -374,6 +376,7 @@ export default function MeetingDetailsPage() {
                         "Content-Type": "application/json",
                         Authorization: `Bearer ${token}`,
                     },
+                    credentials: 'include',
                 }
             );
 
@@ -475,6 +478,7 @@ export default function MeetingDetailsPage() {
                             "Content-Type": "application/json",
                             Authorization: `Bearer ${token}`,
                         },
+                        credentials: 'include',
                         body: JSON.stringify({ status: "past" }),
                     }
                 );
@@ -542,6 +546,7 @@ export default function MeetingDetailsPage() {
                 {
                     method: "DELETE",
                     headers: { Authorization: `Bearer ${token}` },
+                    credentials: 'include',
                 }
             );
 
@@ -582,6 +587,7 @@ export default function MeetingDetailsPage() {
                         "Content-Type": "application/json",
                         "Authorization": `Bearer ${token}`,
                     },
+                    credentials: 'include',
                     body: JSON.stringify({
                         transcription,
                         transcription_lang: transcriptionLang, // modify this to store the actual language of transcription (can be more than one)
@@ -628,6 +634,7 @@ export default function MeetingDetailsPage() {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`,
                 },
+                credentials: 'include',
                 body: JSON.stringify({
                     meeting_id: meetingId,
                     translation: translationRef.current,

@@ -1,7 +1,7 @@
 from ..core.supabase_client import supabase
 from app.models import SignupRequest, ProfileUpdateRequest, CreateMeetingPayload, GenericSavePayload, UpdateMeetingPayload, RecordUpdatePayload, StatusUpdatePayload, MeetingUpdatePayload, MeetingDetailsUpdatePayload, MeetingSavePayload
 from app.auth import get_current_user
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 router = APIRouter()
 
@@ -35,13 +35,15 @@ async def signup(request: SignupRequest):
                 "status": "exists",
                 "message": "This email is already registered. Please log in instead."
             }
-
+        
         # Create new user in Supabase Auth
         auth_res = supabase.auth.sign_up({
             "email": request.email,
             "password": request.password,
-            "options": {"data": {"full_name": request.full_name}}
-        })
+            "options": {"data": {"full_name": request.full_name},
+                        "email_redirect_to": f'{request.origin}/'}
+            }
+        )
 
         if not auth_res:
             raise HTTPException(status_code=500, detail="Failed to create user.")

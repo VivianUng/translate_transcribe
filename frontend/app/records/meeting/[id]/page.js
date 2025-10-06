@@ -87,6 +87,7 @@ export default function IndividualMeetingRecordPage() {
                         headers: {
                             Authorization: `Bearer ${session.access_token}`,
                         },
+                        credentials: 'include',
                     }
                 );
 
@@ -118,7 +119,7 @@ export default function IndividualMeetingRecordPage() {
                     else {
                         const hostRes = await fetch(
                             `${process.env.NEXT_PUBLIC_BACKEND_URL}/hosts/names/${data.host_id}`,
-                            { headers: { Authorization: `Bearer ${session.access_token}` } }
+                            { headers: { Authorization: `Bearer ${session.access_token}` }, credentials: 'include', }
                         );
                         const hostData = await hostRes.json();
                         setMeetingHost(hostData.host.name || "");
@@ -264,6 +265,7 @@ export default function IndividualMeetingRecordPage() {
                         "Content-Type": "application/json",
                         Authorization: `Bearer ${session.access_token}`,
                     },
+                    credentials: 'include',
                     body: JSON.stringify({
                         translation,
                         translated_lang: translationLang,
@@ -307,6 +309,7 @@ export default function IndividualMeetingRecordPage() {
                     headers: {
                         Authorization: `Bearer ${session.access_token}`,
                     },
+                    credentials: 'include',
                 }
             );
 

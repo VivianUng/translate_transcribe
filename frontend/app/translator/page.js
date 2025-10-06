@@ -285,6 +285,7 @@ export default function Translate() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({
           type: "translation",
           input_text,

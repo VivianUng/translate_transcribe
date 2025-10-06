@@ -46,6 +46,7 @@ export default function MeetingFormPage() {
                     const token = session.access_token;
                     const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}`, {
                         headers: { Authorization: `Bearer ${token}` },
+                        credentials: 'include',
                     });
 
                     if (!res) {
@@ -118,6 +119,7 @@ export default function MeetingFormPage() {
             const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${token}` },
+                credentials: 'include',
             });
 
             const result = await res.json();
@@ -168,6 +170,7 @@ export default function MeetingFormPage() {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
+                    credentials: 'include',
                 }
             );
 
@@ -243,6 +246,7 @@ export default function MeetingFormPage() {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
+                credentials: 'include',
                 body: JSON.stringify({
                     meeting_name: meetingName,
                     date,

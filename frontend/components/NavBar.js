@@ -5,6 +5,7 @@ import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
+import { useListening } from "@/contexts/ListeningContext";
 
 import useAuthCheck from "@/hooks/useAuthCheck";
 import { supabase } from '../lib/supabaseClient';
@@ -15,6 +16,10 @@ export default function NavBar() {
   const pathname = usePathname();
   const router = useRouter();
   const { isLoggedIn, loading } = useAuthCheck({ redirectIfNotAuth: false, returnSession: false });
+  const { listening } = useListening();
+
+  const disabledPaths = ["/meeting/details", "/conversation"];
+  const disableButtons = disabledPaths.includes(pathname) && listening;
 
   const loggedInLinks = [
     { href: "/conversation", label: "Conversation" },
@@ -55,7 +60,8 @@ export default function NavBar() {
         {links.map(({ href, label }) => (
           <Link
             key={href}
-            href={href}
+            // href={href}
+            href={disableButtons ? "#" : href}
             className={pathname === href ? "active" : ""}
           >
             {label}
@@ -68,6 +74,7 @@ export default function NavBar() {
         className="button navbar-button desktop-only"
         onClick={handleLoginLogout}
         aria-label={isLoggedIn ? "Logout" : "Login"}
+        disabled={disableButtons}
       >
         {isLoggedIn ? "Logout" : "Login"}
       </button>
@@ -79,6 +86,7 @@ export default function NavBar() {
         onClick={() => setMenuOpen(!menuOpen)}
         aria-label={menuOpen ? "Close menu" : "Open menu"}
         title={menuOpen ? "Close navigation" : "Open navigation"}
+        disabled={disableButtons}
       >
         {menuOpen ? <X size={25} /> : <Menu size={25} />}
       </button>
@@ -90,7 +98,8 @@ export default function NavBar() {
           {links.map(({ href, label }) => (
             <Link
               key={href}
-              href={href}
+              // href={href}
+              href={disableButtons ? "#" : href}
               className={pathname === href ? "active" : ""}
               onClick={() => setMenuOpen(false)}
             >
@@ -107,6 +116,7 @@ export default function NavBar() {
               setMenuOpen(false);
             }}
             aria-label={isLoggedIn ? "Logout" : "Login"}
+            disabled={disableButtons}
           >
             {isLoggedIn ? "Logout" : "Login"}
           </button>

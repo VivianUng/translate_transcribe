@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"cd ../backend && libretranslate\" \"cd ../backend && uvicorn main:app --host 0.0.0.0 --port 10000\" \"next dev --turbopack\"",
+    "dev:https": "concurrently \"cd ../backend && libretranslate\" \"cd ../backend && uvicorn main:app --host 0.0.0.0 --port 10000\" \"ngrok http 10000\" \"next dev --turbopack --experimental-https\"",
     "dev:frontend": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
@@ -12,7 +13,6 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.56.0",
     "@tippyjs/react": "^4.2.6",
-    "concurrently": "^9.2.1",
     "jspdf": "^3.0.3",
     "lucide-react": "^0.544.0",
     "next": "15.5.2",
@@ -29,8 +29,10 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
+    "ngrok": "^5.0.0-beta.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

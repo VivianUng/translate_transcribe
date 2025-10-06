@@ -2,6 +2,7 @@ import "../styles/styles.css";
 import NavBar from '../components/NavBar';
 import { LanguagesProvider } from "@/contexts/LanguagesContext";
 import ToastProvider from "@/components/ToastProvider";
+import { ListeningProvider } from "@/contexts/ListeningContext";
 
 export const metadata = {
   title: 'Translation App',
@@ -12,6 +13,7 @@ export default function RootLayout({ children }) {
   return (
     <html>
       <body>
+        <ListeningProvider>
         <LanguagesProvider>
 
           <NavBar />
@@ -25,6 +27,7 @@ export default function RootLayout({ children }) {
             {children}
           </main>
         </LanguagesProvider>
+        </ListeningProvider>
       </body>
     </html>
   );

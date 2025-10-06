@@ -10,7 +10,10 @@ export function LanguagesProvider({ children }) {
   useEffect(() => {
     async function fetchLanguages() {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/languages`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/languages`, {
+          credentials: "include",
+        });
+
         if (!res.ok) throw new Error("Failed to load languages");
         const data = await res.json();
         setLanguages([

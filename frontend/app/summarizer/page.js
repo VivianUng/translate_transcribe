@@ -168,6 +168,7 @@ export default function Summarizer() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({
           type: "summary",
           input_text,

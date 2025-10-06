@@ -65,6 +65,7 @@ export default function SettingsPage() {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
       });
 
       if (!res.ok) {
@@ -111,6 +112,7 @@ export default function SettingsPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify(formData),
       });
 
@@ -176,6 +178,7 @@ export default function SettingsPage() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
         },
+        credentials: 'include',
       });
 
       if (!res.ok) {

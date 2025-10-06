@@ -61,6 +61,7 @@ class SignupRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str
+    origin: str
 
 class ProfileUpdateRequest(BaseModel):
     name: str

@@ -11,13 +11,15 @@ import { generatePDF } from "@/utils/pdfGenerator";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { startAudioStreaming, stopAudioStreaming } from "@/utils/transcription";
 import { useTranslateWebSocket } from "@/utils/translateWebSocket";
+import { useListening } from "@/contexts/ListeningContext";
 
 
 
 export default function ConversationPage() {
   const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const { prefs, loading, prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_conversations",]);
-  const [listening, setListening] = useState(false);
+  // const [listening, setListening] = useState(false);
+  const { listening, setListening } = useListening();
   const [recordingType, setRecordingType] = useState(null); // "mic" or "screen"
   const [transcription, setTranscription] = useState("");
   const [translatedText, setTranslatedText] = useState("");
@@ -49,6 +51,7 @@ export default function ConversationPage() {
 
   const translateDisabledReason = (() => {
     if (translating) return "Currently translating...";
+    if (listening) return "Transcription in progress....";
     if (isProcessingTranscription) return "Processing transcription...";
     if (!transcription || !transcription.trim()) return "No transcription available to translate";
     if (transcription === "No speech detected.") return "No speech detected in the audio";
@@ -223,6 +226,7 @@ export default function ConversationPage() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          credentials: 'include',
           body: JSON.stringify({
             type: "conversation",
             input_text,

@@ -100,7 +100,7 @@ export async function startMicRecording({
         const text = await transcribeAudio(audioBlob, inputLang);
         if (onTranscription) onTranscription(text || "No speech detected.");
       } catch (err) {
-        console.warn("Mic transcription error:", err);
+        toast.error("Mic transcription error:", err);
         if (onTranscription) onTranscription("Transcription failed.");
       }
 
@@ -118,11 +118,11 @@ export async function startMicRecording({
     if (stream) stream.getTracks().forEach(track => track.stop());
 
     if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
-      toast.error("Permission required for Microphone");
+      toast.error(`Permission required for Microphone ${err.name}`);
     } else if (err.name === 'NotFoundError') {
       toast.error("No microphone device found");
     } else {
-      console.warn("Unexpected microphone error:", err);
+      toast.error("Unexpected microphone error:", err);
     }
   }
 }
@@ -176,7 +176,7 @@ export async function startScreenRecording({
         const transcription = await transcribeAudio(audioBlob, inputLang);
         if (onTranscription) onTranscription(transcription || "No speech detected.");
       } catch (err) {
-        console.warn("Screen transcription error:", err);
+        toast.error("Screen transcription error:", err);
         if (onTranscription) onTranscription("Transcription failed.");
       }
 
@@ -212,7 +212,7 @@ export async function startScreenRecording({
     } else if (err.name === 'NotFoundError') {
       toast.error("No display or audio device found.");
     } else {
-      console.warn("Unexpected screen recording error:", err);
+      toast.error("Unexpected screen recording error:", err);
     }
   }
 }
@@ -302,11 +302,11 @@ export async function startAudioStreaming({
   } catch (err) {
     stream?.getTracks().forEach(t => t.stop());
     if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
-      toast.error(`Permission required for ${sourceType === 'screen' ? 'screen audio' : 'microphone'}.`);
+      toast.error(`Permission required for ${sourceType === 'screen' ? 'screen audio' : 'microphone'} ${err.name}.`);
     } else if (err.name === 'NotFoundError') {
       toast.error(`No ${sourceType === 'screen' ? 'display or audio device' : 'microphone'} found.`);
     } else {
-      console.warn("Unexpected media error:", err);
+      toast.error(`Unexpected media error: ${err}`);
     }
     return;
   }

@@ -4,8 +4,9 @@ import asyncio
 import httpx # libretranslate
 import pytesseract
 # from paddleocr import PaddleOCR
-import numpy as np
+# import numpy as np
 import fitz # pdf
+import tempfile
 import docx
 import speech_recognition as sr
 from langdetect import detect_langs
@@ -24,11 +25,6 @@ from app.core.image_preprocessing import process_image_for_ocr
 from app.core.language_codes import LanguageConverter
 from app.models import DetectLangRequest, DetectLangResponse, OCRResponse, SummarizeRequest, SummarizeResponse, TranscribeResponse, TranslateRequest, TranslateResponse, PDFRequest
 
-# from pyannote.audio import Pipeline
-import tempfile
-# import whisper
-# import wave
-# import torch
 
 load_dotenv()
 router = APIRouter()
@@ -512,86 +508,3 @@ async def transcribe_audio(
             transcription=f"Error: {str(e)}",
             language=input_language_bcp
         )
-
-
-# diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization", use_auth_token=os.getenv("HF_TOKEN"))
-# whisper_model = whisper.load_model("base")  # use "tiny" or "base" for lighter
-# @router.post("/transcribe2", response_model=Transcribe2Response)
-# async def transcribe2(
-#     file: UploadFile = File(...),
-#     user_lang: str = Form("auto")  # "auto" or "en-US", "fr-FR", etc
-# ):
-#     try:
-#         # --- Step 1: Read audio & convert to WAV ---
-#         input_data = await file.read()
-#         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_wav:
-#             process = subprocess.Popen(
-#                 ["ffmpeg", "-i", "pipe:0", "-f", "wav", "-ar", "16000", "-ac", "1", tmp_wav.name],
-#                 stdin=subprocess.PIPE,
-#                 stdout=subprocess.PIPE,
-#                 stderr=subprocess.DEVNULL,
-#             )
-#             process.communicate(input=input_data)
-#             wav_path = tmp_wav.name
-
-#         # --- Step 2: Speaker diarization ---
-#         diarization = diarization_pipeline(wav_path)
-
-#         # --- Step 3: Process each segment ---
-#         recognizer = sr.Recognizer()
-#         results = []
-
-#         for turn, _, speaker in diarization.itertracks(yield_label=True):
-#             start_time = turn.start
-#             end_time = turn.end
-
-#             # Extract segment audio
-#             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as seg_file:
-#                 with wave.open(wav_path, "rb") as full_wav:
-#                     params = full_wav.getparams()
-#                     framerate = full_wav.getframerate()
-#                     start_frame = int(start_time * framerate)
-#                     end_frame = int(end_time * framerate)
-#                     full_wav.setpos(start_frame)
-#                     frames = full_wav.readframes(end_frame - start_frame)
-
-#                     with wave.open(seg_file.name, "wb") as seg_wav:
-#                         seg_wav.setparams(params)
-#                         seg_wav.writeframes(frames)
-
-#                 seg_path = seg_file.name
-
-#             # --- Step 4: Transcription ---
-#             seg_text, seg_lang = "", ""
-
-#             if user_lang != "auto":
-#                 with sr.AudioFile(seg_path) as source:
-#                     audio = recognizer.record(source)
-#                 try:
-#                     seg_text = recognizer.recognize_google(audio, language=user_lang)
-#                     seg_lang = user_lang
-#                 except Exception:
-#                     seg_text = "[Google failed]"
-#                     seg_lang = user_lang
-#             else:
-#                 result = whisper_model.transcribe(seg_path)
-#                 seg_text = result["text"]
-#                 seg_lang = result["language"]
-
-#             results.append(
-#                 TranscribeSegment(
-#                     speaker=speaker,
-#                     start=start_time,
-#                     end=end_time,
-#                     language=seg_lang,
-#                     text=seg_text,
-#                 )
-#             )
-
-#         return Transcribe2Response(segments=results)
-
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
-#     finally:
-#         if os.path.exists(wav_path):
-#             os.remove(wav_path)
