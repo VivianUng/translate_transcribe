@@ -1,7 +1,7 @@
 #backend/app/api/websocket_transcribe.py
 import json
 import numpy as np
-import whisper
+from faster_whisper import WhisperModel
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
@@ -11,24 +11,51 @@ from app.core.language_codes import LanguageConverter
 router = APIRouter()
 
 SAMPLE_RATE = 16000        # 16 kHz
-CHUNK_DURATION_SEC = 2      # process every few seconds
+# CHUNK_DURATION_SEC = 2      # process every few seconds
+CHUNK_DURATION_SEC = 1.5      # process every few seconds
 OVERLAP_DURATION_SEC = 0.1
 
 # Calculate number of samples
 CHUNK_SIZE = int(SAMPLE_RATE * CHUNK_DURATION_SEC)
 OVERLAP_SIZE = int(SAMPLE_RATE * OVERLAP_DURATION_SEC)
 
-model = whisper.load_model("base") # "tiny", "base", "small", "medium"
+# Faster whisper
+model = WhisperModel("base", device="cpu", compute_type="int8")
 
 async def transcribe_chunk(chunk: np.ndarray, isoLang: str | None):
-    """Run blocking Whisper transcription in a separate thread."""
-    return await asyncio.to_thread(
-        model.transcribe,
-        chunk,
-        language=isoLang if isoLang else None,
-        fp16=False,
-        verbose=False
-    )
+    """Transcribe audio chunk with faster-whisper, with language fallback."""
+    try:
+        segments, info = await asyncio.to_thread(
+            model.transcribe,
+            chunk,
+            language=isoLang if isoLang else None,
+            beam_size=5
+        )
+    except ValueError as e:
+        if "language" in str(e).lower() or "invalid language" in str(e).lower():
+            print(f"Unsupported language '{isoLang}', falling back to auto-detect.")
+            segments, info = await asyncio.to_thread(
+                model.transcribe,
+                chunk,
+                language=None,  # auto-detect
+                beam_size=5
+            )
+        else:
+            # If ValueError for another reason, re-raise
+            raise
+    except RuntimeError as e:
+        print(f"RuntimeError during transcription: {e}")
+        return {"text": "", "language": isoLang, "error": str(e)}
+    
+    except Exception as e:
+        # Catch any unexpected error
+        print(f"Unexpected error during transcription: {type(e).__name__}: {e}")
+        return {"text": "", "language": isoLang, "error": str(e)}
+    
+    
+    text = " ".join([seg.text for seg in segments]).strip()
+    detected_lang = info.language
+    return {"text": text, "language": detected_lang}
 
 async def safe_send(ws: WebSocket, message: dict):
     """Send message only if the websocket is still connected."""
@@ -77,24 +104,13 @@ async def websocket_transcribe(ws: WebSocket):
             if len(audio_np) >= CHUNK_SIZE:
                 chunk = audio_np[-CHUNK_SIZE:]
 
-                # Transcribe chunk
-                try:
-                    result = await transcribe_chunk(chunk, isoLang)
-                except Exception as e:
-                    print(f"Language {isoLang} not supported, falling back to auto-detect. Error: {e}")
-                    result = model.transcribe(
-                        chunk,
-                        language=None,   # auto-detect mode
-                        fp16=False,
-                        verbose=False
-                    )
-                text = result.get("text", "").strip()
-                detected_lang = result.get("language") 
+                result = await transcribe_chunk(chunk, isoLang)
+                text = result["text"]
+                detected_lang = result["language"]
 
                 if text:
                     try:
                         libreLang = LanguageConverter.convert(detected_lang, "whisper", "libretranslate")
-                        # await ws.send_text(json.dumps({"partial_text": text, "detected_lang": libreLang}))
                         await safe_send(ws, {"partial_text": text, "detected_lang": libreLang})
                     except RuntimeError:
                         break
@@ -102,9 +118,6 @@ async def websocket_transcribe(ws: WebSocket):
                 # Keep only last overlap for next round
                 keep_samples = OVERLAP_SIZE
                 audio_buffer = audio_buffer[-keep_samples * 2 :]  # 2 bytes per int16
-
-                # # clear audio_buffer
-                # audio_buffer = b""
 
     except Exception as e:
         print("Error:", e)
