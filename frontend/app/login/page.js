@@ -166,7 +166,7 @@ export default function Login() {
       </form>
       {errorMsg && <p className="error-message">{errorMsg}</p>}
       <p className="signup-text">
-        Don't have an account?{" "}
+        {"Don't have an account? "}
         <Link href="/signup" className="page-link-word signup-link">
           Signup
         </Link>
