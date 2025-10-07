@@ -314,7 +314,7 @@ async def summarize(req: SummarizeRequest):
 
 
 ## First version : only using pytesseract, fallback is to preprocess the image and try pytesseract again
-@router.post("/extract-text", response_model=OCRResponse)
+@router.post("/extract-image-text", response_model=OCRResponse)
 async def extract_text(
     file: UploadFile = File(...),
     input_language: str = Form(...)
@@ -357,7 +357,7 @@ async def extract_text(
 #     return ocr_paddle_instances[lang_code]
 
 
-# @router.post("/extract-text", response_model=OCRResponse)
+# @router.post("/extract-image-text", response_model=OCRResponse)
 # async def extract_text(
 #     file: UploadFile = File(...),
 #     input_language: str = Form(...)

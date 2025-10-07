@@ -11,6 +11,7 @@ import useProfilePrefs from "@/hooks/useProfilePrefs";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { startMicRecording, stopRecording } from "@/utils/transcription";
 import { summarizeText } from "@/utils/summarization";
+import { translateText } from "@/utils/translation";
 import { generatePDF } from "@/utils/pdfGenerator";
 
 
@@ -30,6 +31,7 @@ export default function Summarizer() {
 
   const [lastSummarizedInput, setLastSummarizedInput] = useState("");
   const [lastSummarizedLang, setLastSummarizedLang] = useState("");
+  const [lastSummarizedText, setLastSummarizedText] = useState("");
 
   const micRecorderRef = useRef(null);
   const audioChunks = useRef([]);
@@ -115,7 +117,17 @@ export default function Summarizer() {
     setSummarizedText("");
 
     try {
-      const { valid, detectedLang, filteredText, message } = await detectAndValidateLanguage(
+      let finalSummary;
+      if (lastSummarizedInput === inputText){
+        if (lastSummarizedLang !== targetLang){
+          const translatedSummary = await translateText(lastSummarizedText, lastSummarizedLang, targetLang);
+          finalSummary = translatedSummary;
+        }
+        else{ // input and output lang is the same, don't do anything
+          return;
+        }
+      } else { // input text was changed
+        const { valid, detectedLang, filteredText, message } = await detectAndValidateLanguage(
         "summarizer",
         inputLang,
         inputText
@@ -126,15 +138,17 @@ export default function Summarizer() {
       setInputText(filteredText);
       setInputLang(detectedLang);
 
-
       const summary = await summarizeText(filteredText, detectedLang, targetLang);
-      setSummarizedText(summary);
-
+      finalSummary = summary
       setLastSummarizedInput(filteredText);
+      setLastSummarizedText(summary);
+      }
+
+      setSummarizedText(finalSummary);
       setLastSummarizedLang(targetLang);
 
       if (session?.user && autoSave) {
-        await handleSaveSummary(filteredText, summary);
+        await handleSaveSummary(filteredText, finalSummary);
       }
 
 

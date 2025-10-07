@@ -52,7 +52,7 @@ export default function NavBar() {
     <nav className="navbar">
       {/* Logo */}
       <div className="navbar-logo">
-        <Image src={logo} alt="App Logo" width={48} height={48} />
+        <Image src={logo} alt="App Logo" width={48} height={48} priority />
       </div>
 
       {/* Desktop links */}

@@ -8,7 +8,7 @@ export async function extractTextFromImage(file, input_language) {
   formData.append("input_language", input_language)
   formData.append("file", file);
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/extract-text`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/extract-image-text`, {
     method: "POST",
     body: formData,
   });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Mic, MonitorSpeaker, Headset, Circle } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
@@ -53,7 +53,6 @@ export default function MeetingDetailsPage() {
         statusRef.current = status;
     }, [status])
 
-    // const [listening, setListening] = useState(false);
     const { listening, setListening } = useListening();
     const [recordingType, setRecordingType] = useState(null); // "mic" or "screen" or "both"
     const [audioSession, setAudioSession] = useState(null);
@@ -702,7 +701,8 @@ export default function MeetingDetailsPage() {
                             (recordingType === "both" && listening)
                         }
                     >
-                        {recordingType === "mic" && listening ? "Stop ⏹️" : "Mic 🎙️"}
+                        <Mic size={20} style={{ marginRight: "6px", verticalAlign: "middle" }} />
+                        {recordingType === "mic" && listening ? "Stop" : "Mic"}
                     </button>
 
                     {/* System (screen) audio only */}
@@ -715,7 +715,8 @@ export default function MeetingDetailsPage() {
                             (recordingType === "both" && listening)
                         }
                     >
-                        {recordingType === "screen" && listening ? "Stop ⏹️" : "System 🔊"}
+                        <MonitorSpeaker size={20} style={{ marginRight: "6px", verticalAlign: "middle" }} />
+                        {recordingType === "screen" && listening ? "Stop" : "System"}
                     </button>
                     {/* Mic + System (both) */}
                     <button
@@ -727,7 +728,8 @@ export default function MeetingDetailsPage() {
                             (recordingType === "screen" && listening)
                         }
                     >
-                        {recordingType === "both" && listening ? "Stop ⏹️" : "Both 🎧"}
+                        <Headset size={20} style={{ marginRight: "6px", verticalAlign: "middle" }} />
+                        {recordingType === "both" && listening ? "Stop" : "Both"}
                     </button>
                 </div>
             )}
@@ -808,7 +810,11 @@ export default function MeetingDetailsPage() {
                             )}
                             {role === "host" && listening && (
                                 <span className="recording-indicator">
-                                    🔴{" "}
+                                    <Circle
+                                        size={12}
+                                        fill="red"
+                                        color="red"
+                                    />{" "}
                                     {recordingType === "mic"
                                         ? "Recording microphone"
                                         : recordingType === "screen"

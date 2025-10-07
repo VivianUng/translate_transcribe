@@ -19,7 +19,7 @@ export default function Translate() {
   const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_translations",]);
   const [inputText, setInputText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
-  const [fileLang, setFileLang] = useState("auto");
+  const [fileLang, setFileLang] = useState("en");
   const [targetLang, setTargetLang] = useState("en");
   const [translatedText, setTranslatedText] = useState("");
   const [message, setMessage] = useState("");
@@ -47,6 +47,7 @@ export default function Translate() {
     if (processing) return "Text Extraction in progress...";
     if (translating) return "Currently translating...";
     if (!inputText || !inputText.trim()) return "Please enter some text to translate";
+    if (inputText === "No speech detected.") return "No speech detected in the audio";
     if (inputText === lastTranslatedInput && targetLang === lastTranslatedLang && translatedText)
       return "This text has already been translated to the selected language";
     if (inputLang === targetLang) return "Input language is the same as output language";
@@ -358,6 +359,7 @@ export default function Translate() {
                   mounted={mounted}
                   value={fileLang}
                   setValue={setFileLang}
+                  excludeAuto={true}
                 />
               )}
             </div>

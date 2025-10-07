@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Select from "react-select";
 import { toast } from "react-hot-toast";
+import { CalendarArrowDown, CalendarArrowUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatDateFromTimestamp, formatTimeFromTimestamp } from "@/utils/dateTime";
 import useAuthCheck from "@/hooks/useAuthCheck";
@@ -20,8 +21,24 @@ export default function History() {
   const [sortOrder, setSortOrder] = useState("desc"); // "asc" or "desc"
 
   const sortOptions = [
-    { value: "desc", label: "📅 Date: Newest First" },
-    { value: "asc", label: "📅 Date: Oldest First" },
+    {
+      value: "desc",
+      label: (
+        <>
+          <CalendarArrowDown size={20} style={{ marginRight: "6px", verticalAlign: "middle"}} />
+          Date: Newest First
+        </>
+      ),
+    },
+    {
+      value: "asc",
+      label: (
+        <>
+          <CalendarArrowUp size={20} style={{ marginRight: "6px", verticalAlign: "middle" }} />
+          Date: Oldest First
+        </>
+      ),
+    },
   ];
 
   const typeOptions = [
@@ -225,6 +242,7 @@ export default function History() {
             <Select
               options={sortOptions}
               value={sortOptions.find((opt) => opt.value === sortOrder)}
+              isSearchable={false}
               onChange={(selected) => setSortOrder(selected.value)}
               classNamePrefix="react-select"
               className="sortDropdown"

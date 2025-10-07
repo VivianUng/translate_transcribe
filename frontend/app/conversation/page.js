@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { Mic, MonitorSpeaker, Headset, Circle } from "lucide-react";
 import LanguageSelect from "@/components/LanguageSelect"
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import { translateText } from "@/utils/translation";
@@ -237,7 +238,8 @@ export default function ConversationPage() {
             (recordingType === "both" && listening)
           }
         >
-          {recordingType === "mic" && listening ? "Stop ⏹️" : "Mic 🎙️"}
+          <Mic size={20} style={{ marginRight: "6px", verticalAlign: "middle" }}/>
+          {recordingType === "mic" && listening ? "Stop" : "Mic"}
         </button>
 
         {/* System (screen) audio only */}
@@ -250,7 +252,8 @@ export default function ConversationPage() {
             (recordingType === "both" && listening)
           }
         >
-          {recordingType === "screen" && listening ? "Stop ⏹️" : "System 🔊"}
+          <MonitorSpeaker size={20} style={{ marginRight: "6px", verticalAlign: "middle" }}/>
+          {recordingType === "screen" && listening ? "Stop" : "System"}
         </button>
         {/* Mic + System (both) */}
         <button
@@ -262,7 +265,8 @@ export default function ConversationPage() {
             (recordingType === "screen" && listening)
           }
         >
-          {recordingType === "both" && listening ? "Stop ⏹️" : "Both 🎧"}
+          <Headset size={20} style={{ marginRight: "6px", verticalAlign: "middle" }}/>
+          {recordingType === "both" && listening ? "Stop" : "Both"}
         </button>
       </div>
       <div className="conversation-layout">
@@ -279,7 +283,11 @@ export default function ConversationPage() {
             )}
             {listening && (
               <span className="recording-indicator">
-                🔴{" "}
+                <Circle
+                  size={12}
+                  fill="red"
+                  color="red"
+                />{" "}
                 {recordingType === "mic"
                   ? "Recording microphone"
                   : recordingType === "screen"
