@@ -18,9 +18,8 @@ import { useListening } from "@/contexts/ListeningContext";
 export default function ConversationPage() {
   const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const { prefs, loading, prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_conversations",]);
-  // const [listening, setListening] = useState(false);
   const { listening, setListening } = useListening();
-  const [recordingType, setRecordingType] = useState(null); // "mic" or "screen"
+  const [recordingType, setRecordingType] = useState(null); // "mic" or "screen" or "both"
   const [transcription, setTranscription] = useState("");
   const [translatedText, setTranslatedText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
@@ -35,15 +34,12 @@ export default function ConversationPage() {
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [lastTranslatedInput, setLastTranslatedInput] = useState("");
   const [lastTranslatedLang, setLastTranslatedLang] = useState("");
-  const isProcessingTranscription =
-    transcription === "Converting audio to text......";
 
 
   const [translating, setTranslating] = useState(false); // for translation
   const [saving, setSaving] = useState(false);   // for saving conversation
 
-  const [micSession, setMicSession] = useState(null);
-  const [screenSession, setScreenSession] = useState(null);
+  const [audioSession, setAudioSession] = useState(null);
 
   const [audioURL, setAudioURL] = useState(null); // for playback
 
@@ -52,7 +48,6 @@ export default function ConversationPage() {
   const translateDisabledReason = (() => {
     if (translating) return "Currently translating...";
     if (listening) return "Transcription in progress....";
-    if (isProcessingTranscription) return "Processing transcription...";
     if (!transcription || !transcription.trim()) return "No transcription available to translate";
     if (transcription === "No speech detected.") return "No speech detected in the audio";
     if (transcription === lastTranslatedInput && targetLang === lastTranslatedLang)
@@ -94,59 +89,35 @@ export default function ConversationPage() {
     setAudioURL(null);
   }
 
-  // For streaming audio chunks 2 seconds
-  const handleMicStart = async () => {
-    clearDisplay();
-    const micSession = await startAudioStreaming({
-      sourceType: "mic",
-      setTranscription,
-      setListening,
-      setRecordingType,
-      inputLang,
-      setDetectedLang,
-    });
-    setMicSession(micSession);
-  };
 
-  // Screen (internal audio)
-  const handleScreenStart = async () => {
+  const handleStart = async (sourceType) => {
     clearDisplay();
-    const screenSession = await startAudioStreaming({
-      sourceType: "screen",
+    const session = await startAudioStreaming({
+      sourceType,
       setTranscription,
       setListening,
       setRecordingType,
       inputLang,
       setDetectedLang,
     });
-    setScreenSession(screenSession);
+    setAudioSession(session);
   };
 
   const handleStop = () => {
-    if (recordingType === "mic") {
-      stopAudioStreaming({
-        ...micSession,
-        setListening,
-        setRecordingType,
-        onAudioReady: (blob) => {
-          const url = URL.createObjectURL(blob);
-          setAudioURL(url);
-        }
-      });
-      setMicSession(null);
-    } else if (recordingType === "screen") {
-      stopAudioStreaming({
-        ...screenSession,
-        setListening,
-        setRecordingType,
-        onAudioReady: (blob) => {
-          const url = URL.createObjectURL(blob);
-          setAudioURL(url);
-        }
-      });
-      setScreenSession(null);
-    }
-    setDoTranslation(false); // close translate websocket if it was open
+    if (!audioSession) return;
+
+    stopAudioStreaming({
+      ...audioSession,
+      setListening,
+      setRecordingType,
+      onAudioReady: (blob) => {
+        const url = URL.createObjectURL(blob);
+        setAudioURL(url);
+      },
+    });
+
+    setAudioSession(null);
+    setDoTranslation(false);
   };
 
 
@@ -256,20 +227,42 @@ export default function ConversationPage() {
       <h1 className="page-title">Conversation</h1>
 
       <div className="button-group" style={{ marginTop: "-20px" }}>
+        {/* Microphone only */}
         <button
-          onClick={recordingType === "mic" && listening ? handleStop : handleMicStart}
-          className="button conversation-button"
-          disabled={(recordingType === "screen" && listening) || isProcessingTranscription} // disable mic if screen recording
+          onClick={recordingType === "mic" && listening ? handleStop : () => handleStart("mic")}
+          className="button audio-stream-button"
+          title="Capture your microphone audio only"
+          disabled={
+            (recordingType === "screen" && listening) ||
+            (recordingType === "both" && listening)
+          }
         >
           {recordingType === "mic" && listening ? "Stop ⏹️" : "Mic 🎙️"}
         </button>
 
+        {/* System (screen) audio only */}
         <button
-          onClick={recordingType === "screen" && listening ? handleStop : handleScreenStart}
-          className="button conversation-button"
-          disabled={(recordingType === "mic" && listening) || isProcessingTranscription} // disable screen if mic recording
+          onClick={recordingType === "screen" && listening ? handleStop : () => handleStart("screen")}
+          className="button audio-stream-button"
+          title="Capture system or tab audio only"
+          disabled={
+            (recordingType === "mic" && listening) ||
+            (recordingType === "both" && listening)
+          }
         >
           {recordingType === "screen" && listening ? "Stop ⏹️" : "System 🔊"}
+        </button>
+        {/* Mic + System (both) */}
+        <button
+          onClick={recordingType === "both" && listening ? handleStop : () => handleStart("both")}
+          className="button audio-stream-button"
+          title="Capture both microphone and system sound"
+          disabled={
+            (recordingType === "mic" && listening) ||
+            (recordingType === "screen" && listening)
+          }
+        >
+          {recordingType === "both" && listening ? "Stop ⏹️" : "Both 🎧"}
         </button>
       </div>
       <div className="conversation-layout">
@@ -285,7 +278,16 @@ export default function ConversationPage() {
               />
             )}
             {listening && (
-              <span className="recording-indicator">🔴 Recording</span>
+              <span className="recording-indicator">
+                🔴{" "}
+                {recordingType === "mic"
+                  ? "Recording microphone"
+                  : recordingType === "screen"
+                    ? "Recording system audio"
+                    : recordingType === "both"
+                      ? "Recording mic and system audio"
+                      : "Recording"}
+              </span>
             )}
             {/* --- Audio Playback Container --- */}
             <div className="audio-container">

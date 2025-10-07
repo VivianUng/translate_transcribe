@@ -110,6 +110,8 @@ export function useTranslateWebSocket(
 
   // --- Update language change ---
   useEffect(() => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const effectiveInputLang = getEffectiveInputLang();
     safeSend({
       type: "changeLang",
@@ -121,7 +123,8 @@ export function useTranslateWebSocket(
 
   // --- Incremental translation updates ---
   useEffect(() => {
-    if (!inputText) return;
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN || !inputText) return;
 
     const words = inputText.trim().split(/\s+/);
     if (words.length <= lastSentIndexRef.current) return;

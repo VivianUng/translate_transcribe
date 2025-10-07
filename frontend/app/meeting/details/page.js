@@ -55,9 +55,8 @@ export default function MeetingDetailsPage() {
 
     // const [listening, setListening] = useState(false);
     const { listening, setListening } = useListening();
-    const [recordingType, setRecordingType] = useState(null); // "mic" or "screen"
-    const [micSession, setMicSession] = useState(null);
-    const [screenSession, setScreenSession] = useState(null);
+    const [recordingType, setRecordingType] = useState(null); // "mic" or "screen" or "both"
+    const [audioSession, setAudioSession] = useState(null);
 
     const [saving, setSaving] = useState(false);
     const [ending, setEnding] = useState(false);
@@ -312,48 +311,29 @@ export default function MeetingDetailsPage() {
     // -----------------------
     // Recording functions (host only)
     // -----------------------
-    // For streaming audio chunks 2 seconds
-    const handleMicStart = async () => {
-        const micSession = await startAudioStreaming({
-            sourceType: "mic",
+    const handleStart = async (sourceType) => {
+        const session = await startAudioStreaming({
+            sourceType,
             setTranscription,
             setListening,
             setRecordingType,
             inputLang: transcriptionLang,
             setDetectedLang,
         });
-        setMicSession(micSession);
-    };
-
-    // Screen (internal audio)
-    const handleScreenStart = async () => {
-        const screenSession = await startAudioStreaming({
-            sourceType: "screen",
-            setTranscription,
-            setListening,
-            setRecordingType,
-            inputLang: transcriptionLang,
-            setDetectedLang,
-        });
-        setScreenSession(screenSession);
+        setAudioSession(session);
     };
 
     const handleStop = () => {
-        if (recordingType === "mic") {
-            stopAudioStreaming({
-                ...micSession,
-                setListening,
-                setRecordingType,
-            });
-            setMicSession(null);
-        } else if (recordingType === "screen") {
-            stopAudioStreaming({
-                ...screenSession,
-                setListening,
-                setRecordingType,
-            });
-            setScreenSession(null);
-        }
+        if (!audioSession) return;
+
+        stopAudioStreaming({
+            ...audioSession,
+            setListening,
+            setRecordingType,
+        });
+
+        setAudioSession(null);
+        setDoTranslation(false);
     };
 
 
@@ -447,21 +427,13 @@ export default function MeetingDetailsPage() {
                 }
 
                 // 1. stop audio stream if still active
-                if (micSession && recordingType === "mic") {
+                if (audioSession) {
                     stopAudioStreaming({
-                        ...micSession,
+                        ...audioSession,
                         setListening,
                         setRecordingType,
                     });
-                    setMicSession(null);
-                }
-                else if (screenSession && recordingType === "screen") {
-                    stopAudioStreaming({
-                        ...screenSession,
-                        setListening,
-                        setRecordingType,
-                    });
-                    setScreenSession(null);
+                    setAudioSession(null);
                 }
 
                 // 2. stop translation and summarization
@@ -720,20 +692,42 @@ export default function MeetingDetailsPage() {
 
             {status == "ongoing" && role == "host" && (
                 <div className="button-group" style={{ marginTop: "-20px", marginBottom: "-20px" }}>
+                    {/* Microphone only */}
                     <button
-                        onClick={recordingType === "mic" && listening ? handleStop : handleMicStart}
-                        className="button conversation-button"
-                        disabled={(recordingType === "screen" && listening)} // disable mic if screen recording
+                        onClick={recordingType === "mic" && listening ? handleStop : () => handleStart("mic")}
+                        className="button audio-stream-button"
+                        title="Capture your microphone audio only"
+                        disabled={
+                            (recordingType === "screen" && listening) ||
+                            (recordingType === "both" && listening)
+                        }
                     >
                         {recordingType === "mic" && listening ? "Stop ⏹️" : "Mic 🎙️"}
                     </button>
 
+                    {/* System (screen) audio only */}
                     <button
-                        onClick={recordingType === "screen" && listening ? handleStop : handleScreenStart}
-                        className="button conversation-button"
-                        disabled={(recordingType === "mic" && listening)} // disable screen if mic recording
+                        onClick={recordingType === "screen" && listening ? handleStop : () => handleStart("screen")}
+                        className="button audio-stream-button"
+                        title="Capture system or tab audio only"
+                        disabled={
+                            (recordingType === "mic" && listening) ||
+                            (recordingType === "both" && listening)
+                        }
                     >
                         {recordingType === "screen" && listening ? "Stop ⏹️" : "System 🔊"}
+                    </button>
+                    {/* Mic + System (both) */}
+                    <button
+                        onClick={recordingType === "both" && listening ? handleStop : () => handleStart("both")}
+                        className="button audio-stream-button"
+                        title="Capture both microphone and system sound"
+                        disabled={
+                            (recordingType === "mic" && listening) ||
+                            (recordingType === "screen" && listening)
+                        }
+                    >
+                        {recordingType === "both" && listening ? "Stop ⏹️" : "Both 🎧"}
                     </button>
                 </div>
             )}
@@ -813,7 +807,16 @@ export default function MeetingDetailsPage() {
                                 </>
                             )}
                             {role === "host" && listening && (
-                                <span className="recording-indicator">🔴 Recording</span>
+                                <span className="recording-indicator">
+                                    🔴{" "}
+                                    {recordingType === "mic"
+                                        ? "Recording microphone"
+                                        : recordingType === "screen"
+                                            ? "Recording system audio"
+                                            : recordingType === "both"
+                                                ? "Recording mic and system audio"
+                                                : "Recording"}
+                                </span>
                             )}
                         </div>
                         <StickyScrollCopyBox

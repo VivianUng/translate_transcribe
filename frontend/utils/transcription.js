@@ -268,10 +268,10 @@ let chunks = [];
 let pendingChunks = [];
 
 /**
- * Start either mic or screen streaming
+ * Start either mic, screen or both streaming
  */
 export async function startAudioStreaming({
-  sourceType, // 'mic' | 'screen'
+  sourceType, // 'mic' | 'screen' | 'both'
   setTranscription,
   setListening,
   setRecordingType,
@@ -279,30 +279,72 @@ export async function startAudioStreaming({
   setDetectedLang,
 }) {
   let stream;
+  let micStream, screenStream;
   try {
     // STEP 1: get media
     if (sourceType === "screen") {
-      stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-      if (stream.getAudioTracks().length === 0) {
+      screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      if (screenStream.getAudioTracks().length === 0) {
         toast.error("No system audio detected. Screen capture may not support audio.");
-        stream.getTracks().forEach(t => t.stop());
+        screenStream.getTracks().forEach(t => t.stop());
         return;
       }
       // discard video track
-      stream.getVideoTracks().forEach(t => t.stop());
-    } 
-    else { // mic stream
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (stream.getAudioTracks().length === 0) {
+      screenStream.getVideoTracks().forEach(t => t.stop());
+      stream = screenStream;
+    }
+    else if (sourceType === "mic") { // mic stream
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (micStream.getAudioTracks().length === 0) {
         toast.error("No microphone detected or available.");
-        stream.getTracks().forEach(t => t.stop());
+        micStream.getTracks().forEach(t => t.stop());
         return;
       }
+      stream = micStream;
+    }
+    else if (sourceType === "both") {
+      // Mic
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (micStream.getAudioTracks().length === 0) {
+        toast.error("No microphone detected or available.");
+        micStream.getTracks().forEach(t => t.stop());
+        return;
+      }
+
+      // System audio (screen)
+      screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      if (screenStream.getAudioTracks().length === 0) {
+        toast.error("No system audio detected. Screen capture may not support audio.");
+        screenStream.getTracks().forEach(t => t.stop());
+        return;
+      }
+      screenStream.getVideoTracks().forEach(t => t.stop());
+
+      // Combine both
+      const audioContext = new AudioContext();
+      const micSource = audioContext.createMediaStreamSource(micStream);
+      const sysSource = audioContext.createMediaStreamSource(screenStream);
+      const destination = audioContext.createMediaStreamDestination();
+
+      // adjust volume levels
+      const micGain = audioContext.createGain();
+      const sysGain = audioContext.createGain();
+      micGain.gain.value = 1.0;
+      sysGain.gain.value = 1.0;
+
+      micSource.connect(micGain).connect(destination);
+      sysSource.connect(sysGain).connect(destination);
+
+      // merged stream (only contains mixed audio)
+      stream = destination.stream;
+
+      // store for later cleanup
+      stream._extraStreams = [micStream, screenStream, audioContext];
     }
   } catch (err) {
     stream?.getTracks().forEach(t => t.stop());
     if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
-      toast.error(`Permission required for ${sourceType === 'screen' ? 'screen audio' : 'microphone'} ${err.name}.`);
+      toast.error(`Permission required for ${sourceType} audio ${err.name}.`);
     } else if (err.name === 'NotFoundError') {
       toast.error(`No ${sourceType === 'screen' ? 'display or audio device' : 'microphone'} found.`);
     } else {
@@ -325,7 +367,7 @@ export async function startAudioStreaming({
       setTranscription(prev => prev.endsWith(data.partial_text) ? prev : prev + " " + data.partial_text);
     }
     if (data.detected_lang) {
-      if (inputLang === "auto"){
+      if (inputLang === "auto") {
         setDetectedLang(prev => prev !== data.detected_lang ? data.detected_lang : prev);
       }
     }
@@ -357,18 +399,11 @@ export async function startAudioStreaming({
   recorder.start();
 
   // handle stop event for screen manually (user presses "Stop sharing")
-  if (sourceType === "screen") {
-    stream.getTracks().forEach(track => {
-      track.onended = () => stopAudioStreaming({
-        ws,
-        stream,
-        audioContext,
-        source,
-        pcmNode,
-        setListening,
-        setRecordingType,
-      });
+  if (sourceType === "screen" || sourceType === "both") {
+    const handleStop = () => stopAudioStreaming({
+      ws, stream, audioContext, source, pcmNode, setListening, setRecordingType,
     });
+    screenStream?.getTracks().forEach(track => (track.onended = handleStop));
   }
 
   setListening(true);
@@ -397,6 +432,14 @@ export function stopAudioStreaming({
   source?.disconnect();
   audioContext?.close();
   stream?.getTracks().forEach(track => track.stop());
+
+  // If combined stream had extra references, stop those too
+  if (stream?._extraStreams) {
+    for (const s of stream._extraStreams) {
+      if (s instanceof MediaStream) s.getTracks().forEach(t => t.stop());
+      if (s instanceof AudioContext) s.close();
+    }
+  }
 
   // 2. finalize recorder
   if (recorder && recorder.state !== "inactive") {
