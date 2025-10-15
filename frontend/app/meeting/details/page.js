@@ -337,9 +337,6 @@ export default function MeetingDetailsPage() {
 
 
 
-    // -----------------------
-    // Fetch functions
-    // -----------------------
     const fetchMeetingDetails = async (meetingId) => {
         if (!meetingId) return;
 
@@ -388,7 +385,7 @@ export default function MeetingDetailsPage() {
             setStartTime(formatTimeFromTimestamp(data.actual_start_time) || "");
             setEndTime(formatTimeFromTimestamp(data.actual_end_time) || "");
             setDate(formatDateFromTimestamp(data.actual_start_time) || "");
-            // (modify accordingly)
+
             setTranscription(data.transcription || "");
             setTranscriptionLang(data.transcription_lang || "en");
             setEnSummary(data.en_summary || "");
@@ -399,6 +396,8 @@ export default function MeetingDetailsPage() {
                 }
                 return data.translated_summary || "";
             });
+
+            setIsSaved(data.is_saved || false);
 
         } catch (err) {
             console.error("Error fetching meeting details:", err);

@@ -25,7 +25,7 @@ export default function History() {
       value: "desc",
       label: (
         <>
-          <CalendarArrowDown size={20} style={{ marginRight: "6px", verticalAlign: "middle"}} />
+          <CalendarArrowDown size={20} style={{ marginRight: "6px", verticalAlign: "middle" }} />
           Date: Newest First
         </>
       ),
@@ -60,10 +60,28 @@ export default function History() {
   }, [session]);
 
 
-  // Combine all history items into a single array for display
   const combinedHistory = useMemo(() => {
     const combined = [];
 
+    const parseDateTime = (timestamp) => {
+      const dateStr = formatDateFromTimestamp(timestamp); // e.g. "24/09/2025"
+      const timeStr = formatTimeFromTimestamp(timestamp); // e.g. "9:45 PM"
+
+      const [day, month, year] = dateStr.split("/").map(Number);
+
+      const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      let hours = parseInt(match[1], 10);
+      const minutes = parseInt(match[2], 10);
+      const ampm = match[3].toUpperCase();
+
+      if (ampm === "PM" && hours !== 12) hours += 12;
+      if (ampm === "AM" && hours === 12) hours = 0;
+
+      // local time
+      return new Date(year, month - 1, day, hours, minutes);
+    };
+
+    // Translations
     history.translations.forEach((item) => {
       combined.push({
         id: item.id,
@@ -71,11 +89,13 @@ export default function History() {
         createdAt: new Date(item.created_at),
         date: formatDateFromTimestamp(item.created_at),
         time: formatTimeFromTimestamp(item.created_at),
+        dateTime: parseDateTime(item.created_at),
         input: item.input_text || "",
         output: item.output_text || "",
       });
     });
 
+    // Conversations
     history.conversations.forEach((item) => {
       combined.push({
         id: item.id,
@@ -83,11 +103,13 @@ export default function History() {
         createdAt: new Date(item.created_at),
         date: formatDateFromTimestamp(item.created_at),
         time: formatTimeFromTimestamp(item.created_at),
+        dateTime: parseDateTime(item.created_at),
         input: item.input_text || "",
         output: item.output_text || "",
       });
     });
 
+    // Summaries
     history.summaries.forEach((item) => {
       combined.push({
         id: item.id,
@@ -95,11 +117,13 @@ export default function History() {
         createdAt: new Date(item.created_at),
         date: formatDateFromTimestamp(item.created_at),
         time: formatTimeFromTimestamp(item.created_at),
+        dateTime: parseDateTime(item.created_at),
         input: item.input_text || "",
         output: item.output_text || "",
       });
     });
 
+    // Meetings
     history.meetings.forEach((item) => {
       combined.push({
         id: item.id,
@@ -107,18 +131,17 @@ export default function History() {
         createdAt: new Date(item.created_at),
         date: formatDateFromTimestamp(item.actual_start_time),
         time: formatTimeFromTimestamp(item.actual_start_time),
+        dateTime: parseDateTime(item.actual_start_time),
         input: item.meeting_name || "Untitled Meeting",
         output: item.translated_summary || item.original_summary || "",
       });
     });
 
-    // sort by created_at descending
-    combined.sort((a, b) => b.createdAt - a.createdAt);
-
+    // Sort by dateTime descending
+    combined.sort((a, b) => b.dateTime - a.dateTime);
 
     return combined;
   }, [history]);
-
 
   const filteredHistory = useMemo(() => {
     const filtered = combinedHistory.filter((item) => {
@@ -129,26 +152,24 @@ export default function History() {
 
       const matchesType = selectedType === "" || item.type === selectedType;
 
-      const itemDateStr = item.createdAt.toISOString().split("T")[0]; // "yyyy-mm-dd"
-
       let matchesDate = true;
       if (startDate && !endDate) {
-        // Only start date → match that exact date
-        matchesDate = itemDateStr === startDate;
+        const start = new Date(startDate);
+        matchesDate = item.dateTime.toDateString() === start.toDateString();
       } else if (!startDate && endDate) {
-        // Only end date → match that exact date
-        matchesDate = itemDateStr === endDate;
+        const end = new Date(endDate);
+        matchesDate = item.dateTime.toDateString() === end.toDateString();
       } else if (startDate && endDate) {
-        // Both → match range
-        matchesDate = itemDateStr >= startDate && itemDateStr <= endDate;
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        matchesDate = item.dateTime >= start && item.dateTime <= end;
       }
 
       return matchesSearch && matchesType && matchesDate;
     });
 
-    // Sort by date based on sortOrder
     filtered.sort((a, b) =>
-      sortOrder === "asc" ? a.createdAt - b.createdAt : b.createdAt - a.createdAt
+      sortOrder === "asc" ? a.dateTime - b.dateTime : b.dateTime - a.dateTime
     );
 
     return filtered;

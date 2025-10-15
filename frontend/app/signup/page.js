@@ -11,6 +11,7 @@ export default function Signup() {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [password, setPassword] = useState('');
   const [rules, setRules] = useState(isStrongPassword(''));
   const [pwRequirementError, setPwRequirementError] = useState('');
@@ -89,13 +90,13 @@ export default function Signup() {
       const data = await res.json();
 
       if (!res.ok) {
-        setErrorMsg(data.detail || "Something went wrong. Please try again.");
+        setEmailError(data.detail || "Something went wrong. Please try again.");
         setLoading(false);
         return;
       }
 
       if (data.status === "exists") {
-        setErrorMsg(data.message);
+        setEmailError(data.message);
         setLoading(false);
         return;
       }
@@ -139,16 +140,26 @@ export default function Signup() {
 
         <label className="input-label" htmlFor="email">Email address</label>
         <br />
-        <input
-          id="email"
-          type="email"
-          placeholder="Enter your email"
-          value={email}
-          maxLength={150}
-          onChange={(e) => { setEmail(e.target.value); setErrorMsg(""); }}
-          required
-          className="input-field email-field"
-        />
+        <div style={{ marginTop: "0.5rem", marginBottom: "1rem" }}>
+          <TooltipProvider
+            message={emailError}
+            tooltipId="email-exists-tooltip"
+            place="top"
+            style={{ display: "inline-block", width: "100%" }}
+          >
+            <input
+              id="email"
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              maxLength={150}
+              onChange={(e) => { setEmail(e.target.value); setErrorMsg(""); setEmailError(""); }}
+              required
+              className="input-field email-field"
+              style={{ margin: 0 }}   // cancel margin so tooltip hugs input
+            />
+          </TooltipProvider>
+        </div>
 
         <div className="password-container" style={{ position: "relative" }}>
           <label className="input-label" htmlFor="password">Password</label>

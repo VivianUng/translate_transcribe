@@ -48,7 +48,6 @@ export default function UpdatePassword() {
     setErrorMsg("");
     setLoading(true);
 
-
     const rulesCheck = isStrongPassword(password);
     let errorMessage = "";
 
@@ -79,7 +78,7 @@ export default function UpdatePassword() {
       setLoading(false);
 
       if (error) {
-        setErrorMsg(error.message);
+        setPwRequirementError(error.message);
         return;
       }
 

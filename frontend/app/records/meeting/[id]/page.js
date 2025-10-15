@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
-import {confirmDeletion} from "@/components/ConfirmBox"
+import { confirmDeletion } from "@/components/ConfirmBox"
 import LanguageSelect from "@/components/LanguageSelect"
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import useAuthCheck from "@/hooks/useAuthCheck";
@@ -36,6 +36,7 @@ export default function IndividualMeetingRecordPage() {
     const [createdAt, setCreatedAt] = useState("");
     const [updatedAt, setUpdatedAt] = useState("");
 
+    const [transcriptionLang, setTranscriptionLang] = useState("en");
     const [translationLang, setTranslationLang] = useState("en");
 
     const [recordData, setRecordData] = useState(null); // for change detection
@@ -53,9 +54,15 @@ export default function IndividualMeetingRecordPage() {
         output: ""    // summary result
     });
 
-    const matchesRecord =
+    const matchesTranslateRecord =
         transcription === recordData?.transcription &&
-        translationLang === recordData?.translationLang;
+        translationLang === recordData?.translationLang &&
+        translation === recordData?.translation;
+
+    const matchesSummaryRecord =
+        transcription === recordData?.transcription &&
+        translationLang === recordData?.translationLang &&
+        summary === recordData?.translated_summary;
 
     const matchesLastTranslate =
         transcription === lastProcessedTranslation?.input &&
@@ -104,6 +111,7 @@ export default function IndividualMeetingRecordPage() {
                 setEndTime(formatTimeFromTimestamp(data.actual_end_time));
 
                 setTranscription(data.original_transcription || "");
+                setTranscriptionLang(data.transcription_lang || "en");
                 setTranslation(data.translation || "");
                 setSummary(data.translated_summary || data.original_summary || "");
                 setTranslationLang(data.translated_lang || "en");
@@ -133,6 +141,16 @@ export default function IndividualMeetingRecordPage() {
                     translation: data.translation || "",
                     summary: data.translated_summary || "",
                     translationLang: data.translated_lang || "en",
+                });
+                setLastProcessedTranslation({
+                    input: data.original_transcription,
+                    lang: data.translated_lang,
+                    output: data.translation || "",
+                });
+                setLastProcessedSummary({
+                    input: data.original_transcription,
+                    lang: data.translated_lang,
+                    output: data.translated_summary || "",
                 });
             } catch (err) {
                 console.error("Error fetching individual meeting record:", err);
@@ -164,12 +182,12 @@ export default function IndividualMeetingRecordPage() {
         try {
             let result = "";
 
-            if (matchesRecord) {
+            if (matchesTranslateRecord) {
                 result = recordData.translation;
             } else if (matchesLastTranslate) {
                 result = lastProcessedTranslation.output;
             } else {
-                result = await translateText(transcription, "en", translationLang); // default for now always assume input lang is english
+                result = await translateText(transcription, transcriptionLang, translationLang);
             }
 
             setTranslation(result);
@@ -178,6 +196,18 @@ export default function IndividualMeetingRecordPage() {
                 lang: translationLang,
                 output: result
             });
+
+            if (lastProcessedSummary.lang !== translationLang) { // if summary is in different language, retranslate summary as well
+                const summaryResult = await translateText(summary, lastProcessedSummary.lang, translationLang);
+                setSummary(summaryResult);
+
+                setLastProcessedSummary({
+                    input: transcription,
+                    lang: translationLang,
+                    output: summaryResult
+                });
+            }
+
         } catch (err) {
             console.error(err);
             toast.error("Retranslate failed.");
@@ -194,7 +224,7 @@ export default function IndividualMeetingRecordPage() {
             let result = "";
             let filteredText = transcription;
 
-            if (matchesRecord) {
+            if (matchesSummaryRecord) {
                 result = recordData.summary;
             } else if (matchesLastSummary) {
                 result = lastProcessedSummary.output;
@@ -204,7 +234,7 @@ export default function IndividualMeetingRecordPage() {
                 const { valid, filteredText, message } =
                     await detectAndValidateLanguage(
                         "summary",
-                        "en",
+                        transcriptionLang,
                         transcription
                     );
 
@@ -297,7 +327,7 @@ export default function IndividualMeetingRecordPage() {
 
     // Delete individual meeting record
     const handleDelete = async () => {
-        
+
         const confirmed = await confirmDeletion(`Are you sure you want to delete this meeting?`);
         if (!confirmed) return;
 
@@ -355,14 +385,14 @@ export default function IndividualMeetingRecordPage() {
                     <div className="button-group" style={{ flex: 1, gap: 8, flexWrap: "nowrap" }}>
                         <button
                             className="button extra-action"
-                            disabled={processing}
+                            disabled={processing || matchesLastTranslate}
                             onClick={handleRetranslate}
                         >
                             {processing ? "Processing..." : "Retranslate"}
                         </button>
                         <button
                             className="button extra-action"
-                            disabled={processing}
+                            disabled={processing || matchesLastSummary}
                             onClick={handleResummarize}
                         >
                             {processing ? "Processing..." : "Resummarize"}

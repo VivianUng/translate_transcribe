@@ -95,9 +95,6 @@ def mixed_paragraph(text: str, style):
         html_chunks.append(f'<font name="{font}">{seg}</font>')
     return Paragraph("".join(html_chunks), style)
 
-def select_font(text: str) -> str:
-    script = detect_script(text)
-    return font_map.get(script, "NotoSans")
 
 def generate_pdf(content_dict, filename="output.pdf"):
     doc = SimpleDocTemplate(filename, pagesize=A4)

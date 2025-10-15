@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Mic, StopCircle } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { renderAsync } from "docx-preview";
 import { TooltipProvider } from "@/components/TooltipProvider";
 import LanguageSelect from "@/components/LanguageSelect"
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
@@ -79,6 +80,21 @@ export default function Translate() {
     }
   }, [prefsLoading, session, prefs]);
 
+  useEffect(() => {
+    if (
+      previewFile?.type ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" &&
+      previewFile.content
+    ) {
+      const container = document.getElementById("docx-preview");
+      if (container) {
+        container.innerHTML = "";
+        renderAsync(previewFile.content, container);
+      }
+    }
+  }, [previewFile]);
+
+
   function clearDisplay() {
     setIsSaved(false);
     setIsDownloaded(false);
@@ -93,9 +109,16 @@ export default function Translate() {
     setPreviewFile(null);
   }
 
+  const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+
   async function handleFileUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+      setFileUploadMessage("File is too large! Please upload a file smaller than 25MB.");
+    return;
+  }
 
     clearDisplay();
     setProcessing(true);
@@ -118,6 +141,12 @@ export default function Translate() {
       preview.url = URL.createObjectURL(file);
     } else if (file.type.startsWith("audio/") || file.type === "video/webm") {
       preview.url = URL.createObjectURL(file);
+    } else if (
+      file.type ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ) {
+      const arrayBuffer = await file.arrayBuffer();
+      preview.content = arrayBuffer;
     }
 
     setPreviewFile(preview);
@@ -205,7 +234,7 @@ export default function Translate() {
         inputText
       );
 
-      if (!valid){
+      if (!valid) {
         setMessage(message);
         return;
       }
@@ -340,7 +369,7 @@ export default function Translate() {
             </div>
 
             <TooltipProvider
-              message={message} tooltipId="input-tooltip"
+              message={message} tooltipId="input-tooltip" place="bottom"
               style={{ display: "flex", height: "100%", width: "100%" }}>
               <StickyScrollCopyBox
                 value={inputText}
@@ -405,10 +434,13 @@ export default function Translate() {
                         </audio>
                       )}
 
-                      {/* DOCX explicitly no preview */}
+                      {/* DOCX Preview */}
                       {previewFile.type ===
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document" && (
-                          <p className="file-content unsupported">Preview not available for DOCX files</p>
+                          <div
+                            id="docx-preview"
+                            className="file-content docx"
+                          />
                         )}
 
                       {/* Fallback */}

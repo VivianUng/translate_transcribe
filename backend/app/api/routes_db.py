@@ -617,8 +617,25 @@ async def get_meeting_details(meeting_id: str, current_user=Depends(get_current_
 
         meeting_details = result.data
 
-        # Merge dicts: meeting_details takes precedence
-        combined = {**meeting, **meeting_details}
+        is_saved = False
+
+        # Check if user saved this meeting (only if past)
+        if meeting_details.get("status") == "past":
+            saved_check = (
+                supabase.table("meeting_details_individual")
+                .select("id", count="exact", head=True)
+                .eq("meeting_id", meeting_id)
+                .eq("user_id", current_user.id)
+                .execute()
+            )
+            is_saved = bool(saved_check.count and saved_check.count > 0)
+
+        # Combine everything
+        combined = {
+            **meeting,
+            **meeting_details,
+            "is_saved": is_saved,
+        }
 
         return combined
 
