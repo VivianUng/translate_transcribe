@@ -23,8 +23,6 @@ class TranscribeSegment(BaseModel):
     language: str
     text: str
 
-class Transcribe2Response(BaseModel):
-    segments: list[TranscribeSegment]
 
 class TranslateRequest(BaseModel):
     text: str

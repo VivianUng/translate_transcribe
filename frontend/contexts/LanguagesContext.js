@@ -12,6 +12,9 @@ export function LanguagesProvider({ children }) {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/languages`, {
           credentials: "include",
+          headers: {
+            "ngrok-skip-browser-warning": "true",
+          },
         });
 
         if (!res.ok) throw new Error("Failed to load languages");

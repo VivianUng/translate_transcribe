@@ -29,12 +29,13 @@ export default function Meetings() {
         return;
       }
 
-      // Fetch all meetings (already includes actual_start_time / actual_end_time)
+      // Fetch all meetings
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          "ngrok-skip-browser-warning": "true",
         },
         credentials: 'include',
       });

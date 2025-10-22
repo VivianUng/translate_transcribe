@@ -34,28 +34,6 @@ export async function transcribeAudio(blob, inputLang) {
 
 }
 
-// --- API Call: Transcribe Audio v2 ---
-export async function transcribeAudio2(blob, language = "auto") {
-  const formData = new FormData();
-  formData.append("file", blobToFile(blob, "recording.webm"));
-  formData.append("language", language);
-
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/transcribe2`, {
-    method: "POST",
-    body: formData,
-  });
-
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.detail || "Transcription failed.");
-  }
-
-  return {
-    transcription: data.transcription,
-    segments: data.segments || [],
-    detectedLanguage: data.detected_language || language,
-  };
-}
 
 
 // --- MIC RECORDING LOGIC ---

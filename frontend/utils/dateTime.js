@@ -63,16 +63,22 @@ export const formatPrettyDateFromTimestamp = (timestamp) => {
 };
 
 
+
 /**
- * Format a full timestamp (created_at) into local time
- * Example: "2025-09-24T13:45:30.000Z" → "9:45 PM"
+ * Format a full timestamp (created_at) into standardized local time (12-hour, AM/PM)
+ * Example: "2025-09-24T13:45:30.000Z" → "09:45 PM"
  */
 export const formatTimeFromTimestamp = (timestamp) => {
   if (!timestamp) return "";
-  return new Date(timestamp).toLocaleTimeString([], {
+
+  const date = new Date(timestamp);
+  // Force a consistent format across all locales
+  return new Intl.DateTimeFormat("en-US", {
     hour: "2-digit",
     minute: "2-digit",
-  });
+    hour12: true, // Always use 12-hour with AM/PM
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, // Keep user's local timezone
+  }).format(date);
 };
 
 /**

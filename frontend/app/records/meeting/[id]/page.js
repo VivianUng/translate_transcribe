@@ -93,6 +93,7 @@ export default function IndividualMeetingRecordPage() {
                     {
                         headers: {
                             Authorization: `Bearer ${session.access_token}`,
+                            "ngrok-skip-browser-warning": "true",
                         },
                         credentials: 'include',
                     }
@@ -127,7 +128,13 @@ export default function IndividualMeetingRecordPage() {
                     else {
                         const hostRes = await fetch(
                             `${process.env.NEXT_PUBLIC_BACKEND_URL}/hosts/names/${data.host_id}`,
-                            { headers: { Authorization: `Bearer ${session.access_token}` }, credentials: 'include', }
+                            {
+                                headers: {
+                                    Authorization: `Bearer ${session.access_token}`,
+                                    "ngrok-skip-browser-warning": "true",
+                                },
+                                credentials: 'include',
+                            }
                         );
                         const hostData = await hostRes.json();
                         setMeetingHost(hostData.host.name || "");
@@ -461,7 +468,7 @@ export default function IndividualMeetingRecordPage() {
                         disabled={!isChanged || saving}
                         className="button save"
                     >
-                        {saving ? "Updating..." : "Update Record"}
+                        {saving ? "Saving..." : "Save Changes"}
                     </button>
                     <button
                         onClick={handleDelete}

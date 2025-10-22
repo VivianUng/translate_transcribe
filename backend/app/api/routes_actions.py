@@ -3,8 +3,6 @@ from fastapi.responses import FileResponse
 import asyncio
 import httpx # libretranslate
 import pytesseract
-# from paddleocr import PaddleOCR
-# import numpy as np
 import fitz # pdf
 import tempfile
 import docx
@@ -20,8 +18,6 @@ from dotenv import load_dotenv
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, T5ForConditionalGeneration, T5Tokenizer
 
 from app.core.pdf_generator import generate_pdf
-from app.core.image_preprocessing import process_image_for_ocr
-# from app.core.audio_preprocessing import preprocess_audio
 from app.core.language_codes import LanguageConverter
 from app.models import DetectLangRequest, DetectLangResponse, OCRResponse, SummarizeRequest, SummarizeResponse, TranscribeResponse, TranslateRequest, TranslateResponse, PDFRequest
 
@@ -70,27 +66,6 @@ async def get_languages():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch languages: {str(e)}")
 
-# detection using only libretranslate detect. (provides inaccurate results for short input)
-@router.post("/detect-language", response_model=DetectLangResponse)
-async def detect_language(req: DetectLangRequest):
-    async with httpx.AsyncClient() as client:
-        detect_resp = await client.post(
-            f"{LIBRETRANSLATE_URL}/detect",
-            json={"q": req.text},
-            timeout=10,
-        )
-        detect_resp.raise_for_status()
-        detections = detect_resp.json()
-
-        if not detections:
-            raise HTTPException(status_code=400, detail="Could not detect language")
-
-        best_match = detections[0]
-        return DetectLangResponse(
-            detected_lang=best_match["language"],
-            confidence=best_match["confidence"],
-        )
-
 
 def detect_script(text: str):
     if not text.strip():
@@ -125,7 +100,7 @@ def detect_script(text: str):
 
     return "latin"
 
-@router.post("/detect-language2", response_model=DetectLangResponse)
+@router.post("/detect-language", response_model=DetectLangResponse)
 async def detect_language2(req: DetectLangRequest):
     libre_result = None
     langdetect_result = None
@@ -313,7 +288,7 @@ async def summarize(req: SummarizeRequest):
         raise HTTPException(status_code=500, detail=f"Failed to summarize text: {str(e)}")
 
 
-## First version : only using pytesseract, fallback is to preprocess the image and try pytesseract again
+
 @router.post("/extract-image-text", response_model=OCRResponse)
 async def extract_text(
     file: UploadFile = File(...),
@@ -329,78 +304,15 @@ async def extract_text(
     try:
         lang_tess = LanguageConverter.convert(input_language, "libretranslate", "tesseract")
 
-        # -------------------- First Attempt: No preprocessing --------------------
         img_raw = Image.open(io.BytesIO(contents)).convert("RGB")
         extracted_text = pytesseract.image_to_string(img_raw, lang=lang_tess).strip()
 
-        # -------------------- Fallback: Preprocess if nothing found --------------------
-        if not extracted_text:
-            processed_img = process_image_for_ocr(contents)
-            extracted_text = pytesseract.image_to_string(processed_img, lang=lang_tess).strip()
 
     except UnidentifiedImageError:
         raise HTTPException(status_code=400, detail="Could not process image file")
 
     return OCRResponse(extracted_text=extracted_text)
 
-
-###################################### ocr with paddleOCR##############
-# ## Keep a cache of PaddleOCR instances per language
-# ocr_paddle_instances = {}
-
-# def get_paddle_ocr(lang_code: str):
-#     """
-#     Return (and cache) a PaddleOCR instance for a given language.
-#     """
-#     if lang_code not in ocr_paddle_instances:
-#         ocr_paddle_instances[lang_code] = PaddleOCR(use_angle_cls=True, lang=lang_code)
-#     return ocr_paddle_instances[lang_code]
-
-
-# @router.post("/extract-image-text", response_model=OCRResponse)
-# async def extract_text(
-#     file: UploadFile = File(...),
-#     input_language: str = Form(...)
-# ):
-#     if not file.content_type.startswith("image/"):
-#         raise HTTPException(status_code=400, detail="Invalid file type. Please upload an image.")
-
-#     contents = await file.read()
-#     if not contents:
-#         raise HTTPException(status_code=400, detail="Empty file uploaded")
-
-#     try:
-#         # -------------------- First Attempt: Tesseract --------------------
-#         lang_tess = LanguageConverter.to_tesseract(input_language)
-#         img_raw = Image.open(io.BytesIO(contents)).convert("RGB")
-#         extracted_text = pytesseract.image_to_string(img_raw, lang=lang_tess).strip()
-
-#         # -------------------- Fallback: PaddleOCR if nothing found --------------------
-#         # still not working properly.
-#         if not extracted_text:
-#             lang_paddle = LanguageConverter.to_paddleocr(input_language)
-#             ocr_paddle = get_paddle_ocr(lang_paddle)
-#             results = ocr_paddle.ocr(np.array(img_raw))
-#             extracted_text_list = []
-#             for res in results:
-#                 for line in res:
-#                     if len(line) >= 2:
-#                         value = line[1]
-#                         if isinstance(value, tuple) and len(value) >= 2:
-#                             text, confidence = value
-#                         else:
-#                             text = value if isinstance(value, str) else ""
-#                             confidence = None
-#                         if text.strip():
-#                             extracted_text_list.append(text.strip())
-
-#             extracted_text = "\n".join(extracted_text_list).strip()
-
-#     except UnidentifiedImageError:
-#         raise HTTPException(status_code=400, detail="Could not process image file")
-
-#     return OCRResponse(extracted_text=extracted_text)
-#################################################################################################3
 
 @router.post("/extract-doc-text")
 async def extract_doc_text(
@@ -482,8 +394,6 @@ async def transcribe_audio(
 
         
         audio_file = io.BytesIO(wav_data)
-        # --- Preprocess audio ---
-        # audio_file = preprocess_audio(input_data)
 
         # Transcribe
         with sr.AudioFile(audio_file) as source:

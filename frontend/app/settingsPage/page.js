@@ -64,6 +64,7 @@ export default function SettingsPage() {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
+          "ngrok-skip-browser-warning": "true",
         },
         credentials: 'include',
       });

@@ -68,7 +68,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
       detectedLang: null,
       filteredText: null,
       confidence: 0,
-      message: "Please enter text or upload an image first.",
+      message: "Please enter text first.",
     };
   }
 
@@ -125,7 +125,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
   // Step 1: Auto-detect language
   if (inputLang === "auto") {
     const detectRes = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/detect-language2`,
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/detect-language`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
