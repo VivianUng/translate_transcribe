@@ -201,7 +201,7 @@ export default function MeetingDetailsPage() {
         };
 
         // Debounce updates to prevent spamming database
-        const timeout = setTimeout(updateRealtime, 200); // update every 200ms (update according to speed of transcription - should be slightly lower than speed of transcription)
+        const timeout = setTimeout(updateRealtime, 200); // update every 200ms
         return () => clearTimeout(timeout);
     }, [transcription, enSummary, summary, transcriptionLang, meetingId, role]);
 

@@ -16,14 +16,6 @@ class TranscribeResponse(BaseModel):
     transcription: str
     language: str
 
-class TranscribeSegment(BaseModel):
-    speaker: str
-    start: float
-    end: float
-    language: str
-    text: str
-
-
 class TranslateRequest(BaseModel):
     text: str
     source_lang: str

@@ -149,8 +149,16 @@ async def save_item(payload: GenericSavePayload, current_user=Depends(get_curren
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to save {payload.type}: {e}")
 
+# Allowed record types mapping to actual table names
+ALLOWED_RECORD_TYPES = {
+    "translations": "translations",
+    "conversations": "conversations",
+    "summaries": "summaries",
+    "meeting_details_individual": "meeting_details_individual",
+}
+
 def get_table(record_type: str):
-    table = record_type
+    table = ALLOWED_RECORD_TYPES.get(record_type)
     if not table:
         raise HTTPException(status_code=400, detail="Invalid record type")
     return table
@@ -437,14 +445,8 @@ async def get_meeting(meeting_id: str, current_user=Depends(get_current_user)):
 
 
 @router.put("/meetings/{meeting_id}")
-async def update_meeting(
-    meeting_id: str,
-    payload: UpdateMeetingPayload,
-    current_user=Depends(get_current_user)
-):
-    """
-    Update an existing meeting. Only the host can update.
-    """
+async def update_meeting(meeting_id: str, payload: UpdateMeetingPayload,current_user=Depends(get_current_user)):
+    # Update an existing meeting. Only the host can update.
     try:
         # 1. Fetch the existing meeting
         meeting_res = supabase.table("meetings").select("*").eq("id", meeting_id).execute()

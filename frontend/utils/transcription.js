@@ -100,7 +100,7 @@ export async function startMicRecording({
     } else if (err.name === 'NotFoundError') {
       toast.error("No microphone device found");
     } else {
-      toast.error("Unexpected microphone error:", err);
+      toast.error("Unexpected microphone error:", err.name);
     }
   }
 }

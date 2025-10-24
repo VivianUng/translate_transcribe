@@ -101,7 +101,7 @@ def detect_script(text: str):
     return "latin"
 
 @router.post("/detect-language", response_model=DetectLangResponse)
-async def detect_language2(req: DetectLangRequest):
+async def detect_language(req: DetectLangRequest):
     libre_result = None
     langdetect_result = None
 
@@ -111,8 +111,6 @@ async def detect_language2(req: DetectLangRequest):
     if script_lang and script_lang != "latin":
         if script_lang in {"ar", "cyrl"}:
             # Special case: Arabic script could be Arabic, Urdu, or Persian
-            # Cyrillic script could be : bg, ky, ru, uk
-            # Proceed with normal detection but restrict output
             pass
         else:
             # If clear script detected, return directly
@@ -168,7 +166,6 @@ async def detect_language2(req: DetectLangRequest):
         else:
             # langdetect exception cases
             if libre_result["lang"] in LANGDETECT_EXCEPTIONS :
-                # and libre_result["confidence"] >= langdetect_result["confidence"]:
                 chosen = libre_result
             # Different language
             elif libre_result["confidence"] > 85 and langdetect_result["confidence"] > 85:
@@ -216,7 +213,6 @@ async def translate(
     req: TranslateRequest,
 ):
     async with httpx.AsyncClient() as client:
-        # Directly call translation since frontend already detected source_lang
         translate_resp = await client.post(
             f"{LIBRETRANSLATE_URL}/translate",
             json={
@@ -377,7 +373,7 @@ async def transcribe_audio(
     # convert libretranslate code (iso-639) to recognize_google code(bcp-47)
     input_language_bcp = LanguageConverter.convert(input_language, "libretranslate", "bcp47")
 
-    # if language selected was auto-detect (for now default to english)
+    # if language selected was auto-detect
     recognizer = sr.Recognizer()
     try:
         # Read uploaded audio (WebM)
@@ -409,12 +405,7 @@ async def transcribe_audio(
 
     except sr.UnknownValueError:
         # Return empty transcription if speech not recognized
-        return TranscribeResponse(
-            transcription="",
-            language=input_language_bcp
-        )
+        return TranscribeResponse(transcription="",language=input_language_bcp)
+    
     except Exception as e:
-        return TranscribeResponse(
-            transcription=f"Error: {str(e)}",
-            language=input_language_bcp
-        )
+        return TranscribeResponse(transcription=f"Error: {str(e)}",language=input_language_bcp)

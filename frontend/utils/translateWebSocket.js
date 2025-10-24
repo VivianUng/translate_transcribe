@@ -58,7 +58,6 @@ export function useTranslateWebSocket(
       console.log("Translate WebSocket connected");
       safeSend({
         type: "init",
-        // inputLang: inputLangRef.current,
         inputLang: getEffectiveInputLang(),
         targetLang: targetLangRef.current,
       });

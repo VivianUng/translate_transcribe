@@ -45,7 +45,7 @@ export default function MeetingFormPage() {
                 try {
                     const token = session.access_token;
                     const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}`, {
-                        headers: { Authorization: `Bearer ${token}` },
+                        headers: { Authorization: `Bearer ${token}`, "ngrok-skip-browser-warning": "true", },
                         credentials: 'include',
                     });
 
@@ -169,6 +169,7 @@ export default function MeetingFormPage() {
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${token}`,
+                        "ngrok-skip-browser-warning": "true",
                     },
                     credentials: 'include',
                 }

@@ -117,8 +117,8 @@ export default function Translate() {
 
     if (file.size > MAX_FILE_SIZE) {
       setFileUploadMessage("File is too large! Please upload a file smaller than 25MB.");
-    return;
-  }
+      return;
+    }
 
     clearDisplay();
     setProcessing(true);
@@ -182,24 +182,42 @@ export default function Translate() {
     }
   }
 
+  // // Trigger file input
+  // function triggerFileInput(type = "all") {
+  //   if (!fileInputRef.current) return;
+
+  //   let acceptTypes = "";
+
+  //   if (type === "image") {
+  //     acceptTypes = "image/*";
+  //   } else if (type === "document") {
+  //     acceptTypes =
+  //       "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain";
+  //   } else if (type === "audio") {
+  //     acceptTypes = "audio/*,video/webm";
+  //   } else {
+  //     // default: allow all
+  //     acceptTypes =
+  //       "image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,audio/*,video/webm";
+  //   }
+
+  //   fileInputRef.current.setAttribute("accept", acceptTypes);
+  //   fileInputRef.current.value = "";
+  //   fileInputRef.current.click();
+  // }
+
   // Trigger file input
-  function triggerFileInput(type = "all") {
+  function triggerFileInput() {
     if (!fileInputRef.current) return;
 
-    let acceptTypes = "";
-
-    if (type === "image") {
-      acceptTypes = "image/*";
-    } else if (type === "document") {
-      acceptTypes =
-        "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain";
-    } else if (type === "audio") {
-      acceptTypes = "audio/*,video/webm";
-    } else {
-      // default: allow all
-      acceptTypes =
-        "image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,audio/*,video/webm";
-    }
+    const acceptTypes = `
+        image/*,
+        application/pdf,
+        application/vnd.openxmlformats-officedocument.wordprocessingml.document,
+        text/plain,
+        audio/*,
+        video/webm
+      `;
 
     fileInputRef.current.setAttribute("accept", acceptTypes);
     fileInputRef.current.value = "";

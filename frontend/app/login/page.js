@@ -29,11 +29,11 @@ export default function Login() {
   useEffect(() => {
     if (redirectParam === "signupSuccess") {
       setMessage("Please confirm your email before logging in.");
-    }else {
+    } else {
       setMessage("");
     }
   }, [redirectParam]);
-  
+
   function handlePasswordChange(e) {
     const value = e.target.value;
     setPassword(value);
@@ -72,7 +72,16 @@ export default function Login() {
       setLoading(false);
 
       if (loginError) {
-        setPwErrorMsg("Wrong password. Please try again.");
+        const loginErrorMsg = loginError.message;
+        if (loginErrorMsg.includes("Email not confirmed")) {
+          setEmailErrorMsg("Email not confirmed. Please click on verification link in email.");
+        }
+        else if (loginErrorMsg.includes("Invalid login credentials")) {
+          setPwErrorMsg("Wrong password. Please try again.");
+        }
+        else {
+          setErrorMsg(loginErrorMsg);
+        }
       } else {
         router.push("/");
       }
