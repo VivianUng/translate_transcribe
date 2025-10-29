@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast";
 import { Mic, MonitorSpeaker, Headset, Circle } from "lucide-react";
 import LanguageSelect from "@/components/LanguageSelect"
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
+import { TooltipProvider } from "@/components/TooltipProvider";
 import { translateText } from "@/utils/translation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
@@ -17,8 +18,8 @@ import { useListening } from "@/contexts/ListeningContext";
 
 
 export default function ConversationPage() {
-  const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
-  const { prefs, loading, prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_conversations",]);
+  const { isLoggedIn, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
+  const { prefs, prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_conversations",]);
   const { listening, setListening } = useListening();
   const [recordingType, setRecordingType] = useState(null); // "mic" or "screen" or "both"
   const [transcription, setTranscription] = useState("");
@@ -26,6 +27,7 @@ export default function ConversationPage() {
   const [inputLang, setInputLang] = useState("auto");
   const [targetLang, setTargetLang] = useState("en");
   const [detectedLang, setDetectedLang] = useState("en");
+  const [message, setMessage] = useState("");
 
   const [doTranslation, setDoTranslation] = useState(false);
   useTranslateWebSocket(inputLang, detectedLang, targetLang, transcription, doTranslation, setTranslatedText);
@@ -61,7 +63,7 @@ export default function ConversationPage() {
 
   useEffect(() => {
     setMounted(true); // for react-select component
-  },);
+  },[]);
 
   // Whenever input or target language changes, reset isSaved
   useEffect(() => {
@@ -135,7 +137,10 @@ export default function ConversationPage() {
         transcription
       );
 
-      if (!valid) return;
+      if (!valid) {
+        setMessage(message);
+        return;
+      }
 
       setInputLang(detectedLang);
 
@@ -238,7 +243,7 @@ export default function ConversationPage() {
             (recordingType === "both" && listening)
           }
         >
-          <Mic size={20} style={{ marginRight: "6px", verticalAlign: "middle" }}/>
+          <Mic size={20} style={{ marginRight: "6px", verticalAlign: "middle" }} />
           {recordingType === "mic" && listening ? "Stop" : "Mic"}
         </button>
 
@@ -252,7 +257,7 @@ export default function ConversationPage() {
             (recordingType === "both" && listening)
           }
         >
-          <MonitorSpeaker size={20} style={{ marginRight: "6px", verticalAlign: "middle" }}/>
+          <MonitorSpeaker size={20} style={{ marginRight: "6px", verticalAlign: "middle" }} />
           {recordingType === "screen" && listening ? "Stop" : "System"}
         </button>
         {/* Mic + System (both) */}
@@ -265,7 +270,7 @@ export default function ConversationPage() {
             (recordingType === "screen" && listening)
           }
         >
-          <Headset size={20} style={{ marginRight: "6px", verticalAlign: "middle" }}/>
+          <Headset size={20} style={{ marginRight: "6px", verticalAlign: "middle" }} />
           {recordingType === "both" && listening ? "Stop" : "Both"}
         </button>
       </div>
@@ -303,13 +308,16 @@ export default function ConversationPage() {
             </div>
 
           </div>
-          <StickyScrollCopyBox
-            value={transcription}
-            setValue={() => { }}
-            placeholder="Transcription will appear here...."
-            readOnly={true}
-            autoScroll={true}
-          />
+          <TooltipProvider
+            message={message} tooltipId="input-tooltip">
+            <StickyScrollCopyBox
+              value={transcription}
+              setValue={() => { }}
+              placeholder="Transcription will appear here...."
+              readOnly={true}
+              autoScroll={true}
+            />
+          </TooltipProvider>
         </section>
 
         <section className="section translation-section">

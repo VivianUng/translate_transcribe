@@ -96,7 +96,7 @@ export default function MeetingFormPage() {
 
             fetchMeeting();
         }
-    }, [mode, meetingId, session]);
+    }, [mode, meetingId, session, router]);
 
     // Determine if form has changes
     const isChanged =

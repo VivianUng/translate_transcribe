@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { ArrowLeft, Mic, MonitorSpeaker, Headset, Circle } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -60,7 +60,7 @@ export default function MeetingDetailsPage() {
     const [saving, setSaving] = useState(false);
     const [ending, setEnding] = useState(false);
     const [record, setRecord] = useState(null);
-    const [isSaved, setIsSaved] = useState(false); // track if meeting is saved (modify to actually track if it exists in meeting_details_individual)
+    const [isSaved, setIsSaved] = useState(false); // track if meeting is saved
     const [autoSave, setAutoSave] = useState(false);
 
     const autoSaveRef = useRef(autoSave);
@@ -159,185 +159,7 @@ export default function MeetingDetailsPage() {
         }
     }, [prefsLoading, session, prefs]);
 
-    useEffect(() => {
-        if (!loading && session) {
-            (async () => {
-                setLoadingPage(true);
-                try {
-                    if (!meetingId) throw new Error("No meetingId provided");
-                    await fetchMeetingDetails(meetingId);
-                } catch (err) {
-                    console.error("Error fetching meeting data:", err);
-                    router.push("/meeting?toast=notFound");
-                } finally {
-                    setLoadingPage(false);
-                }
-            })();
-        }
-    }, [loading, session]);
-
-
-    // Host updates meeting_details in real-time
-    useEffect(() => {
-        if (!meetingId || role !== "host" || status !== "ongoing") return;
-
-        const updateRealtime = async () => {
-            // Only update if content exists
-            if (!transcription) return;
-
-            const updateData = {};
-            if (transcription) updateData.transcription = transcription;
-            if (enSummary) updateData.en_summary = enSummary;
-            if (summary) updateData.translated_summary = summary;
-            if (transcriptionLang) updateData.transcription_lang = transcriptionLang;
-
-            // Perform the update only with the fields present
-            const { error } = await supabase
-                .from("meeting_details")
-                .update(updateData)
-                .eq("meeting_id", meetingId);
-
-            if (error) console.error("Host update error:", error);
-        };
-
-        // Debounce updates to prevent spamming database
-        const timeout = setTimeout(updateRealtime, 200); // update every 200ms
-        return () => clearTimeout(timeout);
-    }, [transcription, enSummary, summary, transcriptionLang, meetingId, role]);
-
-    // Participant get real-time data 
-    useEffect(() => {
-        if (!meetingId) return;
-
-        const channel = supabase
-            .channel(`meeting-${meetingId}`)
-            .on("postgres_changes", {
-                event: "UPDATE",
-                schema: "public",
-                table: "meeting_details",
-                filter: `meeting_id=eq.${meetingId}`,
-            }, async (payload) => {
-                // Only update if this user is a participant and meeting is ongoing
-                if (roleRef.current === "participant" && statusRef.current === "ongoing") {
-                    const data = payload.new;
-                    setTranscription(data.transcription || "");
-                    setTranscriptionLang(data.transcription_lang || "en");
-                    setEnSummary(data.en_summary || "");
-
-                    if (data.status === "past" && !toastShownRef.current) {
-                        toast('This meeting has ended');
-                        toastShownRef.current = true;
-                        await fetchMeetingDetails(meetingId); // final fetch after meeting ends
-
-                        if (autoSaveRef.current) {
-                            await handleSaveMeeting();
-                        }
-                        setStatus("past"); // update local state   
-                        supabase.removeChannel(channel);
-                    }
-                }
-            }).subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [meetingId, session]);
-
-
-    // real-time summaries (host, and participant if host doesn't enabme summarization) : 
-    const throttledSummarize = useMemo(
-        () =>
-            throttle(async (words) => {
-                try {
-                    // Summarize the entire transcription in English
-                    const enResult = await summarizeText(
-                        words.join(" "),
-                        transcriptionLangRef.current,
-                        "en"
-                    );
-
-                    setEnSummary(enResult); // keep internal English summary
-
-                    let translatedResult = enResult;
-                    if (translationLangRef.current !== "en") {
-                        // Translate the English summary to target language
-                        translatedResult = await translateText(
-                            enResult,
-                            "en",
-                            translationLangRef.current
-                        );
-                    }
-
-                    // Replace the rolling summary instead of appending
-                    setSummary(translatedResult);
-
-                    lastSummarizedIndex.current = words.length;
-                } catch (err) {
-                    console.error(err);
-                    toast.error("Rolling summarization failed.");
-                }
-            }, THROTTLE_MS * 5), // slower throttle for summaries
-        []
-    );
-
-    useEffect(() => {
-        // only host does summarizations, stores enSummary & translated summary to let participant fetch
-        if (!doSummarization || !transcription || role !== "host") return;
-
-        const words = transcription.split(/\s+/);
-
-        // Only trigger if enough new words since last summary
-        if (words.length - lastSummarizedIndex.current < 50) return;
-        // adjust threshold for how often to resummarize
-
-        throttledSummarize(words);
-    }, [transcription, doSummarization, throttledSummarize]);
-
-
-
-    useEffect(() => {
-        if (!doSummarization || role !== "participant") return;
-
-        if (!enSummary && transcription) {
-            // No host summary → fall back to own summarization
-            const words = transcription.split(/\s+/);
-            if (words.length - lastSummarizedIndex.current < 50) return;
-
-            throttledSummarize(words);
-        }
-    }, [enSummary, transcription, doSummarization, role, throttledSummarize]);
-
-    // -----------------------
-    // Recording functions (host only)
-    // -----------------------
-    const handleStart = async (sourceType) => {
-        const session = await startAudioStreaming({
-            sourceType,
-            setTranscription,
-            setListening,
-            setRecordingType,
-            inputLang: transcriptionLang,
-            setDetectedLang,
-        });
-        setAudioSession(session);
-    };
-
-    const handleStop = () => {
-        if (!audioSession) return;
-
-        stopAudioStreaming({
-            ...audioSession,
-            setListening,
-            setRecordingType,
-        });
-
-        setAudioSession(null);
-        setDoTranslation(false);
-    };
-
-
-
-    const fetchMeetingDetails = async (meetingId) => {
+    const fetchMeetingDetails = useCallback(async (meetingId) => {
         if (!meetingId) return;
 
         try {
@@ -403,6 +225,229 @@ export default function MeetingDetailsPage() {
         } catch (err) {
             console.error("Error fetching meeting details:", err);
         }
+    }, [session, router]);
+
+
+    // from past / ongoing meeting : save to individual records
+    const handleSaveMeeting = useCallback(async () => {
+
+        setSaving(true);
+
+        try {
+            const token = session?.access_token;
+            if (!token) {
+                toast.error("You must be logged in to save meetings.");
+                return;
+            }
+
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/save-meeting`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    meeting_id: meetingId,
+                    translation: translationRef.current,
+                    translated_lang: translationLangRef.current,
+                    translated_summary: summaryRef.current,
+                }),
+            });
+
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.detail || "Failed to save meeting");
+
+            toast.success("Meeting saved successfully");
+            setIsSaved(true); // disable button after successful save
+        } catch (err) {
+            toast.error(err.message || "Failed to save meeting.");
+        } finally {
+            setSaving(false);
+        }
+    }, [
+        session,
+        meetingId,
+        translationRef,
+        translationLangRef,
+        summaryRef,
+    ]);
+
+
+    useEffect(() => {
+        if (!loading && session) {
+            (async () => {
+                setLoadingPage(true);
+                try {
+                    if (!meetingId) throw new Error("No meetingId provided");
+                    await fetchMeetingDetails(meetingId);
+                } catch (err) {
+                    console.error("Error fetching meeting data:", err);
+                    router.push("/meeting?toast=notFound");
+                } finally {
+                    setLoadingPage(false);
+                }
+            })();
+        }
+    }, [loading, session, fetchMeetingDetails, meetingId, router]);
+
+
+    // Host updates meeting_details in real-time
+    useEffect(() => {
+        if (!meetingId || role !== "host" || status !== "ongoing") return;
+
+        const updateRealtime = async () => {
+            // Only update if content exists
+            if (!transcription) return;
+
+            const updateData = {};
+            if (transcription) updateData.transcription = transcription;
+            if (enSummary) updateData.en_summary = enSummary;
+            if (summary) updateData.translated_summary = summary;
+            if (transcriptionLang) updateData.transcription_lang = transcriptionLang;
+
+            // Perform the update only with the fields present
+            const { error } = await supabase
+                .from("meeting_details")
+                .update(updateData)
+                .eq("meeting_id", meetingId);
+
+            if (error) console.error("Host update error:", error);
+        };
+
+        // Debounce updates to prevent spamming database
+        const timeout = setTimeout(updateRealtime, 200); // update every 200ms
+        return () => clearTimeout(timeout);
+    }, [transcription, enSummary, summary, transcriptionLang, meetingId, role, status]);
+
+    // Participant get real-time data 
+    useEffect(() => {
+        if (!meetingId) return;
+
+        const channel = supabase
+            .channel(`meeting-${meetingId}`)
+            .on("postgres_changes", {
+                event: "UPDATE",
+                schema: "public",
+                table: "meeting_details",
+                filter: `meeting_id=eq.${meetingId}`,
+            }, async (payload) => {
+                // Only update if this user is a participant and meeting is ongoing
+                if (roleRef.current === "participant" && statusRef.current === "ongoing") {
+                    const data = payload.new;
+                    setTranscription(data.transcription || "");
+                    setTranscriptionLang(data.transcription_lang || "en");
+                    setEnSummary(data.en_summary || "");
+
+                    if (data.status === "past" && !toastShownRef.current) {
+                        toast('This meeting has ended');
+                        toastShownRef.current = true;
+                        await fetchMeetingDetails(meetingId); // final fetch after meeting ends
+
+                        if (autoSaveRef.current) {
+                            await handleSaveMeeting();
+                        }
+                        setStatus("past"); // update local state   
+                        supabase.removeChannel(channel);
+                    }
+                }
+            }).subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [meetingId, session, fetchMeetingDetails, handleSaveMeeting]);
+
+
+    // real-time summaries (host, and participant if host doesn't enabme summarization) : 
+    const throttledSummarize = useMemo(
+        () =>
+            throttle(async (words) => {
+                try {
+                    // Summarize the entire transcription in English
+                    const enResult = await summarizeText(
+                        words.join(" "),
+                        transcriptionLangRef.current,
+                        "en"
+                    );
+
+                    setEnSummary(enResult); // keep internal English summary
+
+                    let translatedResult = enResult;
+                    if (translationLangRef.current !== "en") {
+                        // Translate the English summary to target language
+                        translatedResult = await translateText(
+                            enResult,
+                            "en",
+                            translationLangRef.current
+                        );
+                    }
+
+                    // Replace the rolling summary instead of appending
+                    setSummary(translatedResult);
+
+                    lastSummarizedIndex.current = words.length;
+                } catch (err) {
+                    console.error(err);
+                    toast.error("Rolling summarization failed.");
+                }
+            }, THROTTLE_MS * 5), // slower throttle for summaries
+        []
+    );
+
+    useEffect(() => {
+        // only host does summarizations, stores enSummary & translated summary to let participant fetch
+        if (!doSummarization || !transcription || role !== "host") return;
+
+        const words = transcription.split(/\s+/);
+
+        // Only trigger if enough new words since last summary
+        if (words.length - lastSummarizedIndex.current < 50) return;
+        // adjust threshold for how often to resummarize
+
+        throttledSummarize(words);
+    }, [transcription, doSummarization, role, throttledSummarize]);
+
+
+
+    useEffect(() => {
+        if (!doSummarization || role !== "participant") return;
+
+        if (!enSummary && transcription) {
+            // No host summary → fall back to own summarization
+            const words = transcription.split(/\s+/);
+            if (words.length - lastSummarizedIndex.current < 50) return;
+
+            throttledSummarize(words);
+        }
+    }, [enSummary, transcription, doSummarization, role, throttledSummarize]);
+
+    // -----------------------
+    // Recording functions (host only)
+    // -----------------------
+    const handleStart = async (sourceType) => {
+        const session = await startAudioStreaming({
+            sourceType,
+            setTranscription,
+            setListening,
+            setRecordingType,
+            inputLang: transcriptionLang,
+            setDetectedLang,
+        });
+        setAudioSession(session);
+    };
+
+    const handleStop = () => {
+        if (!audioSession) return;
+
+        stopAudioStreaming({
+            ...audioSession,
+            setListening,
+            setRecordingType,
+        });
+
+        setAudioSession(null);
+        setDoTranslation(false);
     };
 
 
@@ -461,7 +506,6 @@ export default function MeetingDetailsPage() {
                     return;
                 }
 
-                const data = await res.json();
 
                 // if host has auto-save on : trigger saveMeeting
                 if (autoSaveRef.current) {
@@ -561,9 +605,9 @@ export default function MeetingDetailsPage() {
                     credentials: 'include',
                     body: JSON.stringify({
                         transcription,
-                        transcription_lang: transcriptionLang, // modify this to store the actual language of transcription (can be more than one)
-                        en_summary: summary, // to be modified to actually store the english summary 
-                        translated_summary: summary, // to be modified to actually store the translated summary (same lang as translationLang)
+                        transcription_lang: transcriptionLang,
+                        en_summary: summary,
+                        translated_summary: summary,
                     }),
                 }
             );
@@ -586,45 +630,6 @@ export default function MeetingDetailsPage() {
     }
 
 
-
-    // from past / ongoing meeting : save to individual records
-    async function handleSaveMeeting() {
-
-        setSaving(true);
-
-        try {
-            const token = session?.access_token;
-            if (!token) {
-                toast.error("You must be logged in to save meetings.");
-                return;
-            }
-
-            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/save-meeting`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`,
-                },
-                credentials: 'include',
-                body: JSON.stringify({
-                    meeting_id: meetingId,
-                    translation: translationRef.current,
-                    translated_lang: translationLangRef.current,
-                    translated_summary: summaryRef.current,
-                }),
-            });
-
-            const result = await res.json();
-            if (!res.ok) throw new Error(result.detail || "Failed to save meeting");
-
-            toast.success("Meeting saved successfully");
-            setIsSaved(true); // disable button after successful save
-        } catch (err) {
-            toast.error(err.message || "Failed to save meeting.");
-        } finally {
-            setSaving(false);
-        }
-    }
 
     const handleRetranslate = async () => {
         if (!transcription) return;

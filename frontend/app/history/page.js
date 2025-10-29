@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import {useCallback, useEffect, useState, useMemo } from "react";
 import Select from "react-select";
 import { toast } from "react-hot-toast";
 import { CalendarArrowDown, CalendarArrowUp } from "lucide-react";
@@ -12,7 +12,7 @@ export default function History() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
+  const { session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
   const [history, setHistory] = useState({ translations: [], conversations: [], summaries: [], meetings: [] });
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState("");
@@ -49,6 +49,44 @@ export default function History() {
     { value: "Meeting", label: "Meeting" },
   ];
 
+  const fetchUserHistory = useCallback(async () => {
+    try {
+      const token = session?.access_token;
+      if (!token) {
+        toast.error("You must be logged in to view history.");
+        return { translations: [], conversations: [], summaries: [], meetings: [] };
+      }
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/user-history`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+            "ngrok-skip-browser-warning": "true",
+          },
+          credentials: 'include',
+        }
+      );
+
+      if (!res.ok) {
+        const errorResult = await res.json();
+        throw new Error(errorResult.detail || "Failed to fetch user history");
+      }
+
+      const result = await res.json();
+      return {
+        translations: result.translations || [],
+        conversations: result.conversations || [],
+        summaries: result.summaries || [],
+        meetings: result.meetings || [],
+      };
+    } catch (err) {
+      console.error("Error fetching user history:", err.message || err);
+      return { translations: [], conversations: [], summaries: [], meetings: [] };
+    }
+  }, [session]);
 
   useEffect(() => {
     if (session?.user) {
@@ -57,7 +95,7 @@ export default function History() {
         setLoading(false);
       });
     }
-  }, [session]);
+  }, [session, fetchUserHistory]);
 
 
   const combinedHistory = useMemo(() => {
@@ -179,45 +217,6 @@ export default function History() {
 
   if (loading) return <p>Loading...</p>;
 
-
-  async function fetchUserHistory() {
-    try {
-      const token = session?.access_token;
-      if (!token) {
-        toast.error("You must be logged in to view history.");
-        return { translations: [], conversations: [], summaries: [], meetings: [] };
-      }
-
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/user-history`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-            "ngrok-skip-browser-warning": "true",
-          },
-          credentials: 'include',
-        }
-      );
-
-      if (!res.ok) {
-        const errorResult = await res.json();
-        throw new Error(errorResult.detail || "Failed to fetch user history");
-      }
-
-      const result = await res.json();
-      return {
-        translations: result.translations || [],
-        conversations: result.conversations || [],
-        summaries: result.summaries || [],
-        meetings: result.meetings || [],
-      };
-    } catch (err) {
-      console.error("Error fetching user history:", err.message || err);
-      return { translations: [], conversations: [], summaries: [], meetings: [] };
-    }
-  }
 
   const viewDetails = (row) => {
     if (row.type && row.id) {

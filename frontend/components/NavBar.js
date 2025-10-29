@@ -15,7 +15,7 @@ export default function NavBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { isLoggedIn, loading } = useAuthCheck({ redirectIfNotAuth: false, returnSession: false });
+  const { isLoggedIn } = useAuthCheck({ redirectIfNotAuth: false, returnSession: false });
   const { listening } = useListening();
 
   const disabledPaths = ["/meeting/details", "/conversation"];

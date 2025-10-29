@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
@@ -7,19 +7,12 @@ import { formatDate, formatTime, formatPrettyDateFromTimestamp, formatTimeFromTi
 
 export default function Meetings() {
   const router = useRouter();
-  const { isLoggedIn, loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
+  const { loading, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
   const [meetings, setMeetings] = useState({ ongoing: [], upcoming: [], past: [] });
   const [fetching, setFetching] = useState(true);
 
 
-  useEffect(() => {
-    if (!loading && session) {
-      fetchUserMeetings();
-    }
-  }, [loading, session]);
-
-
-  const fetchUserMeetings = async () => {
+  const fetchUserMeetings = useCallback(async () => {
     try {
       setFetching(true);
 
@@ -93,7 +86,13 @@ export default function Meetings() {
     } finally {
       setFetching(false);
     }
-  };
+  }, [session]);
+
+  useEffect(() => {
+    if (!loading && session) {
+      fetchUserMeetings();
+    }
+  }, [loading, session, fetchUserMeetings]);
 
   const handleStartMeeting = async (meetingId) => {
     try {

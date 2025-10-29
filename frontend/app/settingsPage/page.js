@@ -1,6 +1,6 @@
 "use client";
 import LanguageSelect from "@/components/LanguageSelect"
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import { supabase } from '../../lib/supabaseClient';
@@ -9,13 +9,15 @@ import {confirmDeletion} from "@/components/ConfirmBox"
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
+  const {session} = useAuthCheck({ redirectIfNotAuth: true, returnSession: true });
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [loadingSendEmail, setLoadingSendEmail] = useState(false);
   const [pwRequested, setPwRequested] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [profileFetched, setProfileFetched] = useState(false);
+
 
   const [formData, setFormData] = useState({
     id: '',
@@ -42,15 +44,7 @@ export default function SettingsPage() {
   const isChanged = JSON.stringify(formData) !== JSON.stringify(profile);
 
 
-
-  useEffect(() => {
-    setMounted(true);
-    if (session) {
-      fetchProfile();
-    }
-  }, [session]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     if (!session?.user) {
       console.error("No session or user found");
       return;
@@ -89,13 +83,22 @@ export default function SettingsPage() {
       // set both to the same normalized object
       setProfile(normalized);
       setFormData(normalized);
+      setProfileFetched(true);
     } catch (error) {
       console.error("Error fetching profile:", error);
+      setProfileFetched(false);
     } finally {
       setLoading(false);
     }
-  };
+  }, [session]); 
 
+
+  useEffect(() => {
+    setMounted(true);
+    if (session) {
+      fetchProfile();
+    }
+  }, [session, fetchProfile]);
 
 
   const updateProfile = async () => {
@@ -143,7 +146,7 @@ export default function SettingsPage() {
     if (pwRequested) return; // prevent double click
     setPwRequested(true);
 
-    const { data, error } = await supabase.auth.resetPasswordForEmail(profile.email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
       redirectTo: `${window.location.origin}/update-password`
     });
 
@@ -265,7 +268,7 @@ export default function SettingsPage() {
           <button
             className="button updateProfile-button"
             onClick={updateProfile}
-            disabled={loading || updating || !isChanged}
+            disabled={loading || updating || !isChanged || !profileFetched}
           >
             {loading ? 'Loading...' : (updating ? 'Updating...' : 'Update Profile')}
           </button>
@@ -275,10 +278,11 @@ export default function SettingsPage() {
       {/* Account Actions */}
       <div className="button-group">
         <button className="button changePw-button" onClick={changePassword}
-          disabled={loading || loadingSendEmail || pwRequested}>
+          disabled={loading || loadingSendEmail || pwRequested || !profileFetched}>
           {loadingSendEmail ? "Sending Email..." : pwRequested ? "Email Sent" : "Change Password"}
         </button>
-        <button className="button delete" onClick={deleteAccount}>
+        <button className="button delete" onClick={deleteAccount}
+          disabled={loading || !profileFetched}>
           Delete Account
         </button>
       </div>

@@ -1,8 +1,8 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import {confirmDeletion} from "@/components/ConfirmBox"
+import { confirmDeletion } from "@/components/ConfirmBox"
 import LanguageSelect from "@/components/LanguageSelect"
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import { ArrowLeft } from "lucide-react";
@@ -30,15 +30,15 @@ export default function RecordDetailsPage() {
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState(null);
 
-    // Map frontend type → backend endpoint
-    const endpointMap = {
-        conversation: "conversations",
-        translation: "translations",
-        summary: "summaries",
-    };
+    const getEndpoint = useCallback((type) => {
+        const endpointMap = {
+            conversation: "conversations",
+            translation: "translations",
+            summary: "summaries",
+        };
 
-    // Safe lookup
-    const getEndpoint = (type) => endpointMap[type] || `${type}s`;
+        return endpointMap[type] || `${type}s`;
+    }, []);
 
 
     // For checking to prevent runnning resummarize / retranslate on same inputs
@@ -134,7 +134,7 @@ export default function RecordDetailsPage() {
         }
 
         fetchRecord();
-    }, [id, session, type]);
+    }, [id, session, type, router, getEndpoint]);
 
     const handleDownload = async () => {
         try {

@@ -1,3 +1,5 @@
+import { toast } from "react-hot-toast";
+
 export async function generatePDF(content) {
   if (!content || Object.keys(content).length === 0) {
     throw new Error("No content provided");
@@ -26,4 +28,6 @@ export async function generatePDF(content) {
   a.click();
   a.remove();
   window.URL.revokeObjectURL(url);
+
+  toast.success("PDF downloaded successfully!");
 }

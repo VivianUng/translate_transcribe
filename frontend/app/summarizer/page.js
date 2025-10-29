@@ -16,7 +16,7 @@ import { generatePDF } from "@/utils/pdfGenerator";
 
 
 export default function Summarizer() {
-  const { isLoggedIn, load, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
+  const { isLoggedIn, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const { prefs, loading: prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_summaries",]);
   const [inputText, setInputText] = useState("");
   const [inputLang, setInputLang] = useState("auto");
@@ -41,7 +41,7 @@ export default function Summarizer() {
 
   useEffect(() => {
     setMounted(true); // for react-select component
-  },);
+  },[]);
 
   // Whenever input or target language changes, reset isSaved
   useEffect(() => {
@@ -118,30 +118,30 @@ export default function Summarizer() {
 
     try {
       let finalSummary;
-      if (lastSummarizedInput === inputText){
-        if (lastSummarizedLang !== targetLang){
+      if (lastSummarizedInput === inputText) {
+        if (lastSummarizedLang !== targetLang) {
           const translatedSummary = await translateText(lastSummarizedText, lastSummarizedLang, targetLang);
           finalSummary = translatedSummary;
         }
-        else{ // input and output lang is the same, don't do anything
+        else { // input and output lang is the same, don't do anything
           return;
         }
       } else { // input text was changed
         const { valid, detectedLang, filteredText, message } = await detectAndValidateLanguage(
-        "summarizer",
-        inputLang,
-        inputText
-      );
-      setMessage(message);
+          "summarizer",
+          inputLang,
+          inputText
+        );
+        setMessage(message);
 
-      if (!valid) return;
-      setInputText(filteredText);
-      setInputLang(detectedLang);
+        if (!valid) return;
+        setInputText(filteredText);
+        setInputLang(detectedLang);
 
-      const summary = await summarizeText(filteredText, detectedLang, targetLang);
-      finalSummary = summary
-      setLastSummarizedInput(filteredText);
-      setLastSummarizedText(summary);
+        const summary = await summarizeText(filteredText, detectedLang, targetLang);
+        finalSummary = summary
+        setLastSummarizedInput(filteredText);
+        setLastSummarizedText(summary);
       }
 
       setSummarizedText(finalSummary);
@@ -232,8 +232,8 @@ export default function Summarizer() {
               )}
             </div>
           </div>
-            <TooltipProvider
-              message={message} tooltipId="input-tooltip">
+          <TooltipProvider
+            message={message} tooltipId="input-tooltip">
             <StickyScrollCopyBox
               value={inputText}
               setValue={setInputText}

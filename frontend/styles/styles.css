@@ -81,6 +81,12 @@ a {
   filter: brightness(0.9);
 }
 
+.button.delete:disabled {
+  background: var(--disable-color);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .button.sectionhead {
   margin: auto;
   padding: 0.4rem 1rem;
