@@ -15,7 +15,7 @@ origins = [
     "https://localhost:3000", #https link using npmrun dev:https
     "https://192.168.100.11:3000", # https network link with laptop ip
     "https://10.118.68.155:3000", #mobile hotspot
-    "https://overaptly-unmarrying-josiah.ngrok-free.dev", #if running frontend with ngrok tunnel
+    "https://10.116.152.155:3000", #mobile hotspot
 ]
 
 app.add_middleware(
