@@ -6,6 +6,7 @@
     "dev": "concurrently \"cd ../backend && libretranslate\" \"cd ../backend && uvicorn main:app --port 10000\" \"next dev --turbopack\"",
     "dev:https": "concurrently \"cd ../backend && libretranslate\" \"cd ../backend && uvicorn main:app --port 10000\" \"ngrok http 10000\" \"next dev --turbopack --experimental-https\"",
     "dev:frontend": "next dev --turbopack",
+    "dev:backend": "concurrently \"cd ../backend && libretranslate\" \"cd ../backend && uvicorn main:app --port 10000\" \"ngrok http 10000\"",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint"
