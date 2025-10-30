@@ -339,18 +339,63 @@ export async function startAudioStreaming({
     while (pendingChunks.length > 0) ws.send(pendingChunks.shift());
   };
 
+  // // Without retranscription : 
+  // ws.onmessage = (event) => {
+  //   const data = JSON.parse(event.data);
+  //   if (data.partial_text) {
+  //     setTranscription(prev => prev.endsWith(data.partial_text) ? prev : prev + " " + data.partial_text);
+  //   }
+  //   if (data.detected_lang) {
+  //     if (inputLang === "auto") {
+  //       setDetectedLang(prev => prev !== data.detected_lang ? data.detected_lang : prev);
+  //     }
+  //   }
+  //   if (data.error) console.error("Transcription error:", data.error);
+  // };
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  // Buffers for transcription
+  let finalText = "";        // Holds finalized retranscribed text
+  let pendingChunks = [];    // Holds live incremental chunks before retranscription
+
   ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data.partial_text) {
-      setTranscription(prev => prev.endsWith(data.partial_text) ? prev : prev + " " + data.partial_text);
-    }
-    if (data.detected_lang) {
-      if (inputLang === "auto") {
-        setDetectedLang(prev => prev !== data.detected_lang ? data.detected_lang : prev);
+    try {
+      const data = JSON.parse(event.data);
+
+      if (data.partial_text) {
+        if (data.is_retranscribe) {
+          // Replace pending section with retranscribed content
+          finalText = (finalText + " " + data.partial_text).trim();
+
+          // Clear pending live chunks (was already retranscribed)
+          pendingChunks = [];
+        } else {
+          // Append new small chunk
+          pendingChunks.push(data.partial_text);
+        }
+
+        // Build full transcription for display
+        const combined =
+          finalText +
+          (pendingChunks.length ? " " + pendingChunks.join(" ") : "");
+
+        setTranscription(combined);
       }
+
+      // Auto-detect language
+      if (data.detected_lang && inputLang === "auto") {
+        setDetectedLang((prev) =>
+          prev !== data.detected_lang ? data.detected_lang : prev
+        );
+      }
+
+      if (data.error) console.error("Transcription error:", data.error);
+      if (data.event === "done") console.log("Transcription complete");
+    } catch (err) {
+      console.warn("Malformed WebSocket message:", err);
     }
-    if (data.error) console.error("Transcription error:", data.error);
   };
+
 
   ws.onerror = (err) => console.error("WebSocket error:", err);
   ws.onclose = () => console.log(`WebSocket closed (${sourceType} streaming)`);
@@ -428,12 +473,32 @@ export function stopAudioStreaming({
     recorder.stop();
   }
 
-  // 3. finalize websocket
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ event: "end" }));
-    setTimeout(() => ws.close(), 500);
-  }
-
   setListening(false);
   setRecordingType(null);
+
+  // 3. Send "end" event to server and wait for "done"
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ event: "end" }));
+
+    // Listen for server's "done" message
+    const handleMessage = (msgEvent) => {
+      const data = JSON.parse(msgEvent.data);
+      if (data.event === "done") {
+        console.log("All transcription received. Closing WebSocket.");
+        ws.removeEventListener("message", handleMessage);
+        ws.close();
+      }
+    };
+
+    ws.addEventListener("message", handleMessage);
+
+    // fallback timeout if server never responds
+    setTimeout(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        console.warn("Server did not send 'done', forcing WebSocket close.");
+        ws.removeEventListener("message", handleMessage);
+        ws.close();
+      }
+    }, 10000); // 10 seconds fallback
+  }
 }

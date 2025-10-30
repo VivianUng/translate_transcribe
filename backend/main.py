@@ -10,13 +10,8 @@ app = FastAPI()
 
 # CORS setup
 origins = [
-    "http://localhost:3000", # normal localhost
-    "http://192.168.100.11:3000", # network link with laptop ip
     "https://localhost:3000", #https link using npmrun dev:https
-    "https://192.168.100.11:3000", # https network link with laptop ip
-    "https://10.118.68.155:3000", #mobile hotspot
-    "https://10.116.152.155:3000", #mobile hotspot
-    "https://translate-transcribe-ixc88jyj5-vivianungs-projects.vercel.app" # vercel deployment
+    "https://translate-transcribe.vercel.app" # vercel deployment
 ]
 
 app.add_middleware(
