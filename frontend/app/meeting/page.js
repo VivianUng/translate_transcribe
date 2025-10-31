@@ -129,12 +129,12 @@ export default function Meetings() {
   };
 
 
-  const MeetingSection = ({ title, meetingsList }) => {
+  const MeetingSection = ({ title, meetingsList, loading }) => {
     return (
       <section className="meetings-section">
         <div className={title === "Upcoming Meetings" ? "section-header" : ""}>
           <h3>{title}</h3>
-          {title === "Upcoming Meetings" && (
+          {title === "Upcoming Meetings" && !loading && (
             <button
               className="button create-btn"
               onClick={() => router.push("/meeting/form?mode=create")}
@@ -144,7 +144,17 @@ export default function Meetings() {
           )}
         </div>
 
-        {meetingsList.length > 0 ? (
+        {loading ? (
+          <div className="meeting-card skeleton">
+            <div className="meeting-info">
+              <div className="skeleton-line short"></div>
+              <div className="skeleton-line short"></div>
+              <div className="skeleton-line short"></div>
+              <div className="skeleton-line short"></div>
+            </div>
+            <div className="skeleton-button"></div>
+          </div>
+        ) : meetingsList.length > 0 ? (
           meetingsList.map((meeting) => (
             <div key={meeting.id} className="meeting-card">
               <div className="meeting-info">
@@ -204,17 +214,16 @@ export default function Meetings() {
     );
   };
 
-  if (fetching) return <p>Loading...</p>;
+  // if (fetching) return <p>Loading...</p>;
 
   return (
     <div className="page-container">
       <h1 className="page-title">Meetings</h1>
 
-      <MeetingSection title="Ongoing Meetings" meetingsList={meetings.ongoing} />
-      <MeetingSection title="Upcoming Meetings" meetingsList={meetings.upcoming} />
-      <MeetingSection title="Past Meetings" meetingsList={meetings.past} />
+      <MeetingSection title="Ongoing Meetings" meetingsList={meetings.ongoing} loading={fetching} />
+      <MeetingSection title="Upcoming Meetings" meetingsList={meetings.upcoming} loading={fetching} />
+      <MeetingSection title="Past Meetings" meetingsList={meetings.past} loading={fetching} />
 
     </div>
   );
 };
-

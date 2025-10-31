@@ -1,6 +1,6 @@
 "use client";
 
-import {useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import Select from "react-select";
 import { toast } from "react-hot-toast";
 import { CalendarArrowDown, CalendarArrowUp } from "lucide-react";
@@ -19,6 +19,12 @@ export default function History() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [sortOrder, setSortOrder] = useState("desc"); // "asc" or "desc"
+
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true); // for react-select component
+  }, []);
 
   const sortOptions = [
     {
@@ -215,9 +221,6 @@ export default function History() {
   }, [combinedHistory, searchTerm, selectedType, startDate, endDate, sortOrder]);
 
 
-  if (loading) return <p>Loading...</p>;
-
-
   const viewDetails = (row) => {
     if (row.type && row.id) {
       const type = row.type.toLowerCase();
@@ -249,67 +252,103 @@ export default function History() {
     <div className="page-container">
       <h1 className="page-title">History</h1>
       {/* Search, Sort, Type and Date Filter */}
-      <div className="filter-container">
-        {/* Left section */}
-        <div className="filter-left">
-          <input
-            type="text"
-            placeholder="Search history..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="searchInput"
-          />
-
-          <div className="dropdown-group">
-            <Select
-              options={sortOptions}
-              value={sortOptions.find((opt) => opt.value === sortOrder)}
-              isSearchable={false}
-              onChange={(selected) => setSortOrder(selected.value)}
-              classNamePrefix="react-select"
-              className="sortDropdown"
+      <fieldset disabled={loading} style={{ border: "none", padding: 0, margin: 0 }}>
+        <div className="filter-container">
+          {/* Left section */}
+          <div className="filter-left">
+            <input
+              type="text"
+              placeholder="Search history..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="searchInput"
             />
 
-            <Select
-              options={typeOptions}
-              value={typeOptions.find((opt) => opt.value === selectedType)}
-              onChange={(selected) => setSelectedType(selected.value)}
-              classNamePrefix="react-select"
-              className="typeDropdown"
-            />
+            <div className="dropdown-group">
+              {mounted && (
+                <Select
+                  options={sortOptions}
+                  value={sortOptions.find((opt) => opt.value === sortOrder)}
+                  isSearchable={false}
+                  onChange={(selected) => setSortOrder(selected.value)}
+                  classNamePrefix="react-select"
+                  className="sortDropdown"
+                />)}
+              {mounted && (
+                <Select
+                  options={typeOptions}
+                  value={typeOptions.find((opt) => opt.value === selectedType)}
+                  onChange={(selected) => setSelectedType(selected.value)}
+                  classNamePrefix="react-select"
+                  className="typeDropdown"
+                />)}
+            </div>
+          </div>
+
+          {/* Right section (Date filters) */}
+          <div className="date-filters">
+            <div className="date-field">
+              <label>Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                max={new Date().toISOString().split("T")[0]}  // today's date
+                onChange={handleStartDateChange}
+              />
+            </div>
+
+            <div className="date-separator">to</div>
+
+            <div className="date-field">
+              <label>End Date</label>
+              <input
+                type="date"
+                value={endDate}
+                max={new Date().toISOString().split("T")[0]}  // today's date
+                onChange={handleEndDateChange}
+              />
+            </div>
           </div>
         </div>
-
-        {/* Right section (Date filters) */}
-        <div className="date-filters">
-          <div className="date-field">
-            <label>Start Date</label>
-            <input
-              type="date"
-              value={startDate}
-              max={new Date().toISOString().split("T")[0]}  // today's date
-              onChange={handleStartDateChange}
-            />
-          </div>
-
-          <div className="date-separator">to</div>
-
-          <div className="date-field">
-            <label>End Date</label>
-            <input
-              type="date"
-              value={endDate}
-              max={new Date().toISOString().split("T")[0]}  // today's date
-              onChange={handleEndDateChange}
-            />
-          </div>
-        </div>
-      </div>
+      </fieldset>
 
 
 
       <div className="history-container">
-        {filteredHistory.length > 0 ? (
+        {loading ? (
+          <div>
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="history-card skeleton">
+                {/* Header */}
+                <div className="card-header">
+                  <span className="skeleton-line type"></span>
+                  <div className="card-meta">
+                    <span className="skeleton-line small"></span> |
+                    <span className="skeleton-line small"></span>
+                  </div>
+                </div>
+
+                {/* Body */}
+                <div className="card-body">
+                  <p className="card-subtitle">
+                    <span className="skeleton-line short"></span>
+                  </p>
+                  <p className="card-preview">
+                    <span className="skeleton-line"></span>
+                  </p>
+
+                  <p className="card-subtitle">
+                    <span className="skeleton-line short"></span>
+                  </p>
+                  <p className="card-preview">
+                    <span className="skeleton-line"></span>
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+        ) : filteredHistory.length > 0 ? (
           filteredHistory.map((row) => (
             <div
               key={`${row.type}-${row.id}`}

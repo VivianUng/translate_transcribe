@@ -762,7 +762,7 @@ a {
   overflow-y: auto;
 }
 
- .file-content.docx .docx {
+.file-content.docx .docx {
   transform-origin: top left;
   transform: scale(0.4);
   margin: auto;
@@ -826,6 +826,14 @@ a {
   font-size: 1rem;
   margin: 0rem;
   white-space: nowrap;
+}
+
+/* Stack vertically when screen is too small */
+@media (max-width: 500px) {
+  .meeting-card .button-group {
+    flex-direction: column;
+    gap: 6px;
+  }
 }
 
 .meeting-card {
@@ -1190,7 +1198,7 @@ a {
 /* ===========================
     Create Meetings  Styles
    =========================== */
- .date-time-grid {
+.date-time-grid {
   display: flex;
   flex-direction: column;
 }
@@ -1201,7 +1209,7 @@ a {
   flex-wrap: wrap;
 }
 
-.time-grid > div {
+.time-grid>div {
   flex: 1 1 120px;
   box-sizing: border-box;
 }
@@ -1269,4 +1277,121 @@ a {
 
 .input-error {
   border: 1px solid var(--danger-color);
+}
+
+
+/* ===========================
+          Page Not Found
+   =========================== */
+.notfound-container {
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  text-align: center;
+}
+
+.notfound-card {
+  padding: 3rem 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  max-width: 450px;
+  width: 100%;
+  background-color: white;
+}
+
+.notfound-code {
+  font-size: 5rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem 0;
+  color: var(--text-color);
+}
+
+.notfound-title {
+  font-size: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-color-active);
+}
+
+.notfound-text {
+  font-size: 1rem;
+  margin-bottom: 2rem;
+  line-height: 1.5;
+  color: var(--text-color-active);
+}
+
+.notfound-footer {
+  margin-top: 2rem;
+  color: var(--text-color);
+  font-size: 0.875rem;
+}
+
+/* ===========================
+          Loading
+   =========================== */
+/* Skeleton animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+/* Apply shimmer effect when in skeleton mode */
+.skeleton {
+  pointer-events: none;
+  position: relative;
+}
+
+.skeleton .skeleton-line {
+  display: inline-block;
+  border-radius: 6px;
+  background: linear-gradient(90deg,
+      #f3f4f6 25%,
+      #e5e7eb 50%,
+      #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-line {
+  height: 14px;
+  width: 100%;
+}
+
+.skeleton-line.short {
+  width: 20%;
+}
+
+.skeleton-line.small {
+  width: 50px;
+  height: 10px;
+}
+
+.skeleton-line.type {
+  width: 80px;
+  height: 16px;
+}
+
+.meeting-card.skeleton .skeleton-line {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.skeleton-button {
+  margin-left: 1rem;
+  flex-shrink: 0;
+  margin: 0rem;
+  white-space: nowrap;
+  width: 20%;
+  height: 32px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }
