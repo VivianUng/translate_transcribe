@@ -1,21 +1,41 @@
-//////////////////////
-// using python SpeechRecognition + recognise_google (/transcribe)
-// recording : one-off transcription (still used in translator and summarizer page)
-//
-// using WebSocket + Whisper base model transcribe
-// streaming : near-real-time (2s) (implemented in conversation and ongoing meeting page)
-//////////////////////
-
 // utils/transcription.js
+
+/**
+ * @file Transcription Utilities
+ * @description
+ * This module provides transcription utilities for:
+ *  - One-off transcription (using Python backend API)
+ *  - Real-time transcription via WebSocket (Whisper model)
+ *
+ * Modes:
+ * - Recording Mode (Translator/Summarizer pages): Uses `/transcribe` REST API
+ * - Streaming Mode (Conversation/Meeting pages): Uses WebSocket for continuous transcription
+ */
+
 import { toast } from "react-hot-toast";
 
-//--- Helper: convert Blob to File ---
+/**
+ * Converts a Blob into a File object for backend upload.
+ *
+ * @param {Blob} blob - The audio data blob.
+ * @param {string} filename - The name of the resulting file.
+ * @returns {File} - A new File object based on the blob.
+ */
 function blobToFile(blob, filename) {
   return new File([blob], filename, { type: blob.type });
 }
 
 
-// --- API Call: Transcribe Audio ---
+/**
+ * Sends a single audio file to the backend for transcription.
+ *
+ * @async
+ * @function transcribeAudio
+ * @param {Blob} blob - The recorded audio blob to transcribe.
+ * @param {string} inputLang - The language code (in libretranslate format).
+ * @returns {Promise<string>} The transcribed text.
+ * @throws {Error} If the transcription API fails or returns an error.
+ */
 export async function transcribeAudio(blob, inputLang) {
   const formData = new FormData();
   formData.append("file", blobToFile(blob, "recording.webm"));
@@ -36,7 +56,22 @@ export async function transcribeAudio(blob, inputLang) {
 
 
 
-// --- MIC RECORDING LOGIC ---
+//  MIC RECORDING LOGIC 
+/**
+ * Starts microphone recording and sends the audio for transcription when stopped.
+ *
+ * @async
+ * @function startMicRecording
+ * @param {Object} params - Configuration parameters.
+ * @param {React.RefObject<MediaRecorder|null>} params.micRecorderRef - Ref for the MediaRecorder instance.
+ * @param {React.RefObject<Blob[]>} params.audioChunks - Ref to store recorded audio chunks.
+ * @param {Function} params.setListening - React state setter for listening state.
+ * @param {Function} params.setRecordingType - React state setter for recording type.
+ * @param {Function} [params.onTranscription] - Callback to handle transcribed text.
+ * @param {Function} [params.onAudioReady] - Callback triggered when audio is ready.
+ * @param {string} params.inputLang - Input language code.
+ * @returns {Promise<void>}
+ */
 export async function startMicRecording({
   micRecorderRef,
   audioChunks,
@@ -48,6 +83,7 @@ export async function startMicRecording({
 }) {
   let stream;
   try {
+    // Request microphone access
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
     // Check if any audio tracks exist
@@ -60,16 +96,19 @@ export async function startMicRecording({
     micRecorderRef.current = new MediaRecorder(stream);
     audioChunks.current = [];
 
+    // Collect audio data chunks
     micRecorderRef.current.ondataavailable = (event) => {
       if (event.data.size > 0) audioChunks.current.push(event.data);
     };
 
+    // Recording started
     micRecorderRef.current.onstart = () => {
       setListening(true);
       setRecordingType("mic");
       if (onTranscription) onTranscription(""); // clear transcription
     };
 
+    // Recording stopped --> send for transcription
     micRecorderRef.current.onstop = async () => {
       const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
       if (onAudioReady) onAudioReady(audioBlob);
@@ -95,6 +134,7 @@ export async function startMicRecording({
     // Stop any partially obtained tracks
     if (stream) stream.getTracks().forEach(track => track.stop());
 
+    // Handle permission or hardware errors
     if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
       toast.error(`Permission required for Microphone ${err.name}`);
     } else if (err.name === 'NotFoundError') {
@@ -106,7 +146,23 @@ export async function startMicRecording({
 }
 
 
-// --- SCREEN RECORDING LOGIC ---
+//  SCREEN RECORDING LOGIC 
+/**
+ * Starts recording system audio from screen sharing and transcribes it after stop.
+ *
+ * @async
+ * @function startScreenRecording
+ * @param {Object} params - Configuration parameters.
+ * @param {React.RefObject<MediaStream|null>} params.screenStreamRef - Ref for screen stream.
+ * @param {React.RefObject<MediaRecorder|null>} params.screenRecorderRef - Ref for recorder.
+ * @param {React.RefObject<Blob[]>} params.audioChunks - Ref for audio chunks.
+ * @param {Function} params.setListening - React state setter for listening state.
+ * @param {Function} params.setRecordingType - React state setter for recording type.
+ * @param {Function} [params.onTranscription] - Callback for transcription results.
+ * @param {Function} [params.onAudioReady] - Callback when audio is ready.
+ * @param {string} params.inputLang - Input language code.
+ * @returns {Promise<void>}
+ */
 export async function startScreenRecording({
   screenStreamRef,
   screenRecorderRef,
@@ -119,6 +175,7 @@ export async function startScreenRecording({
 }) {
   let stream;
   try {
+    // Request screen (with audio) access
     stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
 
     // Check if audio track exists
@@ -136,6 +193,7 @@ export async function startScreenRecording({
     screenRecorderRef.current = new MediaRecorder(audioStream);
     audioChunks.current = [];
 
+    // Collect audio chunks
     screenRecorderRef.current.ondataavailable = (event) => {
       if (event.data.size > 0) audioChunks.current.push(event.data);
     };
@@ -146,6 +204,7 @@ export async function startScreenRecording({
       if (onTranscription) onTranscription(""); // clear previous transcription
     };
 
+    // Stop recording and transcribe
     screenRecorderRef.current.onstop = async () => {
       const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
       if (onAudioReady) onAudioReady(audioBlob);
@@ -184,7 +243,7 @@ export async function startScreenRecording({
   } catch (err) {
     // Stop any partially obtained tracks
     if (stream) stream.getTracks().forEach(track => track.stop());
-
+    // Handle permission and hardware errors
     if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
       toast.error("Permission required to share system audio.");
     } else if (err.name === 'NotFoundError') {
@@ -196,7 +255,13 @@ export async function startScreenRecording({
 }
 
 
-// --- STOP HELPERS ---
+//  STOP HELPERS 
+/**
+ * Stops screen sharing stream.
+ *
+ * @function stopScreenSharing
+ * @param {React.RefObject<MediaStream|null>} screenStreamRef - Ref to the active screen stream.
+ */
 export function stopScreenSharing(screenStreamRef) {
   if (screenStreamRef.current) {
     screenStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -204,6 +269,18 @@ export function stopScreenSharing(screenStreamRef) {
   }
 }
 
+/**
+ * Stops any ongoing recording (mic or screen).
+ *
+ * @function stopRecording
+ * @param {Object} params - Recording context parameters.
+ * @param {"mic"|"screen"} params.recordingType - The current recording mode.
+ * @param {React.RefObject<MediaRecorder|null>} params.micRecorderRef - Mic recorder reference.
+ * @param {React.RefObject<MediaRecorder|null>} params.screenRecorderRef - Screen recorder reference.
+ * @param {React.RefObject<MediaStream|null>} params.screenStreamRef - Screen stream reference.
+ * @param {Function} params.setListening - State setter for listening.
+ * @param {Function} params.setRecordingType - State setter for recording type.
+ */
 export function stopRecording({
   recordingType,
   micRecorderRef,
@@ -226,7 +303,14 @@ export function stopRecording({
 // Using streaming (websocket) with Whisper 
 ///////////////////////////////////////////////////
 
-// --- Helper: convert Float32Array to 16-bit PCM ---
+/**
+ * Converts a Float32Array of audio data into a 16-bit PCM ArrayBuffer.
+ * Required for sending raw audio chunks to backend via WebSocket
+ *
+ * @function float32To16BitPCM
+ * @param {Float32Array} float32Array - The input audio data.
+ * @returns {ArrayBuffer} - PCM-encoded audio buffer.
+ */
 export function float32To16BitPCM(float32Array) {
   const buffer = new ArrayBuffer(float32Array.length * 2);
   const view = new DataView(buffer);
@@ -239,14 +323,26 @@ export function float32To16BitPCM(float32Array) {
 }
 
 
-// ---------------- COMMON AUDIO STREAMING ----------------
+//  COMMON AUDIO STREAMING 
 
 let recorder;
 let chunks = [];
 let pendingChunks = [];
 
 /**
- * Start either mic, screen or both streaming
+ * Starts real-time audio streaming to the backend via WebSocket.
+ *
+ * @function startAudioStreaming
+ * @param {Object} params - Configuration options.
+ * @param {"mic"|"screen"|"both"} params.sourceType - Type of audio source to capture.
+ * @param {Function} params.setTranscription - State setter for updating transcription text in UI.
+ * @param {Function} params.setListening - State setter to mark listening/recording state.
+ * @param {Function} params.setRecordingType - State setter to indicate recording source type.
+ * @param {string} params.inputLang - Input language code (or `"auto"` for language auto-detection).
+ * @param {Function} params.setDetectedLang - Callback to update detected language dynamically.
+ * @returns {Promise<Object|undefined>} Returns an object containing WebSocket and audio context references, or `undefined` on error.
+ *
+ * @throws {DOMException} When user denies microphone/screen access or no audio device is available.
  */
 export async function startAudioStreaming({
   sourceType, // 'mic' | 'screen' | 'both'
@@ -339,20 +435,6 @@ export async function startAudioStreaming({
     while (pendingChunks.length > 0) ws.send(pendingChunks.shift());
   };
 
-  // // Without retranscription : 
-  // ws.onmessage = (event) => {
-  //   const data = JSON.parse(event.data);
-  //   if (data.partial_text) {
-  //     setTranscription(prev => prev.endsWith(data.partial_text) ? prev : prev + " " + data.partial_text);
-  //   }
-  //   if (data.detected_lang) {
-  //     if (inputLang === "auto") {
-  //       setDetectedLang(prev => prev !== data.detected_lang ? data.detected_lang : prev);
-  //     }
-  //   }
-  //   if (data.error) console.error("Transcription error:", data.error);
-  // };
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   // Buffers for transcription
   let finalText = "";        // Holds finalized retranscribed text
@@ -401,6 +483,7 @@ export async function startAudioStreaming({
   ws.onclose = () => console.log(`WebSocket closed (${sourceType} streaming)`);
 
   // STEP 3: AudioContext + Worklet
+  // Process audio into 16-bit PCM chunks and send to WebSocket
   const audioContext = new AudioContext({ sampleRate: 16000 });
   const source = audioContext.createMediaStreamSource(stream);
   await audioContext.audioWorklet.addModule("/audio-processor.js");
@@ -415,7 +498,7 @@ export async function startAudioStreaming({
   source.connect(pcmNode);
   pcmNode.connect(audioContext.destination);
 
-  // STEP 4: recorder setup
+  // STEP 4: recorder setup (for playback)
   recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
   chunks = [];
   recorder.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data);
@@ -435,8 +518,20 @@ export async function startAudioStreaming({
   return { ws, stream, audioContext, source, pcmNode };
 }
 
+
 /**
- * Stop streaming (both mic or screen)
+ * Gracefully stops active audio streaming, closes connections, and finalizes recorded data.
+ *
+ * @function stopAudioStreaming
+ * @param {Object} params - Cleanup parameters.
+ * @param {WebSocket} params.ws - Active WebSocket connection.
+ * @param {MediaStream} params.stream - Active audio media stream.
+ * @param {AudioContext} params.audioContext - The active AudioContext.
+ * @param {MediaStreamAudioSourceNode} params.source - The source node connected to the AudioContext.
+ * @param {AudioWorkletNode} params.pcmNode - PCM processor node for encoding.
+ * @param {Function} params.setListening - State setter for listening state.
+ * @param {Function} params.setRecordingType - State setter for recording type.
+ * @param {Function} [params.onAudioReady] - Optional callback invoked with final audio Blob.
  */
 export function stopAudioStreaming({
   ws,

@@ -219,7 +219,7 @@ export default function RecordDetailsPage() {
             let result = "";
             let filteredText = formData.input_text;
 
-            // --- Cache checks ---
+            //  Cache checks 
             const matchesRecord =
                 formData.input_text === record.input_text &&
                 formData.output_lang === record.output_lang;
@@ -228,7 +228,7 @@ export default function RecordDetailsPage() {
                 formData.input_text === lastProcessed.input_text &&
                 formData.output_lang === lastProcessed.output_lang;
 
-            // --- Case 1: Exact match with cache → reuse directly ---
+            //  Case 1: Exact match with cache --> reuse directly
             if (matchesRecord) {
                 result = record.output_text;
             }
@@ -236,7 +236,7 @@ export default function RecordDetailsPage() {
                 result = lastProcessed.output_text;
             }
             else {
-                // --- Validation if input_text changed from both caches ---
+                // Validation if input_text changed from both caches
                 const inputChanged =
                     formData.input_text !== record.input_text &&
                     formData.input_text !== lastProcessed.input_text;
@@ -260,27 +260,27 @@ export default function RecordDetailsPage() {
                     setFormData((prev) => ({ ...prev, input_text: validatedText }));
                 }
 
-                // --- Case 2: Processing based on type ---
+                // Case 2: Processing based on type
                 if (type === "summary") {
                     const inputMatchesRecord = formData.input_text === record.input_text;
                     const inputMatchesLast = formData.input_text === lastProcessed.input_text;
 
                     if (inputMatchesRecord) {
-                        // Same input, new output lang → translate record’s summary
+                        // Same input, new output lang --> translate record’s summary
                         result = await translateText(
                             record.output_text,
                             record.output_lang,
                             formData.output_lang
                         );
                     } else if (inputMatchesLast) {
-                        // Same input, new output lang → translate lastProcessed summary
+                        // Same input, new output lang --> translate lastProcessed summary
                         result = await translateText(
                             lastProcessed.output_text,
                             lastProcessed.output_lang,
                             formData.output_lang
                         );
                     } else {
-                        // New input text → must re-summarize
+                        // New input text --> must re-summarize
                         result = await summarizeText(
                             filteredText,
                             formData.input_lang,
@@ -296,7 +296,7 @@ export default function RecordDetailsPage() {
                 }
             }
 
-            // --- Save result ---
+            // Save result
             setFormData((prev) => ({ ...prev, output_text: result }));
             setLastProcessed({
                 input_text: formData.input_text,

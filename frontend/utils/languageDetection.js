@@ -1,4 +1,27 @@
+// utils/languageDetection.js
+/**
+ * Utility functions for text validation and language detection.
+ * 
+ * This module includes:
+ *  - `filterValidText`: Validates input text to ensure it contains meaningful characters.
+ *  - `detectAndValidateLanguage`: Performs input validation, language auto-detection (if required),
+ *    and checks for text length and quality before translation, summarization, or transcription.
+ */
+
+
+/**
+ * Filters and validates the input text to ensure it is meaningful and suitable for processing.
+ *
+ * The function removes or replaces excessive special characters, checks if the text contains
+ * valid letters/numbers, and rejects text with too much noise (eg., mostly symbols).
+ *
+ * @param {string} inputText - The text to validate and clean.
+ * @returns {Object} - An object with:
+ *   - `valid`: Boolean indicating whether the text is valid.
+ *   - `filteredText`: The cleaned-up version of the text or `null` if invalid.
+ */
 function filterValidText(inputText) {
+  // Reject empty or whitespace-only input
   if (!inputText || !inputText.trim()) {
     return { valid: false, filteredText: null };
   }
@@ -12,12 +35,14 @@ function filterValidText(inputText) {
   let filteredChars = [];
   let specialSequence = [];
 
+  // Iterate through each character to remove excessive special symbols
   for (const char of inputText) {
     if (/\p{L}|\p{N}/u.test(char)) {
-      // Flush special sequence
+      // If letters or numbers appear, handle any pending special sequence
       if (specialSequence.length > 0) {
         const nonSpaceCount = specialSequence.filter(c => !/\s/.test(c)).length;
         if (nonSpaceCount < 3) {
+          // Keep short symbol sequences
           filteredChars.push(...specialSequence);
         } else {
           // Replace removed chunk with a single space
@@ -45,9 +70,10 @@ function filterValidText(inputText) {
     }
   }
 
+  // Join filtered characters into a cleaned string
   let filteredText = filteredChars.join("");
 
-  // Count non-space characters
+  // Compare the ratio of removed vs. retained characters
   const originalChars = [...inputText].filter(c => !/\s/.test(c)).length;
   const remainingChars = [...filteredText].filter(c => !/\s/.test(c)).length;
   const removedChars = originalChars - remainingChars;
@@ -61,7 +87,27 @@ function filterValidText(inputText) {
 }
 
 
+/**
+ * Validates text input and optionally detects its language.
+ *
+ * This function performs several checks before proceeding to translation/summarization:
+ *  1. Ensures input text is not empty.
+ *  2. Enforces source-specific character length limits.
+ *  3. Filters invalid or noisy text using `filterValidText`.
+ *  4. Auto-detects the input language if `inputLang` is set to `"auto"`.
+ *
+ * @param {string} source - The feature using the text (eg., "translator", "summarizer", "meetings").
+ * @param {string} inputLang - The input language code or "auto" for auto-detection.
+ * @param {string} inputText - The user's input text.
+ * @returns {Promise<Object>} - A result object containing:
+ *   - `valid`: Whether the input is valid.
+ *   - `detectedLang`: The detected or user-specified language.
+ *   - `filteredText`: The cleaned version of the input text.
+ *   - `confidence`: Detection confidence (0–100).
+ *   - `message`: Status or error message for user feedback.
+ */
 export async function detectAndValidateLanguage(source, inputLang, inputText) {
+  // Step 1: Reject empty input
   if (!inputText.trim()) {
     return {
       valid: false,
@@ -72,6 +118,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
     };
   }
 
+  // Step 2: Define maximum allowed input lengths based on feature type
   const limits = {
     translator: 9000,
     summarizer: 30000,
@@ -82,6 +129,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
 
   const maxLength = limits[source] ?? limits.default;
 
+  // Enforce text length limit
   if (inputText.length > maxLength) {
     return {
       valid: false,
@@ -92,6 +140,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
     };
   }
 
+  // For summarizer, ensure minimum input size for meaningful results
   const minLengthSummary = 1500;
   if (source === "summarizer") {
     if (inputText.length < minLengthSummary) {
@@ -105,6 +154,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
     }
   }
 
+  // Step 3: Clean and validate text quality
   const filterRes = filterValidText(inputText);
 
   if (!filterRes.valid) {
@@ -122,7 +172,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
 
   let detectedLang = inputLang;
 
-  // Step 1: Auto-detect language
+  // Step 4: Auto-detect language if user selected "auto"
   if (inputLang === "auto") {
     const detectRes = await fetch(
       `${process.env.NEXT_PUBLIC_BACKEND_URL}/detect-language`,
@@ -140,6 +190,7 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
 
     detectedLang = detectData.detected_lang;
 
+    // Reject uncertain or unsupported detections
     if (detectData.confidence < 20 || detectedLang === "und") {
       return {
         valid: false,
@@ -157,16 +208,16 @@ export async function detectAndValidateLanguage(source, inputLang, inputText) {
       };
     }
 
+    // Successful detection
     return {
       valid: true,
       detectedLang,
       filteredText,
       confidence: detectData.confidence,
-      // message: `Detected language: ${detectedLang} (confidence: ${detectData.confidence})`,
     };
   }
 
-  // Step 2: User selected language
+  // Step 5: User selected language
   return {
     valid: true,
     detectedLang: inputLang,

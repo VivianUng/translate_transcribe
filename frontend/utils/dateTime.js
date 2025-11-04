@@ -1,6 +1,6 @@
 /**
  * Format a database date (YYYY-MM-DD) into a human-readable string
- * Example: "2025-09-24" → "Wed, Sep 24, 2025"
+ * Example: "2025-09-24" --> "Wed, Sep 24, 2025"
  */
 export const formatDate = (dateStr) => {
   if (!dateStr) return "";
@@ -18,7 +18,7 @@ export const formatDate = (dateStr) => {
 
 /**
  * Format a database time (HH:MM:SS) into local time
- * Example: "13:45:00" → "1:45 PM"
+ * Example: "13:45:00" --> "1:45 PM"
  */
 export const formatTime = (timeStr) => {
   if (!timeStr) return "";
@@ -40,7 +40,7 @@ export const formatTime = (timeStr) => {
 
 /**
  * Format a full timestamp into en-GB date (DD/MM/YYYY)
- * Example: "2025-09-24T13:45:30.000Z" → "24/09/2025"
+ * Example: "2025-09-24T13:45:30.000Z" --> "24/09/2025"
  */
 export const formatDateFromTimestamp = (timestamp) => {
   if (!timestamp) return "";
@@ -49,7 +49,7 @@ export const formatDateFromTimestamp = (timestamp) => {
 
 /**
  * Format a full timestamp into a human-readable string
- * Example: "2025-09-24T13:45:30.000Z" → "Wed, Sep 24, 2025"
+ * Example: "2025-09-24T13:45:30.000Z" --> "Wed, Sep 24, 2025"
  */
 export const formatPrettyDateFromTimestamp = (timestamp) => {
   if (!timestamp) return "";
@@ -66,7 +66,7 @@ export const formatPrettyDateFromTimestamp = (timestamp) => {
 
 /**
  * Format a full timestamp (created_at) into standardized local time (12-hour, AM/PM)
- * Example: "2025-09-24T13:45:30.000Z" → "09:45 PM"
+ * Example: "2025-09-24T13:45:30.000Z" --> "09:45 PM"
  */
 export const formatTimeFromTimestamp = (timestamp) => {
   if (!timestamp) return "";
@@ -83,7 +83,7 @@ export const formatTimeFromTimestamp = (timestamp) => {
 
 /**
  * Format a full timestamp into en-GB date and local time
- * Example: "2025-09-24T13:45:30.000Z" → "24/09/2025 9:45 PM"
+ * Example: "2025-09-24T13:45:30.000Z" --> "24/09/2025 9:45 PM"
  */
 export const formatDateTimeFromTimestamp = (timestamp) => {
   if (!timestamp) return "";

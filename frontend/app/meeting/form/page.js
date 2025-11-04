@@ -35,7 +35,7 @@ export default function MeetingFormPage() {
     useEffect(() => {
 
         if (!mode || (mode !== "create" && mode !== "update") || (mode === "update" && !meetingId)) {
-            // meetingId missing → redirect immediately
+            // meetingId missing --> redirect immediately
             router.push("/meeting?toast=pageNotFound");
             return;
         }

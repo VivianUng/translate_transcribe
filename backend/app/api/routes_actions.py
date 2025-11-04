@@ -333,7 +333,7 @@ async def detect_language(req: DetectLangRequest):
 async def translate(req: TranslateRequest,):
     """
     FastAPI Endpoint: POST /translate
-    -------------------------
+
     Translates input text from a source language to a target language
     using the LibreTranslate API.
 
@@ -384,7 +384,7 @@ async def translate(req: TranslateRequest,):
 async def summarize(req: SummarizeRequest):
     """
     FastAPI Endpoint: POST /summarize
-    -------------------------
+
     Generates a concise summary of the given input text using an AI language model.
     The system automatically selects an appropriate summarization model (T5 or LongT5)
     based on the input text length to ensure efficiency and accuracy.
@@ -463,7 +463,7 @@ async def extract_text(
 ):
     """
     FastAPI Endpoint: POST /extract-image-text
-    ----------------------------------
+
     Performs Optical Character Recognition (OCR) on an uploaded image to extract text.
     Uses Tesseract OCR to process the image in the specified language.
 
@@ -511,7 +511,7 @@ async def extract_doc_text(
 ):
     """
     FastAPI Endpoint: POST /extract-doc-text
-    --------------------------------
+
     Extracts text content from uploaded document files (PDF, DOCX, or TXT)
     The endpoint supports multilingual text extraction, preparing data for translation or summarization.
 

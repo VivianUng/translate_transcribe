@@ -639,7 +639,7 @@ a {
 /* ==========================
    Conversation & Summarize Page Styles
    ========================== */
-/* --- Audio Container --- */
+/* Audio Container */
 .audio-container {
   flex: 1 1 auto;
   min-width: 200px;

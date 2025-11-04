@@ -60,7 +60,6 @@ export default function NavBar() {
         {links.map(({ href, label }) => (
           <Link
             key={href}
-            // href={href}
             href={disableButtons ? "#" : href}
             className={pathname === href ? "active" : ""}
           >
@@ -98,7 +97,6 @@ export default function NavBar() {
           {links.map(({ href, label }) => (
             <Link
               key={href}
-              // href={href}
               href={disableButtons ? "#" : href}
               className={pathname === href ? "active" : ""}
               onClick={() => setMenuOpen(false)}

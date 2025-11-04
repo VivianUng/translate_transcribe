@@ -6,9 +6,9 @@ import { Mic, MonitorSpeaker, Headset, Circle } from "lucide-react";
 import LanguageSelect from "@/components/LanguageSelect"
 import StickyScrollCopyBox from "@/components/StickyScrollCopyBox"
 import { TooltipProvider } from "@/components/TooltipProvider";
-import { translateText } from "@/utils/translation";
 import useAuthCheck from "@/hooks/useAuthCheck";
 import useProfilePrefs from "@/hooks/useProfilePrefs";
+import { translateText } from "@/utils/translation";
 import { generatePDF } from "@/utils/pdfGenerator";
 import { detectAndValidateLanguage } from "@/utils/languageDetection";
 import { startAudioStreaming, stopAudioStreaming } from "@/utils/transcription";
@@ -17,37 +17,46 @@ import { useListening } from "@/contexts/ListeningContext";
 
 
 
+// Component: ConversationPage
+// This page allows users to record conversations (via mic or screen), 
+// transcribe them, translate them, and optionally save or download the results.
 export default function ConversationPage() {
+  // Authentication & Preferences
   const { isLoggedIn, session } = useAuthCheck({ redirectIfNotAuth: false, returnSession: true });
   const { prefs, prefsLoading } = useProfilePrefs(session, ["default_language", "auto_save_conversations",]);
-  const { listening, setListening } = useListening();
-  const [recordingType, setRecordingType] = useState(null); // "mic" or "screen" or "both"
-  const [transcription, setTranscription] = useState("");
-  const [translatedText, setTranslatedText] = useState("");
-  const [inputLang, setInputLang] = useState("auto");
-  const [targetLang, setTargetLang] = useState("en");
-  const [detectedLang, setDetectedLang] = useState("en");
-  const [message, setMessage] = useState("");
 
+  //  UI & Functional States 
+  const { listening, setListening } = useListening();         // shared context for listening state
+  const [recordingType, setRecordingType] = useState(null);   // "mic" or "screen" or "both"
+  const [transcription, setTranscription] = useState("");     // real-time transcription result
+  const [translatedText, setTranslatedText] = useState("");   // translated output
+  const [inputLang, setInputLang] = useState("auto");         // detected or selected input language
+  const [targetLang, setTargetLang] = useState("en");         // target translation language
+  const [detectedLang, setDetectedLang] = useState("en");     // detected speech language
+  const [message, setMessage] = useState("");                 // user messages / error display
+
+  // Trigger for translation websocket
   const [doTranslation, setDoTranslation] = useState(false);
   useTranslateWebSocket(inputLang, detectedLang, targetLang, transcription, doTranslation, setTranslatedText);
 
+  // Conversation Save & Download
   const [autoSave, setAutoSave] = useState(false);
   const [isSaved, setIsSaved] = useState(false); // track if conversation is saved
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [lastTranslatedInput, setLastTranslatedInput] = useState("");
   const [lastTranslatedLang, setLastTranslatedLang] = useState("");
 
+  // Processing States
+  const [translating, setTranslating] = useState(false);  // ongoing translation flag
+  const [saving, setSaving] = useState(false);            // saving conversation flag
 
-  const [translating, setTranslating] = useState(false); // for translation
-  const [saving, setSaving] = useState(false);   // for saving conversation
-
+  // Audio Handling
   const [audioSession, setAudioSession] = useState(null);
-
   const [audioURL, setAudioURL] = useState(null); // for playback
 
   const [mounted, setMounted] = useState(false);
 
+  // Disable translate button under certain conditions
   const translateDisabledReason = (() => {
     if (translating) return "Currently translating...";
     if (listening) return "Transcription in progress....";
@@ -63,7 +72,7 @@ export default function ConversationPage() {
 
   useEffect(() => {
     setMounted(true); // for react-select component
-  },[]);
+  }, []);
 
   // Whenever input or target language changes, reset isSaved
   useEffect(() => {
@@ -82,6 +91,7 @@ export default function ConversationPage() {
     }
   }, [prefsLoading, session, prefs]);
 
+  // Utility: Clear all transcription and translation displays
   function clearDisplay() {
     setIsSaved(false);
     setIsDownloaded(false);
@@ -93,6 +103,7 @@ export default function ConversationPage() {
   }
 
 
+  // Start recording/transcription from mic or screen
   const handleStart = async (sourceType) => {
     clearDisplay();
     const session = await startAudioStreaming({
@@ -106,6 +117,7 @@ export default function ConversationPage() {
     setAudioSession(session);
   };
 
+  // Stop recording/transcription and prepare audio for playback
   const handleStop = () => {
     if (!audioSession) return;
 
@@ -124,7 +136,7 @@ export default function ConversationPage() {
   };
 
 
-  // ---------- TRANSLATION ----------
+  // TRANSLATION
   async function handleTranslate() {
     setTranslating(true);
     setTranslatedText("");
@@ -166,6 +178,7 @@ export default function ConversationPage() {
     }
   }
 
+  // Create content dict and crete PDF to download
   const handleDownload = async () => {
     try {
       const data = {
@@ -180,6 +193,7 @@ export default function ConversationPage() {
     }
   };
 
+  // Save Conversation
   async function handleSaveConversation(
     input_text = transcription,
     output_text = translatedText
@@ -195,6 +209,7 @@ export default function ConversationPage() {
         return;
       }
 
+      // POST request to backend API
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/save`,
         {
@@ -302,7 +317,7 @@ export default function ConversationPage() {
                       : "Recording"}
               </span>
             )}
-            {/* --- Audio Playback Container --- */}
+            {/* Audio Playback Container */}
             <div className="audio-container">
               {audioURL && <audio controls src={audioURL}></audio>}
             </div>

@@ -1,3 +1,6 @@
+// This is the main layout file for this System. It wraps all pages with global providers,
+// shared UI components (NavBar, Toast notifications), and suspense boundaries for async loading.
+
 import "../styles/styles.css";
 import { Suspense } from "react";
 import NavBar from '../components/NavBar';

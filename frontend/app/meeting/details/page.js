@@ -414,7 +414,7 @@ export default function MeetingDetailsPage() {
         if (!doSummarization || role !== "participant") return;
 
         if (!enSummary && transcription) {
-            // No host summary → fall back to own summarization
+            // No host summary --> fall back to own summarization
             const words = transcription.split(/\s+/);
             if (words.length - lastSummarizedIndex.current < 50) return;
 
@@ -422,9 +422,8 @@ export default function MeetingDetailsPage() {
         }
     }, [enSummary, transcription, doSummarization, role, throttledSummarize]);
 
-    // -----------------------
+
     // Recording functions (host only)
-    // -----------------------
     const handleStart = async (sourceType) => {
         const session = await startAudioStreaming({
             sourceType,
@@ -452,7 +451,7 @@ export default function MeetingDetailsPage() {
 
 
 
-    // --- update page title ---
+    //  update page title 
     const getPageTitle = () => {
         if (status === "ongoing") return "Ongoing Meeting";
         if (status === "past") return "Past Meeting";
@@ -485,7 +484,7 @@ export default function MeetingDetailsPage() {
                 setDoSummarization(false);
 
 
-                // 2. Update meeting status → "past"
+                // 2. Update meeting status --> "past"
                 const res = await fetch(
                     `${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings/${meetingId}/status`,
                     {
@@ -672,7 +671,7 @@ export default function MeetingDetailsPage() {
             await handleEndMeeting();
         }
 
-        // --- Navigate after cleanup ---
+        // Navigate after cleanup 
         router.push("/meeting");
     };
 

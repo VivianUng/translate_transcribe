@@ -1,5 +1,17 @@
 import { useEffect, useRef } from "react";
 
+/**
+ * Custom React hook that manages a WebSocket connection for real-time text translation.
+ * It supports incremental word-by-word translation and periodic sentence retranslation
+ * for improved accuracy.
+ *
+ * @param {string} inputLang - The language of the input text (can be 'auto' for auto-detection).
+ * @param {string} detectedLang - The language detected automatically from input text.
+ * @param {string} targetLang - The target language to translate into.
+ * @param {string} inputText - The input text stream to be translated.
+ * @param {boolean} enabled - Flag to enable or disable translation (controls WebSocket lifecycle).
+ * @param {Function} setTranslation - Callback to update the translated text in the UI.
+ */
 export function useTranslateWebSocket(
   inputLang,
   detectedLang,
@@ -25,7 +37,11 @@ export function useTranslateWebSocket(
     detectedLangRef.current = detectedLang;
   }, [inputLang, targetLang, detectedLang]);
 
-  // Helper to get the *actual* language to use
+  /**
+   * Determines the effective input language.
+   * If auto-detection is enabled, uses the detected language instead.
+   * @returns {string} - The actual input language used for translation.
+   */
   const getEffectiveInputLang = () => {
     if (inputLangRef.current === "auto" && detectedLangRef.current) {
       return detectedLangRef.current;
@@ -33,7 +49,10 @@ export function useTranslateWebSocket(
     return inputLangRef.current;
   };
 
-  // Safe send wrapper
+  /**
+   * Safely sends a message through the WebSocket if it is open.
+   * @param {Object} messageObj - The message object to send.
+   */
   const safeSend = (messageObj) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -47,7 +66,7 @@ export function useTranslateWebSocket(
     }
   };
 
-  // --- Initialize websocket ONCE ---
+  //  Initialize websocket ONCE  (runs only once when enabled = true)
   useEffect(() => {
     if (!enabled || wsRef.current) return;
 
@@ -56,6 +75,7 @@ export function useTranslateWebSocket(
 
     ws.onopen = () => {
       console.log("Translate WebSocket connected");
+      // Send initialization message with current languages
       safeSend({
         type: "init",
         inputLang: getEffectiveInputLang(),
@@ -67,10 +87,13 @@ export function useTranslateWebSocket(
       try {
         const data = JSON.parse(event.data);
 
+        // Handle incoming translation results
         if (data.translated_text) {
           if (data.mode === "incremental") {
+            // Append word-by-word translation
             translatedWordBufferRef.current.push(data.translated_text);
           } else if (data.mode === "refresh") {
+            // Replace recent segment with refreshed translation
             const refreshedWords = data.translated_text.trim().split(/\s+/);
             translatedWordBufferRef.current.splice(
               -RETRANSLATE_INTERVAL,
@@ -78,6 +101,7 @@ export function useTranslateWebSocket(
               ...refreshedWords
             );
           }
+          // Clean and update translated text
           const cleanText = translatedWordBufferRef.current.join(" ").replace(/[^\p{L}\p{N}\p{P}\p{Zs}]/gu, "");
           setTranslation(cleanText);
 
@@ -107,7 +131,7 @@ export function useTranslateWebSocket(
     };
   }, [enabled]);
 
-  // --- Update language change ---
+  //  Update language change 
   useEffect(() => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -120,27 +144,31 @@ export function useTranslateWebSocket(
     console.log(`Language updated : ${effectiveInputLang} to ${targetLangRef.current}`);
   }, [inputLang, targetLang, detectedLang]);
 
-  // --- Incremental translation updates ---
+  //  Incremental translation updates 
   useEffect(() => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN || !inputText) return;
 
+    // Split input text into words and detect new additions
     const words = inputText.trim().split(/\s+/);
     if (words.length <= lastSentIndexRef.current) return;
 
     const newWords = words.slice(lastSentIndexRef.current);
     lastSentIndexRef.current = words.length;
 
+    // Process each new word for translation
     for (const word of newWords) {
       totalWordBufferRef.current.push(word);
       wordsSinceRefreshRef.current++;
 
+      // Send incremental translation request
       safeSend({
         type: "translate",
         mode: "incremental",
         text: word,
       });
 
+      // Periodic refresh for improved accuracy
       if (wordsSinceRefreshRef.current >= RETRANSLATE_INTERVAL) {
         const lastWords = totalWordBufferRef.current.slice(-RETRANSLATE_INTERVAL);
         safeSend({
@@ -153,7 +181,7 @@ export function useTranslateWebSocket(
     }
   }, [inputText]);
 
-  // --- Final refresh when disabling translation ---
+  //  Final refresh when disabling translation 
   useEffect(() => {
     if (!enabled) {
       const ws = wsRef.current;
@@ -168,6 +196,7 @@ export function useTranslateWebSocket(
           mode: "refresh",
           text: lastWords.join(" "),
         });
+        // Close WebSocket gracefully after final refresh
         setTimeout(() => {
           if (ws.readyState === WebSocket.OPEN) ws.close();
         }, 2000);
