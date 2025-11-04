@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"cd ../backend && libretranslate\" \"cd ../backend && uvicorn main:app --port 10000\" \"next dev --turbopack\"",
-    "dev:https": "concurrently \"cd ../backend && libretranslate\" \"cd ../backend && uvicorn main:app --port 10000\" \"ngrok http 10000\" \"next dev --turbopack --experimental-https\"",
+    "dev": "concurrently \"cd ../backend && libretranslate\" \"cd ../backend && uvicorn main:app\" \"next dev --turbopack\"",
+    "dev:https": "concurrently \"cd ../backend && libretranslate\" \"cd ../backend && uvicorn main:app\" \"ngrok http 8000\" \"next dev --turbopack --experimental-https\"",
     "dev:frontend": "next dev --turbopack",
-    "dev:backend": "concurrently \"cd ../backend && libretranslate\" \"cd ../backend && uvicorn main:app --port 10000\" \"ngrok http 10000\"",
+    "dev:backend": "concurrently \"cd ../backend && libretranslate\" \"cd ../backend && uvicorn main:app\" \"ngrok http 8000\"",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint"

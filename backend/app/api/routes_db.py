@@ -1,17 +1,53 @@
-from ..core.supabase_client import supabase
-from app.models import SignupRequest, ProfileUpdateRequest, CreateMeetingPayload, GenericSavePayload, UpdateMeetingPayload, RecordUpdatePayload, StatusUpdatePayload, MeetingUpdatePayload, MeetingDetailsUpdatePayload, MeetingSavePayload
-from app.auth import get_current_user
-from fastapi import APIRouter, Depends, HTTPException, Request
+# backend/app/api/routes_db.py
+"""
+This module defines the FastAPI router for database-related operations 
+in the AI-Enhanced Live Transcription & Translation System. 
 
+It includes FastAPI endpoints that interact with the Supabase database for:
+- User profile management (signup, update, delete)
+- Generic record saving, updating, deleting (translations, transcriptions, summaries)
+- Meeting management
+- Access to Supabase Custom RPC functions
+
+All routes in this module typically:
+- Use Supabase as the main database interface
+- Depend on user authentication via get_current_user
+- Handle structured request models defined in app.models
+"""
+from ..core.supabase_client import supabase # Supabase client instance for DB interaction
+from app.models import (
+    SignupRequest, 
+    ProfileUpdateRequest, 
+    CreateMeetingPayload, 
+    GenericSavePayload, 
+    UpdateMeetingPayload, 
+    RecordUpdatePayload, 
+    StatusUpdatePayload, 
+    MeetingUpdatePayload, 
+    MeetingDetailsUpdatePayload, 
+    MeetingSavePayload)
+from app.auth import get_current_user  # Authentication dependency for protected routes
+from fastapi import APIRouter, Depends, HTTPException
+
+# Initialize router for all database-related API endpoints
 router = APIRouter()
 
 @router.get("/email_exists/")
 async def email_exists(email: str, current_user=Depends(get_current_user)):
     """
-    Check if an email exists in the profiles table.
-    Returns {"exists": True/False}.
+    Check if a given email address already exists in the user profiles table.
+    This endpoint uses a Supabase stored procedure (RPC) named 'email_exists'
+    which checks for the existence of the email in the database.
+
+    Parameters:
+    - email (str): The email address to check.
+    - current_user: The currently authenticated user (validated via dependency).
+
+    Returns:
+    - dict: {"exists": True} if the email exists, {"exists": False} otherwise.
     """
     try:
+        # Call the Supabase procedure to check if the email exists
         res = supabase.rpc("email_exists", {"check_email": email}).execute()
 
         exists = False
@@ -26,9 +62,24 @@ async def email_exists(email: str, current_user=Depends(get_current_user)):
 @router.post("/signup")
 async def signup(request: SignupRequest):
     """
-    Signup a new user: check if email exists, then create user in Supabase Auth.
+    Register a new user account in the system.
+    Signup a new user: check if email exists, then create user in Supabase Auth and profiles table.
+
+    Parameters:
+    - request (SignupRequest): A Pydantic model containing `email`, `password`,
+      `full_name`, and `origin` for redirect configuration.
+
+    Returns:
+    - dict: A JSON object containing:
+        - "status": "success" | "exists"
+        - "message": Explanation of the result
+        - "user_id": Newly created user ID if successful
+
+    Raises:
+    - HTTPException(500): If Supabase authentication or database operation fails.
     """
     try:
+        # 1. Check if email already exists
         email_check = await email_exists(email=request.email)
         if email_check["exists"]:
             return {
@@ -36,12 +87,12 @@ async def signup(request: SignupRequest):
                 "message": "This email is already registered. Please log in instead."
             }
         
-        # Create new user in Supabase Auth
+        # 2. Create new user in Supabase Auth
         auth_res = supabase.auth.sign_up({
             "email": request.email,
             "password": request.password,
-            "options": {"data": {"full_name": request.full_name},
-                        "email_redirect_to": f'{request.origin}/'}
+            "options": {"data": {"full_name": request.full_name},  # Save user’s name in metadata
+                        "email_redirect_to": f'{request.origin}/'} # Redirect link in email confirmation
             }
         )
 
@@ -60,7 +111,14 @@ async def signup(request: SignupRequest):
 
 @router.get("/profile")
 async def get_profile(current_user=Depends(get_current_user)):
+    """
+    Retrieve the profile information of the currently authenticated user.
+
+    Returns:
+    - dict: User profile data from the database.
+    """
     try:
+        # Query the user's profile from Supabase
         result = (
             supabase.table("profiles")
             .select("*")
@@ -83,18 +141,30 @@ async def update_profile(
     current_user=Depends(get_current_user),
 ):
     """
-    Update the current user's profile.
+    Update the authenticated user's profile information.
+
+    Steps:
+    1. Validate required fields (e.g., name cannot be empty).
+    2. Update the 'profiles' table with new preferences and settings.
+    3. Sync updated name with Supabase Auth user metadata (full_name).
+
+    Parameters:
+    - profile_data (ProfileUpdateRequest): Object containing fields to update,
+      including preferences and default language.
+    - current_user: Automatically retrieved authenticated user object.
+
+    Returns:
+    - dict: Confirmation message indicating successful update.
     """
+    # Validate name before proceeding
     if not profile_data.name:
         raise HTTPException(status_code=400, detail="Name cannot be empty.")
 
     try:
-        # Update profile table
+        # Update profile fields in the 'profiles' table
         profile_res = supabase.table("profiles").update(
             {
-                "id": current_user.id,
                 "name": profile_data.name,
-                "email": profile_data.email,
                 "auto_save_translations": profile_data.auto_save_translations,
                 "auto_save_summaries": profile_data.auto_save_summaries,
                 "auto_save_conversations": profile_data.auto_save_conversations,
@@ -118,12 +188,24 @@ async def update_profile(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/save")
 async def save_item(payload: GenericSavePayload, current_user=Depends(get_current_user)):
     """
-    Save translation/summary/conversation for authenticated user
+    Save a translation, summary, or conversation record for the authenticated user.
+
+    Parameters:
+    - payload (GenericSavePayload): Contains input and output text and language details.
+    - current_user: The currently authenticated user.
+
+    Returns:
+    - dict: Confirmation message indicating the record has been saved.
+
+    Raises:
+    - HTTPException(400): If an error occurs during database insertion.
     """
     try:
+        # Map record types to actual database tables
         table_map = {
             "translation": "translations",
             "summary": "summaries",
@@ -131,6 +213,7 @@ async def save_item(payload: GenericSavePayload, current_user=Depends(get_curren
         }
         table_name = table_map[payload.type]
 
+        # Insert record into respective table
         result = (
             supabase.table(table_name)
             .insert({
@@ -158,6 +241,12 @@ ALLOWED_RECORD_TYPES = {
 }
 
 def get_table(record_type: str):
+    """
+    Validate and return the database table name for a given record type.
+
+    Raises:
+    - HTTPException(400): If the record type is not supported.
+    """
     table = ALLOWED_RECORD_TYPES.get(record_type)
     if not table:
         raise HTTPException(status_code=400, detail="Invalid record type")
@@ -166,8 +255,25 @@ def get_table(record_type: str):
 # GET record
 @router.get("/records/{record_type}/{record_id}")
 async def get_record(record_type: str, record_id: str, current_user=Depends(get_current_user)):
+    """
+    Retrieve a specific record (translation, summary, conversation, or meeting detail)
+    for the authenticated user by record ID.
+
+    Parameters:
+    - record_type (str): Type of record
+    - record_id (str): Unique record ID.
+    - current_user: The authenticated user.
+
+    Returns:
+    - dict: The requested record data.
+
+    Raises:
+    - HTTPException(404): If the record does not exist.
+    - HTTPException(400): If there is an error fetching the record.
+    """
     try:
         table = get_table(record_type)
+        # Retrieve record from Supabase
         result = (
             supabase.table(table)
             .select("*")
@@ -194,9 +300,25 @@ async def update_record(
     payload: RecordUpdatePayload,
     current_user=Depends(get_current_user)
 ):
+    """
+    Update an existing record (translation, summary, or conversation).
+
+    Parameters:
+    - record_type (str): Type of record
+    - record_id (str): Unique record ID.
+    - payload (RecordUpdatePayload): Fields to update.
+    - current_user: Authenticated user.
+
+    Returns:
+    - dict: Updated record data.
+
+    Raises:
+    - HTTPException(400): If no updates are provided or any error occurs.
+    - HTTPException(404): If the record does not exist.
+    """
     try:
         table = get_table(record_type)
-
+        # Collect updated fields dynamically
         updates = {}
         if payload.input_text is not None:
             updates["input_text"] = payload.input_text
@@ -206,13 +328,14 @@ async def update_record(
             updates["input_lang"] = payload.input_lang
         if payload.output_lang is not None:
             updates["output_lang"] = payload.output_lang
-        
+        # Include timestamp if updates exist
         if updates : 
             updates["updated_at"] = "now()"
 
         if not updates:
             raise HTTPException(status_code=400, detail="No updates provided")
 
+        # Perform database update
         result = (
             supabase.table(table)
             .update(updates)
@@ -233,9 +356,30 @@ async def update_record(
 # DELETE record
 @router.delete("/records/{record_type}/{record_id}")
 async def delete_record(record_type: str, record_id: str, current_user=Depends(get_current_user)):
+    """
+    Delete a specific record belonging to the authenticated user.
+
+    Steps:
+    1. Validate record type and resolve its table name.
+    2. Delete the record from the corresponding table if it exists and belongs to the user.
+    3. Return a confirmation message upon successful deletion.
+
+    Parameters:
+    - record_type (str): Type of record
+    - record_id (str): Unique record ID.
+    - current_user: Authenticated user.
+
+    Returns:
+    - dict: Success message confirming deletion.
+
+    Raises:
+    - HTTPException(404): If the record is not found.
+    - HTTPException(400): If any deletion error occurs.
+    """
     try:
         table = get_table(record_type)
 
+        # Delete the record from Supabase
         result = (
             supabase.table(table)
             .delete()
@@ -259,7 +403,22 @@ async def save_meeting(
     current_user=Depends(get_current_user),
 ):
     """
-    Save meeting record into meeting_details_individual for authenticated user.
+    Save meeting record into the `meeting_details_individual` table for an authenticated user.
+
+    Steps:
+    - Validates the meeting and its details.
+    - Combines general meeting data with user-specific translation and summary.
+    - Saves a personalized meeting record for the user.
+
+    Parameters:
+    - payload (MeetingSavePayload): Contains all meeting details.
+    - current_user: The currently authenticated user.
+
+    Returns:
+    - dict: Success message confirming deletion.
+
+    Raises:
+    - HTTPException(400): If any save error occurs.
     """
     try:
         # Fetch base meeting info (meeting_name, host_id) from meetings table
@@ -325,7 +484,15 @@ async def save_meeting(
 async def get_user_history(current_user=Depends(get_current_user)):
     """
     Fetch translations, conversations, and summaries for the logged-in user.
+    Used to populate the History Page for logged in users
+
+    Parameters:
+    - current_user: The currently authenticated user.
+
+    Returns:
+    - dict containing list of translations, conversations, summaries, and meetings
     """
+    # Get user id to ensure only fetch records belonging to the user
     user_id = current_user.id
 
     try:
@@ -341,6 +508,7 @@ async def get_user_history(current_user=Depends(get_current_user)):
         # Fetch meetings
         meetings = supabase.table("meeting_details_individual").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
 
+        # Return all history data in a structured format
         return {
             "translations": translations.data or [],
             "conversations": conversations.data or [],
@@ -355,10 +523,22 @@ async def get_user_history(current_user=Depends(get_current_user)):
 @router.post("/create-meeting")
 async def create_meeting(payload: CreateMeetingPayload, current_user=Depends(get_current_user)):
     """
-    Create a new meeting with participants for the authenticated user
+    Create a new meeting and associate participants for the authenticated user.
+
+    Steps
+    1. Insert a new meeting record into the `meetings` table.
+    2. Retrieve participant profile IDs using a Supabase RPC (`get_profiles_for_emails`).
+    3. Insert participant entries into the `meeting_participants` table.
+
+    Parameters
+    - `payload` (CreateMeetingPayload): Contains meeting name, date, time, and participant emails.
+    - `current_user` (Depends): The currently authenticated user, retrieved via dependency injection.
+
+    Returns
+    - `dict`: A success message containing the created meeting record and participant details.
     """
     try:
-        # 1. Insert meeting
+        # 1. Insert meeting into 'meetings' table
         meeting_result = supabase.table("meetings").insert({
             "name": payload.meeting_name,
             "date": payload.date,
@@ -395,8 +575,16 @@ async def create_meeting(payload: CreateMeetingPayload, current_user=Depends(get
 async def get_host_name(host_id: str, current_user=Depends(get_current_user)):
     """
     Fetch host names for a single host ID using the Supabase RPC.
+
+    Parameters
+    - `host_id` (str): The unique identifier of the host whose name needs to be retrieved.
+    - `current_user` (Depends): The currently authenticated user (used for authorization).
+
+    Returns
+    - `dict`: A dictionary containing the host's name, formatted as `{"host": <host_data>}`.
     """
     try : 
+        # 1. Execute Supabase RPC to fetch host name
         result = supabase.rpc("get_host_names", {"host_ids": [host_id]}).execute()
         if not result or not result.data:
             raise HTTPException(status_code=404, detail="Host not found")
@@ -408,7 +596,28 @@ async def get_host_name(host_id: str, current_user=Depends(get_current_user)):
 @router.get("/meetings/{meeting_id}")
 async def get_meeting(meeting_id: str, current_user=Depends(get_current_user)):
     """
-    Fetch a single meeting info and its participants by meeting ID.
+    Retrieve full details for a specific meeting, including participants and host info.
+
+    Steps:
+    1. Fetch meeting details from the "meetings" table using meeting_id.
+    2. Retrieve all participant IDs linked to that meeting.
+    3. Use RPC function ("get_profiles_for_ids") to get participant email addresses.
+    4. Fetch the host's email and name using their ID.
+    5. Return the complete meeting info, including host and participants.
+
+    Parameters:
+        meeting_id (str): The unique identifier of the meeting to fetch.
+        current_user (object): Automatically injected authenticated user object from Depends(get_current_user).
+
+    Returns:
+        dict: {
+            "meeting": { ...full meeting info including host_email and host_name... },
+            "participants": [list of participant emails]
+        }
+
+    Raises:
+        HTTPException(404): If the meeting or related data is not found.
+        HTTPException(500): For any unexpected errors during data retrieval.
     """
     try:
         # Fetch the meeting
@@ -446,7 +655,23 @@ async def get_meeting(meeting_id: str, current_user=Depends(get_current_user)):
 
 @router.put("/meetings/{meeting_id}")
 async def update_meeting(meeting_id: str, payload: UpdateMeetingPayload,current_user=Depends(get_current_user)):
-    # Update an existing meeting. Only the host can update.
+    """
+    Update an existing meeting and its participants.
+    This endpoint allows the host of a meeting to update meeting details such as 
+    the name, date, start and end times, and participant list. Only the host who 
+    created the meeting can perform this action.
+
+    Parameters
+    - `meeting_id` (str): The unique identifier of the meeting to be updated.
+    - `payload` (UpdateMeetingPayload): The new meeting details and updated list of participant emails.
+    - `current_user` (User): The authenticated user obtained via dependency injection using `Depends(get_current_user)`.
+
+    Returns
+    - JSON object containing:
+        - `"message"` (str): Confirmation message indicating successful update.
+        - `"meeting"` (dict): The updated meeting record.
+        - `"participants"` (list): List of new participant records linked to the meeting.
+    """
     try:
         # 1. Fetch the existing meeting
         meeting_res = supabase.table("meetings").select("*").eq("id", meeting_id).execute()
@@ -497,8 +722,20 @@ async def update_meeting_status(
     current_user=Depends(get_current_user)
 ):
     """
-    Update the status of a meeting (e.g., 'ongoing', 'past').
-    Only the host can update.
+    Update the status of a meeting (ongoing / past)
+    This endpoint allows the host of a meeting to update its status 
+    (eg., from 'upcoming' --> 'ongoing' or 'past'). Only the host 
+    who created the meeting is authorized to perform this action.
+
+    Parameters
+    - `meeting_id` (str): The unique identifier of the meeting to be updated.
+    - `payload` (StatusUpdatePayload): Contains the new status value for the meeting.
+    - `current_user` (User): The authenticated user obtained through dependency injection via `Depends(get_current_user)`.
+
+    Returns
+    - JSON object containing:
+        - `"message"` (str): Confirmation message indicating successful status update.
+        - `"meeting"` (dict): The updated meeting record with the new status.
     """
     try:
         status = payload.status
@@ -540,9 +777,28 @@ async def update_meeting_details(
     current_user=Depends(get_current_user)
 ):
     """
-    Host-only update for meeting_details table.
+    Update specific meeting details (host-only access).
+    This endpoint allows the host of a meeting to update transcription, 
+    language, and summary-related fields in the `meeting_details` table.
+    Only the meeting host has permission to perform this update.
+
+    Steps
+    1. Retrieve the host ID of the specified meeting.
+    2. Verify that the authenticated user is the meeting host.
+    3. Dynamically build an update dictionary based on provided payload fields.
+    4. Update the `meeting_details` table with new values.
+    5. Return the updated record.
+
+    Parameters
+    - `meeting_id` (str): The unique identifier of the meeting whose details are being updated.
+    - `payload` (MeetingDetailsUpdatePayload): Object containing the fields to update (eg., transcription, summary, translation).
+    - `current_user` (User): The authenticated user, injected through dependency `Depends(get_current_user)`.
+
+    Returns
+    - `dict`: The updated meeting details record.
     """
     try:
+        # 1. Verify host ownership
         meeting_res = (
             supabase.table("meetings")
             .select("host_id")
@@ -555,7 +811,7 @@ async def update_meeting_details(
         if meeting_res.data["host_id"] != current_user.id:
             raise HTTPException(status_code=403, detail="Only host can update this meeting")
 
-        # Build updates dictionary
+        # 2. Build updates dictionary
         updates = {}
         if payload.transcription is not None:
             updates["transcription"] = payload.transcription
@@ -569,6 +825,7 @@ async def update_meeting_details(
         if updates:
             updates["updated_at"] = "now()"
 
+        # 3. Ensure at least one field is provided
         if not updates:
             raise HTTPException(status_code=400, detail="No updates provided")
 
@@ -591,6 +848,28 @@ async def update_meeting_details(
 # GET from meeting and meeting_details by meeting_id
 @router.get("/meetings/{meeting_id}/details")
 async def get_meeting_details(meeting_id: str, current_user=Depends(get_current_user)):
+    """
+    Retrieve detailed information for a specific meeting, including host info, 
+    meeting metadata, and meeting details.
+    This endpoint retrieves meeting data from both the `meetings` and 
+    `meeting_details` tables, combining them into a single structured response.  
+    It also checks whether the authenticated user has saved this meeting in 
+    their individual meeting history (for past meetings only).
+
+    Parameters
+    - `meeting_id` (str): The unique identifier of the meeting.
+    - `current_user` (User): The authenticated user, injected via `Depends(get_current_user)`.
+
+    Returns
+    - `dict`: A combined dictionary containing:
+        - General meeting info (`name`, `date`, `host_name`, etc.)
+        - Meeting details (`transcription`, `summary`, etc.)
+        - A boolean field `is_saved` indicating if the user saved this meeting.
+
+    **Raises:**
+    - `HTTPException(404)`: If the meeting or meeting details are not found.
+    - `HTTPException(400)`: For database or request processing errors.
+    """
     try:
         # Fetch meeting info from meetings table
         meeting_res = supabase.table("meetings").select("*").eq("id", meeting_id).execute()
@@ -647,24 +926,41 @@ async def get_meeting_details(meeting_id: str, current_user=Depends(get_current_
 @router.delete("/meetings/{meeting_id}")
 async def delete_meeting(meeting_id: str, current_user=Depends(get_current_user)):
     """
-    Delete a meeting. Only the host can delete.
+    Delete an upcoming meeting. (not yet in meeting_details table)
+    This endpoint allows the meeting host to permanently delete a meeting 
+    and its associated participant records. Only the meeting host is authorized 
+    to perform this action.
+
+    Steps
+    1. Retrieve the meeting record from the `meetings` table using `meeting_id`.
+    2. Verify that the authenticated user is the host of the meeting.
+    3. Delete all related participants from the `meeting_participants` table.
+    4. Delete the meeting record itself from the `meetings` table.
+    5. Return a success message upon successful deletion.
+
+    Parameters
+    - `meeting_id` (str): The unique identifier of the meeting to be deleted.
+    - `current_user` (User): The currently authenticated user, injected via `Depends(get_current_user)`.
+
+    Returns
+    - `dict`: A success message confirming the meeting deletion.  
     """
     try:
-        # Fetch meeting
+        # 1. Fetch meeting
         meeting_res = supabase.table("meetings").select("*").eq("id", meeting_id).execute()
         if not meeting_res.data:
             raise HTTPException(status_code=404, detail="Meeting not found")
 
         meeting = meeting_res.data[0]
 
-        # Verify host
+        # 2. Verify host
         if meeting["host_id"] != current_user.id:
             raise HTTPException(status_code=403, detail="Only the host can delete the meeting")
 
-        # Delete participants first
+        # 3. Delete participants first
         supabase.table("meeting_participants").delete().eq("meeting_id", meeting_id).execute()
 
-        # Delete the meeting
+        # 4. Delete the meeting
         delete_res = supabase.table("meetings").delete().eq("id", meeting_id).execute()
         if not delete_res.data:
             raise HTTPException(status_code=400, detail="Failed to delete meeting")
@@ -682,7 +978,15 @@ async def update_meeting(
     current_user=Depends(get_current_user)
 ):
     """
-    Update translation-related fields for a user's meeting record.
+    Update translation-related fields for a user's meeting record. (meeting_details_individual)
+
+    Parameters
+    - record_id (str): Unique identifier of the meeting record to update.
+    - payload (MeetingUpdatePayload): Pydantic model containing update fields.
+    - current_user: Authenticated user obtained via dependency injection.
+
+    Returns:
+    - Updated meeting record (dict) containing the latest translation-related data.
     """
     try:
         # Build updates dictionary
@@ -721,6 +1025,26 @@ async def update_meeting(
 
 @router.get("/meetings")
 async def get_user_meetings(current_user=Depends(get_current_user)):
+    """
+    Retrieve all meetings associated with the current user
+    including those the user hosts and participates in.
+
+    Steps:
+    1. Fetch meetings where the current user is the host.
+    2. Fetch meetings where the current user is a participant.
+    3. Combine both sets of meetings and remove duplicates.
+    4. Retrieve host names for all meetings using an RPC function.
+    5. For meetings with status 'past' or 'ongoing', fetch corresponding details 
+       (actual start and end times) from the `meeting_details` table.
+    6. Sort all meetings chronologically by date and start time before returning.
+
+    Parameters:
+    - current_user: The authenticated user object obtained via dependency injection.
+
+    Returns:
+    - List[dict]: A list of all meetings (hosted and participated) with host names 
+      and additional details if applicable.
+    """
     try:
         # 1. Meetings where user is host
         host_result = supabase.table("meetings").select("*").eq("host_id", current_user.id).execute()
@@ -796,7 +1120,19 @@ async def get_user_meetings(current_user=Depends(get_current_user)):
 @router.post("/delete-account")
 async def delete_account(current_user=Depends(get_current_user)):
     """
-    Delete user account (all related rows + profile + auth user)
+    Permanently delete the current user's account and all associated data.
+
+    Steps:
+    1. Delete all dependent records from related tables (translations, summaries, conversations,
+       meeting details, participants, and hosted meetings) to ensure data consistency.
+    2. Remove the user's profile entry from the 'profiles' table.
+    3. Delete the user's authentication record from Supabase Auth.
+
+    Parameters:
+    - current_user: The authenticated user object obtained via dependency injection.
+
+    Returns:
+    - dict: A confirmation message indicating successful account deletion.
     """
     try:
         user_id = current_user.id
