@@ -4,6 +4,7 @@
 
 # Bytecode
 __pycache__/
+*.pyc
 *.py[cod]
 *.pyo
 *.pyd
