@@ -118,6 +118,7 @@ export default function Summarizer() {
 
     try {
       let finalSummary;
+      let filteredText;
       if (lastSummarizedInput === inputText) {
         if (lastSummarizedLang !== targetLang) {
           const translatedSummary = await translateText(lastSummarizedText, lastSummarizedLang, targetLang);
