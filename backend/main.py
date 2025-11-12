@@ -27,7 +27,7 @@ app = FastAPI()
 # Allows the frontend (Next.js) to communicate with this backend
 # without being blocked by browser security restrictions.
 origins = [
-    "https://localhost:3000", #https link using npmrun dev:https
+    "https://localhost:3000", #https link using localhost
     "https://translate-transcribe.vercel.app" # vercel deployment
 ]
 

@@ -24,6 +24,7 @@ import tempfile # For creating temporary files (PDF)
 import io
 import subprocess
 import os
+import re
 from dotenv import load_dotenv
 
 # OCR & Document Processing
@@ -497,6 +498,8 @@ async def extract_text(
         # 5. OCR using tesseract
         extracted_text = pytesseract.image_to_string(img_raw, lang=lang_tess).strip()
 
+        if lang_tess in ['chi_sim', 'chi_tra', 'jpn', 'kor']: # CJK characters
+            extracted_text = extracted_text.replace(" ", "") # remove extra spaces
 
     except UnidentifiedImageError:
         raise HTTPException(status_code=400, detail="Could not process image file")
